@@ -21,6 +21,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 ## Unreleased
 
 - Add the Milestone 0 RentCast sample pull (`tools/rentcast-sample/`, C1): one command per county area saves raw sale and rental responses locally, a hard cap of 40 requests (5 rent estimates) counted across runs and enforced before sending, a coverage report per county and mode, and seeded picks for the still-available check. Key, raw responses, and picks are git-ignored. Adds `npm test`.
+- Add the Milestone 0 scoring (C2, in progress): `score` reads the record sheets and applies the plan's step 5 rules (round-up counts, per-county floors, the borderline rule, status and price agreement) and lists the decision-table rows that apply, printing counts only. `lookup` lists the saved provider listings that could be a given public listing for the coverage check (it never classifies), and `picks` gains `--mode`, `--per-cell`, and `--exclude-checked` for the borderline extension. Adds `docs/PROVIDER_EVALUATION.md` as a draft: the pull, freshness and verification scored in all eight cells, field quality, and the request budget recalculated from measured requests per search. The 80 manual checks, the decision, and the photo-less decision are still pending; Plan 2.5: the request budget table is recalculated from the measured requests per search (weekly ~22 a month, daily ~150), and the documents that follow the plan now name 2.5. The refresh interval stays an open decision.
 
 ## 0.0.1 · 2026-10-07 · plan 2.4
 

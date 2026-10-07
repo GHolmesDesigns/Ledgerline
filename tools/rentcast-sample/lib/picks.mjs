@@ -46,10 +46,12 @@ function pool(listings) {
 }
 
 // Each county-and-mode cell has its own stream, so one cell's picks never shift because of another.
-export function pickCells(runs, seed, count = PICKS_PER_CELL) {
+// `modes` limits the picks to some modes; `exclude` is a set of provider ids already checked (the borderline
+// rule asks for 10 more checks, and they should be new listings). Without either, the picks are what they always were.
+export function pickCells(runs, seed, count = PICKS_PER_CELL, { modes = null, exclude = null } = {}) {
   return runs.flatMap((run) =>
-    run.searches.map((search) => {
-      const candidates = pool(search.listings);
+    run.searches.filter((search) => !modes || modes.includes(search.mode)).map((search) => {
+      const candidates = pool(search.listings).filter((l) => !exclude?.has(l.id));
       return {
         area: run.area,
         county: run.county,

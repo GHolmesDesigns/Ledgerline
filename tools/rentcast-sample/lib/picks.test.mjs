@@ -72,3 +72,37 @@ test('the sheet has the plan\'s columns and quotes awkward values', () => {
   assert.equal(lines.length, 2); // the header and the one sale pick; the rental search is empty
   assert.match(lines[1], /^Alpha,sale,provider to public,seed-f,"1 Sample Row, ""Unit 2"", Sampleton, FL 00000",Unit 2,q-1,M1,Active,5,,,,$/);
 });
+
+test('a mode filter picks only that mode, and the picks match the unfiltered ones', () => {
+  const runs = [runWith('alpha', 'Alpha'), runWith('beta', 'Beta')];
+  const sale = pickCells(runs, 'seed-f', PICKS_PER_CELL, { modes: ['sale'] });
+  assert.deepEqual(sale.map((c) => [c.area, c.mode]), [['alpha', 'sale'], ['beta', 'sale']]);
+  assert.deepEqual(ids(sale), ids(pickCells(runs, 'seed-f')).filter((_, i) => i % 2 === 0)); // sale is each run's first search
+});
+
+test('a smaller count is allowed, for the 5-per-county borderline extension', () => {
+  const [sale] = pickCells([runWith('alpha', 'Alpha')], 'seed-g', 5, { modes: ['sale'] });
+  assert.equal(sale.picks.length, 5);
+});
+
+test('excluded ids are never picked, and the rest of the pool is what gets picked from', () => {
+  const run = runWith('alpha', 'Alpha');
+  const first = pickCells([run], 'seed-h', 10, { modes: ['sale'] })[0].picks.map((l) => l.id);
+  const next = pickCells([run], 'seed-i', 10, { modes: ['sale'], exclude: new Set(first) })[0];
+  assert.equal(next.picks.length, 10);
+  assert.ok(next.picks.every((l) => !first.includes(l.id)));
+  assert.equal(next.poolSize, 20); // 30 active, 10 already checked
+});
+
+test('when exclusions leave too few, all that remain are picked and none are replaced', () => {
+  const run = runWith('alpha', 'Alpha');
+  const everyoneButThree = new Set(run.searches[0].listings.filter((l) => l.status === 'Active').slice(3).map((l) => l.id));
+  const [sale] = pickCells([run], 'seed-j', 10, { modes: ['sale'], exclude: everyoneButThree });
+  assert.equal(sale.picks.length, 3);
+});
+
+test('no options gives the same picks as before the options existed', () => {
+  const runs = [runWith('alpha', 'Alpha')];
+  assert.deepEqual(ids(pickCells(runs, 'seed-k')), ids(pickCells(runs, 'seed-k', PICKS_PER_CELL, {})));
+  assert.deepEqual(ids(pickCells(runs, 'seed-k')), ids(pickCells(runs, 'seed-k', PICKS_PER_CELL, { modes: null, exclude: null })));
+});
