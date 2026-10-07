@@ -1,0 +1,75 @@
+{
+  "_note": "Invented for unit tests: fictional addresses and ids, shaped like RentCast listing responses. Not real listings.",
+  "pulledAt": "2026-10-07T12:00:00.000Z",
+  "sale": [
+    {
+      "id": "inv-s1", "formattedAddress": "100 Sample Row, Sampleton, FL 00000", "addressLine1": "100 Sample Row", "addressLine2": null,
+      "propertyType": "Single Family", "bedrooms": 3, "bathrooms": 2, "squareFootage": 1500, "status": "Active", "price": 400000,
+      "lastSeenDate": "2026-10-06T08:00:00.000Z", "mlsName": "InventedMLS", "mlsNumber": "T100", "hoa": { "fee": 120 },
+      "listingAgent": { "name": "Agent One", "phone": "5550000001" }, "listingOffice": { "name": "Invented Realty" },
+      "history": { "2026-09-20": { "event": "Sale Listing", "price": 400000 } }
+    },
+    {
+      "id": "inv-s2", "formattedAddress": "200 Sample Tower, Unit 201, Sampleton, FL 00000", "addressLine1": "200 Sample Tower", "addressLine2": "Unit 201",
+      "propertyType": "Condo", "bedrooms": 2, "bathrooms": 2, "squareFootage": 1000, "status": "Active", "price": 300000,
+      "lastSeenDate": "2026-10-05T08:00:00.000Z", "mlsName": "InventedMLS", "mlsNumber": "T101", "hoa": { "fee": 650 },
+      "listingAgent": { "name": "Agent Two" }, "listingOffice": { "name": "Invented Realty", "email": "office@invented.example" },
+      "history": { "2026-09-25": { "event": "Sale Listing", "price": 300000 } }
+    },
+    {
+      "id": "inv-s3", "formattedAddress": "200 Sample Tower, Unit 305, Sampleton, FL 00000", "addressLine1": "200 Sample Tower", "addressLine2": "Unit 305",
+      "propertyType": "Condo", "bedrooms": 1, "bathrooms": 1, "squareFootage": 700, "status": "Active", "price": 210000,
+      "lastSeenDate": "2026-09-20T08:00:00.000Z", "mlsName": "InventedMLS", "mlsNumber": "T102",
+      "listingAgent": { "name": "Agent Three" }, "listingOffice": { "name": "Invented Realty" }, "history": {}
+    },
+    {
+      "id": "inv-s4", "formattedAddress": "300 Sample Court, Sampleton, FL 00000", "addressLine1": "300 Sample Court", "addressLine2": null,
+      "propertyType": "Townhouse", "bedrooms": 3, "bathrooms": 2.5, "squareFootage": 1600, "status": "Active", "price": 350000,
+      "lastSeenDate": "2026-10-01T08:00:00.000Z", "mlsName": "InventedMLS", "mlsNumber": null,
+      "listingAgent": { "name": "Agent Four", "phone": "5550000004" },
+      "history": { "2026-09-28": { "event": "Sale Listing", "price": 350000 } }
+    },
+    {
+      "id": "inv-s5", "formattedAddress": "302 Sample Court, Sampleton, FL 00000", "addressLine1": "302 Sample Court", "addressLine2": null,
+      "propertyType": "Townhouse", "bedrooms": 2, "bathrooms": 2, "squareFootage": 1300, "status": "Active", "price": 330000,
+      "lastSeenDate": "2026-10-03T08:00:00.000Z", "mlsName": "InventedMLS", "mlsNumber": "T104", "hoa": { "fee": 310 },
+      "listingOffice": { "name": "Invented Realty", "phone": "5550000105" },
+      "history": { "2026-09-30": { "event": "Sale Listing", "price": 330000 } }
+    },
+    {
+      "id": "inv-s6", "formattedAddress": "400 Sample Lane, Sampleton, FL 00000", "addressLine1": "400 Sample Lane", "addressLine2": null,
+      "propertyType": "Single Family", "bedrooms": 4, "bathrooms": 3, "squareFootage": 2000, "status": "Active", "price": 520000
+    },
+    {
+      "id": "inv-s7", "formattedAddress": "200 Sample Tower, Unit 410, Sampleton, FL 00000", "addressLine1": "200 Sample Tower", "addressLine2": "Unit 410",
+      "propertyType": "Condo", "bedrooms": 2, "bathrooms": 2, "squareFootage": 950, "status": "Inactive", "price": 280000,
+      "lastSeenDate": "2026-10-06T08:00:00.000Z", "mlsNumber": "T106"
+    },
+    {
+      "id": "inv-s8", "formattedAddress": "500 Sample Way, Sampleton, FL 00000", "addressLine1": "500 Sample Way", "addressLine2": null,
+      "propertyType": "Single Family", "bedrooms": 3, "bathrooms": 2, "squareFootage": 1400, "status": "Active", "price": 380000,
+      "lastSeenDate": "2026-09-30T12:00:00.000Z", "mlsName": "InventedMLS", "mlsNumber": "T107", "hoa": { "fee": 0 },
+      "history": { "2026-09-15": { "event": "Sale Listing", "price": 380000 } }
+    }
+  ],
+  "rental": [
+    {
+      "id": "inv-r1", "formattedAddress": "200 Sample Tower, Unit 118, Sampleton, FL 00000", "addressLine1": "200 Sample Tower", "addressLine2": "Unit 118",
+      "propertyType": "Condo", "bedrooms": 1, "bathrooms": 1, "squareFootage": 720, "status": "Active", "price": 2100,
+      "lastSeenDate": "2026-10-06T08:00:00.000Z", "mlsName": "InventedMLS", "mlsNumber": "R200",
+      "listingAgent": { "name": "Agent Five", "email": "agent5@invented.example" },
+      "history": { "2026-09-29": { "event": "Rental Listing", "price": 2100 } }
+    },
+    {
+      "id": "inv-r2", "formattedAddress": "600 Sample Street, Sampleton, FL 00000", "addressLine1": "600 Sample Street", "addressLine2": null,
+      "propertyType": "Single Family", "bedrooms": 3, "bathrooms": 2, "squareFootage": 1500, "status": "Active", "price": 3200,
+      "lastSeenDate": "2026-09-01T08:00:00.000Z"
+    },
+    {
+      "id": "inv-r3", "formattedAddress": "302 Sample Court, Sampleton, FL 00000", "addressLine1": "302 Sample Court", "addressLine2": null,
+      "propertyType": "Townhouse", "bedrooms": 2, "bathrooms": 2, "squareFootage": 1300, "status": "Active", "price": 2800,
+      "lastSeenDate": "2026-10-02T08:00:00.000Z", "mlsName": "InventedMLS", "mlsNumber": "R202", "hoa": { "fee": 50 },
+      "history": { "2026-09-26": { "event": "Rental Listing", "price": 2800 } }
+    }
+  ]
+}

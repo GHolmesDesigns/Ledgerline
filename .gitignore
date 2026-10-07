@@ -11,6 +11,10 @@ coverage/
 .env.*
 !.env.example
 
+# Milestone 0 RentCast pull: API key, raw provider responses, request count, picks (real addresses). The repo is public and the provider's terms apply.
+/tools/rentcast-sample/config.local.json
+/tools/rentcast-sample/local/
+
 # Local database: personal data, listings, snapshots
 *.sqlite
 *.sqlite3

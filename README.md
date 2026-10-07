@@ -13,6 +13,7 @@ A personal, local-only web app for finding, ranking, and comparing Florida homes
 | `docs/ACCEPTANCE_CHECKS.md` | Testable checks for Milestones 1–3 |
 | `fixtures/sample-data.json` | Fictional sample listings with every expected number |
 | `fixtures/check-fixtures.mjs` | Recomputes every derived number in the fixtures |
+| `tools/rentcast-sample/` | Milestone 0 script that pulls the RentCast free-tier sample. Garnie runs it; it is the only code that calls RentCast. See its README. |
 | `design/` | Visual reference: screens, tokens, and which screens are current |
 | `AGENTS.md`, `CLAUDE.md` | Build instructions for coding agents |
 | `CHANGELOG.md` | Releases and the project's version bump rule |
@@ -31,6 +32,14 @@ node fixtures/check-fixtures.mjs
 ```
 
 Run it after any change to cost, score, or rank logic. It exits 0 when every check passes.
+
+## Run the tests
+
+```bash
+npm test
+```
+
+Unit tests for the Milestone 0 sample-pull script. They use a fake network and invented listings, so they never call RentCast.
 
 ## Planned architecture
 
