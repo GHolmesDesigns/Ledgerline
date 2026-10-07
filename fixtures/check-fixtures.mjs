@@ -28,18 +28,41 @@ function totalStatus(lines) {
   return 'calculated';
 }
 
+// Estimate labels name the first two Est. lines in the plan's order (Total status), then "+n".
+function estimateItem(p, l) {
+  const association = ['hoa', 'condo', 'coop'].includes(p.association?.status);
+  const highRiskFlood = !p.floodZone || /^[AV]/.test(p.floodZone);
+  switch (l.line) {
+    case 'hoa': return p.type === 'single_family' ? [7, 'HOA not confirmed'] : [1, 'HOA confirmation'];
+    case 'homeowners': return [2, 'insurance quote'];
+    case 'ho6': return [2, 'HO-6 quote'];
+    case 'flood': return [highRiskFlood ? 3 : 5, 'flood quote'];
+    case 'specialAssessment': return [association ? 4 : 8, 'assessments not checked'];
+    case 'nonAdValorem': return [6, 'CDD not checked'];
+    default: return [9, l.line];
+  }
+}
+function estimateLabel(p) {
+  const items = p.costLines.filter((l) => l.state === 'est').map((l) => estimateItem(p, l)).sort((a, b) => a[0] - b[0]);
+  const more = items.length - 2;
+  return 'Estimate · needs ' + items.slice(0, 2).map((i) => i[1]).join(', ') + (more > 0 ? ' +' + more : '');
+}
+
 const W = data.rankingWeights.buy;
 function score(factors) {
   // Unknown factors (null) score as the worst value: 0.
   return Math.round(Object.keys(W).reduce((a, k) => a + (factors[k] == null ? 0 : W[k] * factors[k] / 100), 0));
 }
 
+// Lines priced from a county's local rates.
+const COUNTY_RATE_LINES = ['propertyTax', 'homeowners', 'ho6', 'flood', 'nonAdValorem'];
 const INCOMPLETE_TRIGGERS = (p, line) => {
   // The four triggers in the plan (section 5) for an Unknown line.
-  if (!p.inConfiguredMarket) return true; // county without local rates
+  if (!p.inConfiguredMarket && COUNTY_RATE_LINES.includes(line.line)) return true; // county without local rates
   if (line.line === 'specialAssessment' && /pending|approved/i.test(p.association?.specialAssessment || '')) return true;
   if (line.line === 'nonAdValorem' && p.association?.knownCdd && line.monthly == null) return true;
-  if (line.line === 'hoa' && ['condo', 'coop', 'townhome'].includes(p.type)) return true;
+  // No listing fee and no same-building median (needs at least 2 other units).
+  if (line.line === 'hoa' && ['condo', 'coop', 'townhome'].includes(p.type) && (p.association?.sameBuildingUnits ?? 0) < 2) return true;
   return false;
 };
 
@@ -50,6 +73,11 @@ for (const p of data.properties) {
   const byLine = Object.fromEntries(p.costLines.map((l) => [l.line, l]));
   const tag = p.id;
 
+  // Townhomes use the house homeowners default; condos use HO-6.
+  const ins = { single_family: 'homeowners', townhome: 'homeowners', condo: 'ho6' }[p.type];
+  const notIns = ins === 'ho6' ? 'homeowners' : 'ho6';
+  if (ins && (!byLine[ins] || byLine[notIns])) fail(`${tag} ${p.type} must have a ${ins} line and no ${notIns} line`);
+
   // Calculated lines must match the formulas.
   const pi = Math.round(principalInterest(price));
   if (byLine.principalInterest.monthly !== pi) fail(`${tag} P&I ${byLine.principalInterest.monthly} ≠ ${pi}`);
@@ -58,9 +86,20 @@ for (const p of data.properties) {
   if (lc && lc.set) {
     const tax = Math.round(price * lc.millage / 1000 / 12);
     if (byLine.propertyTax.state !== 'calc' || byLine.propertyTax.monthly !== tax) fail(`${tag} tax ≠ ${tax} Calc`);
+    // Est. lines use the county's local defaults.
+    const defaults = {
+      homeowners: lc.homeownersDefaultMonthly,
+      ho6: lc.ho6DefaultMonthly,
+      flood: lc.floodDefaultMonthly[p.floodZone],
+      nonAdValorem: Math.round(lc.typicalNonAdValoremPerYear / 12),
+    };
+    for (const [k, want] of Object.entries(defaults)) {
+      if (want != null && byLine[k]?.state === 'est' && byLine[k].monthly !== want) fail(`${tag} Est. ${k} ${byLine[k].monthly} ≠ ${p.county} default ${want}`);
+    }
   } else {
+    // No county rates: these lines can't be Calc or Est. A property's own Quote still stands.
     for (const k of ['propertyTax', 'homeowners', 'ho6', 'flood']) {
-      if (byLine[k] && byLine[k].state !== 'unknown') fail(`${tag} ${k} must be Unknown outside configured markets`);
+      if (byLine[k] && ['calc', 'est'].includes(byLine[k].state)) fail(`${tag} ${k} uses county rates, but ${p.county} has none`);
     }
   }
   // Doc-sourced CDD from an annual amount.
@@ -76,13 +115,8 @@ for (const p of data.properties) {
   }
   // Non-ad valorem precedence: Doc beats everything; outside configured counties it is Unknown otherwise.
   if (!p.inConfiguredMarket && !['doc', 'unknown'].includes(byLine.nonAdValorem.state)) fail(`${tag} non-ad valorem must be Doc or Unknown without county rates`);
-  // Estimate labels name up to two lines, then "+n" for the rest.
-  const estCount = p.costLines.filter((l) => l.state === 'est').length;
-  if (p.expected.totalStatus === 'estimate') {
-    const m = p.expected.statusLabel.match(/ \+(\d+)$/);
-    const want = Math.max(0, estCount - 2);
-    if ((m ? Number(m[1]) : 0) !== want) fail(`${tag} label "${p.expected.statusLabel}" should end with ${want ? '+' + want : 'no +n'} (${estCount} Est. lines)`);
-  }
+  // Estimate labels name two lines in the plan's order, then "+n" for the rest.
+  if (p.expected.totalStatus === 'estimate' && p.expected.statusLabel !== estimateLabel(p)) fail(`${tag} label "${p.expected.statusLabel}" ≠ "${estimateLabel(p)}"`);
   // A single-family home in a configured county is never Incomplete.
   const st = totalStatus(p.costLines);
   if (p.type === 'single_family' && p.inConfiguredMarket && st === 'incomplete') fail(`${tag} single-family in configured county is Incomplete`);
@@ -119,7 +153,8 @@ for (const p of data.properties) {
 // Ranks follow score order, whatever the sort.
 const byScore = [...data.properties].sort((a, b) => score(b.factors) - score(a.factors));
 byScore.forEach((p, i) => { if (p.expected.rank !== i + 1) fail(`${p.id} rank ${p.expected.rank} ≠ ${i + 1}`); });
-const byPrice = [...data.properties].sort((a, b) => a.listings[0].price - b.listings[0].price);
+const salePrice = (p) => p.listings.find((l) => l.mode === 'sale').price;
+const byPrice = [...data.properties].sort((a, b) => salePrice(a) - salePrice(b));
 const rankOf = Object.fromEntries(byScore.map((p, i) => [p.id, i + 1]));
 byPrice.forEach((p, i) => {
   const [id, r] = data.priceSortExpectedRanks[i];
@@ -137,6 +172,12 @@ if (lowest.id !== data.expectedCompareLowest) fail(`lowest ${lowest.id} ≠ ${da
 const comps = data.rentComps['ftl-2207-ne-32nd-ct'].map((c) => c.rent).sort((a, b) => a - b);
 const median = (comps[1] + comps[2]) / 2;
 if (median !== 5225) fail(`comp median ${median} ≠ 5225`); else ok('local comps median $5,225');
+
+// The fixtures follow one plan version (plan, Version history).
+const plan = readFileSync(join(here, '..', 'PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md'), 'utf8');
+const planVersion = plan.match(/^\*Version (\d+\.\d+) ·/m)?.[1];
+if (data.planVersion !== planVersion) fail(`planVersion ${data.planVersion} ≠ plan version ${planVersion}; recheck the fixtures against the plan, then update planVersion`);
+else ok(`fixtures follow plan version ${planVersion}`);
 
 if (failures) { console.error(`\n${failures} check(s) failed`); process.exit(1); }
 console.log('\nAll fixture checks passed.');

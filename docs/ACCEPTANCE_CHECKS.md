@@ -1,5 +1,7 @@
 # Acceptance checks — Milestones 1–3
 
+*Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.4.*
+
 Run against the mock provider loaded from `fixtures/sample-data.json`. Each check names its expected result. A milestone is done when all of its checks pass and `node fixtures/check-fixtures.mjs` exits 0.
 
 ## Milestone 1 — interface and persistence
@@ -47,4 +49,4 @@ Run against the mock provider loaded from `fixtures/sample-data.json`. Each chec
 | 3.15 | Comp rules: change minimum comps to 2 | North Miami rent becomes "2 local comps · median"; gap appears with "≈" |
 | 3.16 | Colors off (grayscale) | Every state still readable from text tags and badges |
 | 3.17 | Enter a Boca tax bill showing no CDD (Palm Beach still unset) | CDD line becomes "Doc $0"; total stays Incomplete from the tax line |
-| 3.18 | Miramar status chip | "Estimate · needs insurance quote, assessments not checked +1" |
+| 3.18 | Estimate status chips | Name up to two lines in the plan's order, then "+n": Miramar "Estimate · needs insurance quote, assessments not checked +1"; North Miami "Estimate · needs insurance quote, flood quote +3" |

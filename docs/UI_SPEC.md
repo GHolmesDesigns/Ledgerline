@@ -1,6 +1,6 @@
 # UI specification — Florida Home Dashboard
 
-*Oct 7, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` (fourth revision), which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
+*Oct 7, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.4, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
 
 Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Ranking & data**. Visual reference: `design/` (see `design/README.md` for which screens are current).
 
@@ -30,6 +30,7 @@ Every cost figure carries a short text tag. Tags must read without color.
 Takes the weakest line:
 - **Calculated** — every line is Listing, Calc, Quote, Doc, or N/A.
 - **Estimate · needs [up to two items] +n** — any Est. line. Name up to two items; count every other Est. line as "+n". Examples: "Estimate · needs flood quote" (1 line); "Estimate · needs insurance quote, assessments not checked +1" (3 lines); "Estimate · needs HO-6 quote, flood quote +2" (4 lines).
+  - Named in the plan's order: HOA confirmation (same-building median) → insurance or HO-6 quote → flood quote (A or V zone, or zone unknown) → assessments not checked (association exists) → flood quote (other zones) → CDD not checked → HOA not confirmed (single-family) → assessments not checked (no known association).
 - **Incomplete · [what's missing]** — any Unknown line. Shows the known subtotal as "at least $X". Never shows an own-vs-rent gap. Never gets "Lowest".
 
 **Incomplete happens only for four triggers:** an assessment pending or approved with no amount; a known CDD with no amount; a condo, co-op, or townhome with no HOA fee from the listing or same-building data; a county without local rates.
@@ -70,7 +71,7 @@ Keep "Sample data — not real listings" visible on every screen.
 | #2 · 81 | $465,000 · Miramar 33027 · townhome 3/2.5 · 1,700 sf · 2016 · zone X · HOA $260 (Listing) · CDD Doc $2,400/yr | Broward | $4,525 · Estimate · needs insurance quote, assessments not checked +1 | $3,600 · 3 local comps · within 0.9 mi | ≈ +$925 |
 | #3 · 78 | $529,000 · Brickell 33131 · high-rise condo 1/1 · 780 sf · 2008 · zone AE · HOA $890 · milestone filed · reserve study complete | Miami-Dade | $5,242 · Estimate · needs HO-6 quote, flood quote +2 | $3,100 · 4 local comps · within 0.3 mi | ≈ +$2,142 |
 | #4 · 74 provisional | $285,000 · Miami 33137 · condo 2/2 · listed 2,900 sf · 1981 · zone X · HOA Est. $640 (median of 3 units in this building) · flag "$98/sq ft; this area runs about $450–$650 (sample)…" | Miami-Dade | $3,018 · Estimate · needs HOA confirmation, HO-6 quote +3 | $3,300 · 3 local comps | ≈ −$282 |
-| #5 · 66 provisional | $560,000 · North Miami 33161 · single-family 3/2 · 1,400 sf · 1955 · roof 2006 (may limit carriers) · zone X · HOA Est. $0 not confirmed | Miami-Dade | $4,896 · Estimate | Unavailable · only 2 local comps | hidden |
+| #5 · 66 provisional | $560,000 · North Miami 33161 · single-family 3/2 · 1,400 sf · 1955 · roof 2006 (may limit carriers) · zone X · HOA Est. $0 not confirmed | Miami-Dade | $4,896 · Estimate · needs insurance quote, flood quote +3 | Unavailable · only 2 local comps | hidden |
 | #6 · 60 provisional | $615,000 · Boca Raton 33432 · single-family 3/2 · 1,600 sf · 1978 · picked up by radius at Broward line | Palm Beach (not configured) | at least $3,623 · Incomplete · no Palm Beach rates (tax, insurance, flood, and CDD Unknown) + "Set local rates for Palm Beach County" prompt | Unavailable · no Rent search covers this area | hidden |
 | #7 · 52 provisional | $389,000 · Hollywood 33019 · oceanfront condo 2/2 · 1,100 sf · 1972 · zone VE · HOA $1,150 · special assessment pending, amount unknown · milestone filed · 40-year recertification in progress · reserve study pending | Broward | at least $4,661 + special assessment · Incomplete | $2,900 · 5 local comps | hidden |
 

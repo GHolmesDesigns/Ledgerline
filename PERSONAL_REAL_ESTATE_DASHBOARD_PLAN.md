@@ -1,14 +1,6 @@
 # Personal Florida Real Estate Dashboard — Planning Document
 
-*Version: October 7, 2026 · Intended use: one person, running locally · Previous version: `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.2026-10-06.md`*
-
-**Changes in this version:** the provider data check now comes first (Milestone 0); provider calls happen only in a refresh job, never during browsing; properties and listings are separate records so personal data survives a provider switch; RentCast's confirmed field gaps (no photos, no source URL) are designed around; Florida cost and risk factors, rent-vs-buy comparison, and personal ranking move into the first usable version; provider pass/fail thresholds are set before testing.
-
-**Second revision (same day), after UI draft review:** comparable rent now has defined sources, matching rules, labels, and an "Unavailable" state; every cost line shows its basis, and totals become "Estimate" or "Incomplete" instead of looking exact; rank numbers always follow score order; unknown factors and flagged listings make a score provisional; the provider test also checks whether "active" results are still available; assumptions are split into personal and local sets, with no statewide defaults; CDD fees and other non-ad valorem assessments are a separate cost line. The test market is set to Miami and Fort Lauderdale (Miami-Dade and Broward counties).
-
-**Fourth revision (same day):** non-ad valorem lines in a county without local rates are Unknown unless the tax bill has been checked; a property's own Quote or Document always outranks county rates; townhomes use the house insurance default; Estimate labels count unnamed lines as "+n".
-
-**Third revision (same day):** cost lines now have precise rules for when an amount is firm, an Estimate, a verified $0, Not applicable, or Unknown, so Incomplete totals are limited to four defined triggers; the provider test now has sampling, price-tolerance, not-found, rounding, per-county floor, and decision rules, so the Milestone 0 result can be reproduced.
+*Version 2.4 · October 7, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
 
 ## Goal
 
@@ -87,6 +79,16 @@ These are first-version features. If they don't hold up in use, the fallback is 
    - All lines firm → **Calculated**.
    - Any Estimate line → **Estimate**, naming up to two lines to verify and counting the rest as "+n" (for example "Estimate · needs flood quote, CDD not checked +1"). The own-vs-rent difference is shown with "≈".
    - Any Unknown line → **Incomplete**, listing what's missing and showing the known subtotal as "at least $X". No own-vs-rent difference is shown, and the listing is not marked lowest-cost in comparisons.
+
+   **Lines named in an Estimate label:** the first two Estimate lines in this order, with the item text shown; every other Estimate line counts toward "+n".
+   1. HOA fee from a same-building median (condo, co-op, or townhome): "HOA confirmation"
+   2. Homeowners or HO-6 insurance default: "insurance quote" or "HO-6 quote"
+   3. Flood default in a high-risk zone (A or V zones), or with the zone not yet known: "flood quote"
+   4. Special assessments not checked, where an association exists: "assessments not checked"
+   5. Flood default in any other zone: "flood quote"
+   6. Non-ad valorem assessments at the county's typical amount: "CDD not checked"
+   7. Single-family HOA not confirmed: "HOA not confirmed"
+   8. Special assessments not checked, where no association is known: "assessments not checked"
 
    **Verification checklist** for shortlisted properties; each item moves a line from Estimate to firm: homeowners or HO-6 quote; flood quote; tax bill (non-ad valorem and CDD); association letter (fees, pending assessments, reserves); and, for single-family homes, confirmation of whether there is an HOA.
 
@@ -278,3 +280,26 @@ The data source is the biggest risk, and the free tier makes testing it cost not
 - **Local assumptions for Miami-Dade and Broward:** millage rate, typical non-ad valorem assessments, and homeowners and flood insurance defaults by zone. Insurance and flood defaults are best taken from one or two real quotes, since South Florida premiums vary widely.
 - **Comparable-rent rules:** the defaults above (same type and bedrooms, area within 20%, within 1 mile, seen in 30 days, at least 3 comps) may need a tighter radius in dense Miami neighborhoods; adjust after Milestone 0.
 - **Photo-less results:** decided at the end of Milestone 0.
+
+## Version history
+
+The version line at the top is `MAJOR.MINOR`. Decide the bump for every change to this document:
+
+- **Major** (2.4 → 3.0): product scope, architecture rules, the data model, or the milestone list changes in a way that can invalidate work already built.
+- **Minor** (2.4 → 2.5): a rule, threshold, label, default, or decision is added or changed.
+- **No bump:** wording, typo, formatting, or link fixes that don't change what any rule means.
+
+When the version changes:
+
+1. Update the version line and date at the top, and add an entry below, newest first, saying what changed.
+2. Recheck the documents that follow this plan: `docs/UI_SPEC.md`, `docs/ACCEPTANCE_CHECKS.md`, `fixtures/sample-data.json` (its `planVersion` field), and `AGENTS.md`. Update the plan version each one names only after it agrees with this document.
+3. Run `node fixtures/check-fixtures.mjs`. It fails while `planVersion` differs from the version line above.
+
+Git history holds version 2.3 onward. Numbers before 2.4 were assigned on October 7, 2026 to revisions that had been named by order ("second revision" and so on); the bump rule applies from 2.4 on.
+
+- **2.4** · Oct 7, 2026 · Adds this version number and bump rule. Sets the order in which an Estimate label names the lines to verify (Rent vs. buy estimate, Total status).
+- **2.3** · Oct 7, 2026 · *Was "fourth revision."* Non-ad valorem lines in a county without local rates are Unknown unless the tax bill has been checked; a property's own Quote or Document always outranks county rates; townhomes use the house insurance default; Estimate labels count unnamed lines as "+n".
+- **2.2** · Oct 7, 2026 · *Was "third revision."* Cost lines now have precise rules for when an amount is firm, an Estimate, a verified $0, Not applicable, or Unknown, so Incomplete totals are limited to four defined triggers; the provider test now has sampling, price-tolerance, not-found, rounding, per-county floor, and decision rules, so the Milestone 0 result can be reproduced.
+- **2.1** · Oct 7, 2026 · *Was "second revision," after UI draft review.* Comparable rent now has defined sources, matching rules, labels, and an "Unavailable" state; every cost line shows its basis, and totals become "Estimate" or "Incomplete" instead of looking exact; rank numbers always follow score order; unknown factors and flagged listings make a score provisional; the provider test also checks whether "active" results are still available; assumptions are split into personal and local sets, with no statewide defaults; CDD fees and other non-ad valorem assessments are a separate cost line. The test market is set to Miami and Fort Lauderdale (Miami-Dade and Broward counties).
+- **2.0** · Oct 7, 2026 · The provider data check now comes first (Milestone 0); provider calls happen only in a refresh job, never during browsing; properties and listings are separate records so personal data survives a provider switch; RentCast's confirmed field gaps (no photos, no source URL) are designed around; Florida cost and risk factors, rent-vs-buy comparison, and personal ranking move into the first usable version; provider pass/fail thresholds are set before testing.
+- **1.0** · Oct 6, 2026 · First version, saved as `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.2026-10-06.md` (not in this repository).

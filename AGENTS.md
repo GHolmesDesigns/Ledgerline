@@ -4,7 +4,7 @@ A personal, local-only web app to find, rank, and compare Florida homes to rent 
 
 ## Source of truth (in priority order)
 
-1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (third revision, Oct 7, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
+1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.4, Oct 7, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
 2. `docs/UI_SPEC.md` — screen-by-screen UI requirements and labels.
 3. `docs/ACCEPTANCE_CHECKS.md` — testable checks for Milestones 1–3.
 4. `fixtures/sample-data.json` — fictional sample data with every expected number. `node fixtures/check-fixtures.mjs` must pass.
@@ -48,7 +48,7 @@ These come from the plan, section 5; the fixtures exercise every one.
 - **Incomplete only for four triggers:** an assessment pending/approved with no amount; a known CDD with no amount; a condo, co-op, or townhome with no HOA fee from the listing or same-building data; a county without local rates. Anything else missing is an Est.
 - A property's own Quote or Doc always beats county rates. CDD line order: Doc → Unknown (known CDD, no amount) → Unknown (county not configured) → Est. at county typical.
 - Townhomes use the house homeowners default; condos use HO-6.
-- Estimate chips name up to two items, then "+n" for the remaining Est. lines.
+- Estimate chips name up to two Est. lines in the plan's order (HOA median, insurance, high-risk flood, assessments with an association, other flood, CDD, …), then "+n" for the rest.
 - "Doc $0" means verified none. An unchecked $0 is "Est. $0 · not checked". A single-family home in a configured county is never Incomplete.
 - Own-vs-rent gap: shown with "≈" when the total is an Estimate; **hidden** when the total is Incomplete or rent is Unavailable. Incomplete totals show "at least $X" and never get "Lowest".
 - Comparable rent always shows its source; fewer than 3 comps → "Unavailable". Never invent a rent figure.
@@ -68,3 +68,4 @@ All sample listings are fictional and must stay labeled "Sample data — not rea
 - Keep the brand look in `design/tokens.json`: Outfit (headings), Work Sans (body), DM Mono (labels/figures); near-black `#101820` with restrained cyan/magenta/yellow accents. Cards work without photos.
 - Accessibility: real buttons/links/inputs with labels, 44 px touch targets, text contrast ≥ 4.5:1, keyboard navigation.
 - After changing anything that computes costs, scores, or ranks, run `node fixtures/check-fixtures.mjs` and the checks in `docs/ACCEPTANCE_CHECKS.md`.
+- When you change the plan, apply the bump rule in its "Version history" section.
