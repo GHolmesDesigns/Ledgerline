@@ -1,0 +1,9 @@
+{
+  "name": "ledgerline",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Personal Florida home finder: rank listings, compare the monthly cost of owning against comparable rent, and see flood, insurance, HOA, and CDD exposure. Local-first.",
+  "engines": {
+    "node": ">=18"
+  }
+}

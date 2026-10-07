@@ -15,6 +15,12 @@ A personal, local-only web app for finding, ranking, and comparing Florida homes
 | `fixtures/check-fixtures.mjs` | Recomputes every derived number in the fixtures |
 | `design/` | Visual reference: screens, tokens, and which screens are current |
 | `AGENTS.md`, `CLAUDE.md` | Build instructions for coding agents |
+| `CHANGELOG.md` | Releases and the project's version bump rule |
+| `package.json` | Project version |
+
+## Versions
+
+The project version is in `package.json`, and each release is tagged `vX.Y.Z`. Releases and the bump rule are in [CHANGELOG.md](CHANGELOG.md). Until 1.0.0, each completed milestone is a minor release (0.1.0 = Milestone 1). The plan has its own version and rule, in its Version history section.
 
 ## Check the fixtures
 

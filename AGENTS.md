@@ -17,6 +17,9 @@ If two sources disagree, follow the higher one and note the conflict in your sum
 ```
 AGENTS.md                 this file (Codex reads it; CLAUDE.md imports it)
 CLAUDE.md                 Claude Code entry point
+README.md                 project overview
+CHANGELOG.md              releases and the project bump rule
+package.json              project version
 PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md
 docs/UI_SPEC.md           screens, labels, states
 docs/ACCEPTANCE_CHECKS.md checks to run before calling a milestone done
@@ -69,3 +72,4 @@ All sample listings are fictional and must stay labeled "Sample data — not rea
 - Accessibility: real buttons/links/inputs with labels, 44 px touch targets, text contrast ≥ 4.5:1, keyboard navigation.
 - After changing anything that computes costs, scores, or ranks, run `node fixtures/check-fixtures.mjs` and the checks in `docs/ACCEPTANCE_CHECKS.md`.
 - When you change the plan, apply the bump rule in its "Version history" section.
+- Add a line under "Unreleased" in `CHANGELOG.md` for each notable change. Release (set the version, tag) only when asked; the project bump rule is at the top of the changelog.
