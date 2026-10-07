@@ -1,6 +1,6 @@
 # RentCast sample pull (Milestone 0)
 
-A standalone script, outside the app, that pulls the free-tier sample for the provider data check (plan: Provider evaluation, steps 1, 2, and 4). Node 18 or later, no dependencies.
+A standalone script, outside the app, that pulls the free-tier sample for the provider data check (plan: Provider evaluation, steps 1, 2, and 4) and scores the result (step 5). Node 18 or later, no dependencies.
 
 It is the only code in this repo that calls RentCast. Garnie runs it with the free key; tests and coding agents never do (the tests use a fake network and invented listings).
 
@@ -13,6 +13,7 @@ Nothing RentCast returns is committed. The repo is public and the provider's ter
 | `local/raw/<runId>/` | Raw responses and a manifest, one folder per run |
 | `local/estimates/` | Raw rent-estimate responses |
 | `local/picks/picks-<seed>.csv` | The still-available sheet, with real addresses |
+| `local/picks/*.csv` | Any other record sheet, such as the coverage sheet (see below) |
 
 ## Before the first run
 
@@ -43,6 +44,7 @@ Run from the project root. Each takes `node tools/rentcast-sample/cli.mjs <comma
 | `estimate --address "<street, city, state, zip>"` | The same for an address, with optional `--property-type`, `--bedrooms`, `--bathrooms`, `--square-footage`. | 1 |
 | `report [--run <runId>]...` | Coverage report per county and mode. | 0 |
 | `picks [--seed <seed>] [--run <runId>]...` | Seeded picks for the still-available check. | 0 |
+| `score [--sheet <file>]... [--run <runId>]...` | Scores the record sheets with the plan's rules and lists the decision-table rows that apply. Counts only, no addresses. | 0 |
 | `usage` | Requests used so far. | 0 |
 
 Suggested order: `pull` each county, `report`, up to 5 `estimate` calls on sample properties, then `picks` within 24 hours of the pull (plan step 4). `report` and `picks` use the latest run of each area unless you name runs with `--run`.
@@ -71,10 +73,26 @@ Every share is out of the **active** listings in that search. Definitions, so th
 
 `picks` chooses 10 active listings per county and mode. It prints the seed; `--seed <seed>` over the same saved runs returns the same listings, whatever order RentCast returned them in. If a cell has fewer than 10 active listings, all are picked and nothing is replaced. It also writes `local/picks/picks-<seed>.csv` with the plan's record-sheet columns, leaving the last four (public status, public price, classification, time checked) for the manual check. An existing sheet is never overwritten.
 
+## Record sheets and scoring
+
+Both directions use the same columns as the sheet `picks` writes: `county, mode, direction, seed, address, unit, provider_id, mls_number, provider_status, provider_price, public_status, public_price, classification, time_checked`. `score` reads every CSV in `local/picks/` (or the ones named with `--sheet`).
+
+**Still available (provider to public).** `picks` writes the 10 rows per county and mode. Fill in `public_status`, `public_price`, `classification` (**Available**, **Not available**, **Not found**, or **Ambiguous**; the last two count as not available), and `time_checked`.
+
+**Coverage (public to provider).** There is no generated sheet, because the picks come from a public site's numbered results. Copy the header row into a new CSV in `local/picks/` (for example `coverage-<seed>.csv`), then add one row per checked public listing, 10 per county and mode, with `direction` set to `public to provider` and `seed` set to the seed you used for the random picks. Fill in the public listing's `address`, `unit`, `public_status`, and `public_price`. Look the property up in the saved provider data (same mode, any status) for `provider_id`, `mls_number`, `provider_status`, and `provider_price`. Set `classification` to **Found** or **Not found**.
+
+For a **Found** row, `score` needs a status and a price on both sides. Statuses use the plan's groups: **Active**; **Under contract** (pending, contingent, accepting backup offers); **Off market** (sold, rented, withdrawn, expired). Write one of those words; a status the plan doesn't name, such as RentCast's `Inactive`, is rejected so that you choose the group. Prices may include a dollar sign and commas.
+
+`score` applies the plan's step 5 as written: required counts round up; each sampled measure is judged per mode with both counties pooled, plus the floor in each county and mode; freshness and verification are judged over every pulled active listing in each cell; and a pooled sampled measure that misses by exactly one is marked **BORDERLINE**. After 10 more checks for that mode and direction (5 per county, new random picks, a new seed, added to the sheets), it is judged on all 30 at the same percentage and a second miss is final. A cell left blank, or a county with fewer than 10 rows, is **PENDING**, and nothing is decided while any measure is pending or borderline.
+
+It ends with the decision-table rows whose conditions are met. Rows can overlap, and the plan doesn't say which wins, so it lists all of them and you record which you take. A bad cell stops the run and is named by sheet row and column, never by address.
+
+Two things are not automatic: `picks` makes 10 per county and mode and cannot yet make the 5-per-county extension (it also doesn't exclude listings already checked), and the plan doesn't restate the floor for 15 checks in a cell, so `score` uses the same percentage of the checks in that cell, rounded up, and says so.
+
 ## Tests
 
 ```bash
 npm test
 ```
 
-They cover the coverage report, the seeded picks, the cap, the config checks, and that the key and raw data are git-ignored. No live call is made.
+They cover the coverage report, the seeded picks, the record-sheet reader, the scoring rules and decision rows, the cap, the config checks, and that the key and raw data are git-ignored. No live call is made.

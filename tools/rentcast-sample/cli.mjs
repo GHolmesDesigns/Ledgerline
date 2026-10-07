@@ -11,8 +11,10 @@ import { CapError, describeUsage } from './lib/usage.mjs';
 import { pullArea, summarizeRun } from './lib/pull.mjs';
 import { queryFromListing, runEstimate } from './lib/estimate.mjs';
 import { findSaleListing, loadRuns } from './lib/runs.mjs';
-import { formatReport } from './lib/report.mjs';
+import { coverage, formatReport } from './lib/report.mjs';
 import { PICKS_PER_CELL, pickCells, picksCsv } from './lib/picks.mjs';
+import { loadSheets } from './lib/sheet.mjs';
+import { formatScore, scoreEvaluation } from './lib/score.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const local = join(here, 'local'); // git-ignored: raw responses, usage count, picks
@@ -31,6 +33,7 @@ const HELP = `RentCast Milestone 0 sample pull (hard cap: ${HARD_REQUEST_CAP} re
   node tools/rentcast-sample/cli.mjs estimate --address "<street, city, state, zip>" [--property-type T] [--bedrooms N] [--bathrooms N] [--square-footage N]
   node tools/rentcast-sample/cli.mjs report [--run <runId>]...   coverage report; sends no requests
   node tools/rentcast-sample/cli.mjs picks [--seed <seed>] [--run <runId>]...   seeded picks; sends no requests
+  node tools/rentcast-sample/cli.mjs score [--sheet <file>]... [--run <runId>]...   score the record sheets with the plan's rules; sends no requests
   node tools/rentcast-sample/cli.mjs usage                       requests used so far`;
 
 function loadConfig() {
@@ -127,12 +130,22 @@ function picks(args) {
   return 0;
 }
 
+// Applies the plan's scoring rules (step 5) to the record sheets and the saved pulls. Prints counts only.
+function score(args) {
+  const { values } = parseArgs({ args, options: { sheet: { type: 'string', multiple: true }, run: { type: 'string', multiple: true } } });
+  const cells = loadRuns(paths.raw, values.run).flatMap(coverage);
+  const { rows, files } = loadSheets(paths.picks, values.sheet);
+  console.log(`Record sheets read: ${files.length} (${rows.length} rows). Nothing below names a listing.\n`);
+  console.log(formatScore(scoreEvaluation({ rows, cells }), rows));
+  return 0;
+}
+
 function usage() {
   console.log(describeUsage(paths.usage, parseCaps(readConfigFile(paths.config))));
   return 0;
 }
 
-const commands = { pull, estimate, report, picks, usage };
+const commands = { pull, estimate, report, picks, score, usage };
 
 async function main(argv) {
   const [command, ...args] = argv;
