@@ -1,0 +1,18 @@
+{
+  "apiKey": "REPLACE_ME",
+  "requestCap": 40,
+  "rentEstimateCap": 5,
+  "limit": 500,
+  "areas": {
+    "miami-dade": {
+      "county": "Miami-Dade",
+      "sale": { "zipCode": "REPLACE_ME", "price": "REPLACE_ME" },
+      "rental": { "zipCode": "REPLACE_ME", "price": "REPLACE_ME" }
+    },
+    "broward": {
+      "county": "Broward",
+      "sale": { "zipCode": "REPLACE_ME", "price": "REPLACE_ME" },
+      "rental": { "zipCode": "REPLACE_ME", "price": "REPLACE_ME" }
+    }
+  }
+}

@@ -25,6 +25,7 @@ docs/UI_SPEC.md           screens, labels, states
 docs/ACCEPTANCE_CHECKS.md checks to run before calling a milestone done
 fixtures/sample-data.json sample listings, assumptions, expected results
 fixtures/check-fixtures.mjs  recomputes every derived number
+tools/rentcast-sample/    Milestone 0 RentCast pull script (Garnie runs it; tests use a fake network)
 design/README.md          screen inventory, status, how to view
 design/tokens.json        colors, type, spacing
 design/screens/*.dc.html  screen sources from the design canvas (reference only)

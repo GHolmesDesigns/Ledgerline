@@ -20,6 +20,8 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Add the Milestone 0 RentCast sample pull (`tools/rentcast-sample/`, C1): one command per county area saves raw sale and rental responses locally, a hard cap of 40 requests (5 rent estimates) counted across runs and enforced before sending, a coverage report per county and mode, and seeded picks for the still-available check. Key, raw responses, and picks are git-ignored. Adds `npm test`.
+
 ## 0.0.1 · 2026-10-07 · plan 2.4
 
 Planning baseline, before Milestone 1. No app code yet.
