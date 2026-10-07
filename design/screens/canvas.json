@@ -1,0 +1,106 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Compare.dc.html": {
+      "expand": "fill",
+      "h": 1240,
+      "title": "2 · Compare shortlist",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 1240,
+      "is_interactive": true,
+      "title": "1 · Search & results",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "MobileCompare.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "M2 · Compare",
+      "w": 390,
+      "x": 470,
+      "y": 3200
+    },
+    "MobileProperty.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "M3 · Property detail",
+      "w": 390,
+      "x": 940,
+      "y": 3200
+    },
+    "MobileSearch.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "M1 · Search & results",
+      "w": 390,
+      "x": 0,
+      "y": 3200
+    },
+    "MobileSettings.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 28,
+      "title": "M4 · Ranking & data",
+      "w": 390,
+      "x": 1410,
+      "y": 3200
+    },
+    "Property.dc.html": {
+      "expand": "fill",
+      "h": 1420,
+      "title": "3 · Property detail",
+      "w": 1440,
+      "x": 0,
+      "y": 1360
+    },
+    "Settings.dc.html": {
+      "expand": "fill",
+      "h": 1420,
+      "is_interactive": true,
+      "title": "4 · Ranking & data",
+      "w": 1440,
+      "x": 1520,
+      "y": 1360
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-07T13:15:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "mobile": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "Mobile · 390 px",
+      "w": 240,
+      "x": 0,
+      "y": 2900
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Compare.dc.html",
+    "Property.dc.html",
+    "Settings.dc.html",
+    "MobileSearch.dc.html",
+    "MobileCompare.dc.html",
+    "MobileProperty.dc.html",
+    "MobileSettings.dc.html"
+  ],
+  "pages": [],
+  "title": "Florida Home Dashboard UI"
+}

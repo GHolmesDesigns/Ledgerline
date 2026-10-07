@@ -1,0 +1,1014 @@
+{
+  "_readme": "FICTIONAL SAMPLE DATA — not real listings. Addresses and street numbers are invented. Local rates are layout placeholders, not real county rates. Source of truth for rules: PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md (third revision). Run `node fixtures/check-fixtures.mjs` after any edit.",
+  "asOf": "2026-10-07",
+  "lineStates": {
+    "listing": {
+      "tag": "Listing",
+      "firm": true
+    },
+    "calc": {
+      "tag": "Calc",
+      "firm": true
+    },
+    "quote": {
+      "tag": "Quote",
+      "firm": true
+    },
+    "doc": {
+      "tag": "Doc",
+      "firm": true
+    },
+    "na": {
+      "tag": "N/A",
+      "firm": true,
+      "countsAs": 0
+    },
+    "est": {
+      "tag": "Est.",
+      "firm": false,
+      "makesTotal": "estimate"
+    },
+    "unknown": {
+      "tag": "Unknown",
+      "firm": false,
+      "makesTotal": "incomplete"
+    }
+  },
+  "personalAssumptions": {
+    "downPaymentPct": 20,
+    "mortgageRatePct": 6.5,
+    "termYears": 30,
+    "maintenancePctPerYear": 1.0
+  },
+  "localAssumptions": [
+    {
+      "county": "Miami-Dade",
+      "set": true,
+      "sample": true,
+      "millage": 20.0,
+      "typicalNonAdValoremPerYear": 650,
+      "homeownersDefaultMonthly": 560,
+      "ho6DefaultMonthly": 120,
+      "floodDefaultMonthly": {
+        "X": 50,
+        "AE": 180,
+        "VE": 420
+      },
+      "source": "county tax collector",
+      "setOn": "2026-10-07"
+    },
+    {
+      "county": "Broward",
+      "set": true,
+      "sample": true,
+      "millage": 19.5,
+      "typicalNonAdValoremPerYear": 700,
+      "homeownersDefaultMonthly": 520,
+      "ho6DefaultMonthly": 110,
+      "floodDefaultMonthly": {
+        "X": 50,
+        "AE": 180,
+        "VE": 420
+      },
+      "source": "county tax collector",
+      "setOn": "2026-10-07"
+    },
+    {
+      "county": "Palm Beach",
+      "set": false
+    }
+  ],
+  "comparableRentRules": {
+    "sameType": true,
+    "sameBeds": true,
+    "livingAreaTolerancePct": 20,
+    "radiusMi": 1.0,
+    "seenWithinDays": 30,
+    "minComps": 3,
+    "note": "Dense Miami areas may need a smaller radius."
+  },
+  "rankingWeights": {
+    "buy": {
+      "price": 25,
+      "cost": 20,
+      "flood": 20,
+      "hoa": 15,
+      "ins": 10,
+      "size": 10
+    },
+    "rent": {
+      "price": 40,
+      "flood": 25,
+      "lease": 20,
+      "size": 15
+    }
+  },
+  "savedSearches": [
+    {
+      "area": "Fort Lauderdale 33308 + radius",
+      "county": "Broward",
+      "buy": {
+        "requestsPerRefresh": 1
+      },
+      "rent": {
+        "requestsPerRefresh": 1
+      }
+    },
+    {
+      "area": "Miami 33131–33137",
+      "county": "Miami-Dade",
+      "buy": {
+        "requestsPerRefresh": 2,
+        "measured": true,
+        "note": "over 500 results"
+      },
+      "rent": {
+        "requestsPerRefresh": 1
+      }
+    },
+    {
+      "area": "North Miami 33161",
+      "county": "Miami-Dade",
+      "buy": {
+        "requestsPerRefresh": 1
+      },
+      "rent": null,
+      "flag": "No Rent search · local comps unavailable · Add Rent search"
+    }
+  ],
+  "requestBudget": {
+    "provider": "RentCast",
+    "tier": "Developer",
+    "ceiling": 45,
+    "usedThisMonth": 23,
+    "rentEstimatesUsed": 1,
+    "requestsPerRefreshAll": 6,
+    "projection": {
+      "weekly": {
+        "remainingRuns": 3,
+        "projected": 42,
+        "note": "23 used + 3 runs × 6 + ~1 rent estimate"
+      },
+      "daily": {
+        "remainingRuns": 24,
+        "projected": 168,
+        "note": "over ceiling · needs Foundation $74/mo"
+      }
+    }
+  },
+  "properties": [
+    {
+      "id": "ftl-2207-ne-32nd-ct",
+      "address": "2207 NE 32nd Ct",
+      "unit": null,
+      "city": "Fort Lauderdale",
+      "zip": "33308",
+      "county": "Broward",
+      "inConfiguredMarket": true,
+      "type": "single_family",
+      "beds": 3,
+      "baths": 2.0,
+      "livingAreaSqft": 1850,
+      "lotAcres": 0.21,
+      "yearBuilt": 1964,
+      "roofYear": 2020,
+      "windMitigation": [
+        "impact windows"
+      ],
+      "floodZone": "AE",
+      "association": {
+        "status": "none_confirmed"
+      },
+      "flags": [],
+      "listings": [
+        {
+          "mode": "sale",
+          "price": 849000,
+          "status": "active",
+          "listedOn": "2026-08-20",
+          "lastSeen": "2026-10-06",
+          "sample": true
+        },
+        {
+          "mode": "rent",
+          "price": 5200,
+          "status": "active",
+          "listedOn": "2026-09-28",
+          "lastSeen": "2026-10-06",
+          "lease": "12 mo · pets OK"
+        }
+      ],
+      "costLines": [
+        {
+          "line": "principalInterest",
+          "state": "calc",
+          "monthly": 4293
+        },
+        {
+          "line": "propertyTax",
+          "state": "calc",
+          "monthly": 1380,
+          "note": "Broward millage (sample) · set Oct 7 · from county tax collector"
+        },
+        {
+          "line": "homeowners",
+          "state": "quote",
+          "monthly": 610,
+          "note": "entered Oct 5"
+        },
+        {
+          "line": "flood",
+          "state": "est",
+          "monthly": 180,
+          "note": "zone AE default · enter a quote"
+        },
+        {
+          "line": "hoa",
+          "state": "na",
+          "monthly": 0,
+          "note": "no association (confirmed)"
+        },
+        {
+          "line": "specialAssessment",
+          "state": "na",
+          "monthly": 0,
+          "note": "no association (confirmed)"
+        },
+        {
+          "line": "nonAdValorem",
+          "state": "doc",
+          "monthly": 0,
+          "note": "no CDD on tax bill"
+        },
+        {
+          "line": "maintenance",
+          "state": "calc",
+          "monthly": 708
+        }
+      ],
+      "rent": {
+        "source": "same_home",
+        "label": "same home · listed Sep 28",
+        "value": 5200
+      },
+      "verification": [
+        {
+          "item": "Tax bill checked",
+          "done": true
+        },
+        {
+          "item": "HOA confirmed none",
+          "done": true
+        },
+        {
+          "item": "Homeowners quote",
+          "done": true
+        },
+        {
+          "item": "Flood quote",
+          "done": false
+        }
+      ],
+      "factors": {
+        "price": 80,
+        "cost": 75,
+        "flood": 70,
+        "hoa": 100,
+        "ins": 95,
+        "size": 100
+      },
+      "expected": {
+        "totalStatus": "estimate",
+        "statusLabel": "Estimate · needs flood quote",
+        "monthlyTotal": 7171,
+        "gapLabel": "≈ +$1,971/mo",
+        "upfrontCash": 169800,
+        "score": 84,
+        "rank": 1,
+        "provisional": false
+      }
+    },
+    {
+      "id": "mir-3418-sw-129th-ter",
+      "address": "3418 SW 129th Ter",
+      "unit": null,
+      "city": "Miramar",
+      "zip": "33027",
+      "county": "Broward",
+      "inConfiguredMarket": true,
+      "type": "townhome",
+      "beds": 3,
+      "baths": 2.5,
+      "livingAreaSqft": 1700,
+      "yearBuilt": 2016,
+      "roofYear": null,
+      "windMitigation": [],
+      "floodZone": "X",
+      "association": {
+        "status": "hoa",
+        "feeMonthly": 260,
+        "feeSource": "listing"
+      },
+      "flags": [],
+      "listings": [
+        {
+          "mode": "sale",
+          "price": 465000,
+          "status": "active",
+          "lastSeen": "2026-10-05",
+          "sample": true
+        }
+      ],
+      "costLines": [
+        {
+          "line": "principalInterest",
+          "state": "calc",
+          "monthly": 2351
+        },
+        {
+          "line": "propertyTax",
+          "state": "calc",
+          "monthly": 756
+        },
+        {
+          "line": "homeowners",
+          "state": "est",
+          "monthly": 520,
+          "note": "Broward house default (sample) · townhomes use the house default"
+        },
+        {
+          "line": "flood",
+          "state": "est",
+          "monthly": 50,
+          "note": "zone X default"
+        },
+        {
+          "line": "hoa",
+          "state": "listing",
+          "monthly": 260
+        },
+        {
+          "line": "nonAdValorem",
+          "state": "doc",
+          "monthly": 200,
+          "note": "CDD $2,400/yr on tax bill"
+        },
+        {
+          "line": "specialAssessment",
+          "state": "est",
+          "monthly": 0,
+          "note": "not checked"
+        },
+        {
+          "line": "maintenance",
+          "state": "calc",
+          "monthly": 388
+        }
+      ],
+      "rent": {
+        "source": "local_comps",
+        "label": "3 local comps · median · within 0.9 mi",
+        "value": 3600,
+        "compCount": 3,
+        "maxDistanceMi": 0.9
+      },
+      "factors": {
+        "price": 85,
+        "cost": 80,
+        "flood": 95,
+        "hoa": 70,
+        "ins": 70,
+        "size": 75
+      },
+      "expected": {
+        "totalStatus": "estimate",
+        "statusLabel": "Estimate · needs insurance quote, assessments not checked +1",
+        "monthlyTotal": 4525,
+        "gapLabel": "≈ +$925/mo",
+        "upfrontCash": 93000,
+        "score": 81,
+        "rank": 2,
+        "provisional": false
+      }
+    },
+    {
+      "id": "brk-1245-brickell-bay-dr-1408",
+      "address": "1245 Brickell Bay Dr",
+      "unit": "1408",
+      "city": "Miami",
+      "zip": "33131",
+      "county": "Miami-Dade",
+      "inConfiguredMarket": true,
+      "type": "condo",
+      "beds": 1,
+      "baths": 1.0,
+      "livingAreaSqft": 780,
+      "yearBuilt": 2008,
+      "floodZone": "AE",
+      "association": {
+        "status": "condo",
+        "feeMonthly": 890,
+        "feeSource": "listing",
+        "milestoneInspection": "filed",
+        "countyRecertification": "not due",
+        "reserveStudy": "complete",
+        "specialAssessment": "not checked"
+      },
+      "flags": [],
+      "listings": [
+        {
+          "mode": "sale",
+          "price": 529000,
+          "status": "active",
+          "lastSeen": "2026-10-07",
+          "sample": true
+        }
+      ],
+      "costLines": [
+        {
+          "line": "principalInterest",
+          "state": "calc",
+          "monthly": 2675
+        },
+        {
+          "line": "propertyTax",
+          "state": "calc",
+          "monthly": 882
+        },
+        {
+          "line": "ho6",
+          "state": "est",
+          "monthly": 120,
+          "note": "HO-6 default"
+        },
+        {
+          "line": "flood",
+          "state": "est",
+          "monthly": 180,
+          "note": "zone AE default"
+        },
+        {
+          "line": "hoa",
+          "state": "listing",
+          "monthly": 890
+        },
+        {
+          "line": "nonAdValorem",
+          "state": "est",
+          "monthly": 54,
+          "note": "CDD not checked · Miami-Dade typical"
+        },
+        {
+          "line": "specialAssessment",
+          "state": "est",
+          "monthly": 0,
+          "note": "not checked"
+        },
+        {
+          "line": "maintenance",
+          "state": "calc",
+          "monthly": 441
+        }
+      ],
+      "rent": {
+        "source": "local_comps",
+        "label": "4 local comps · median · within 0.3 mi",
+        "value": 3100,
+        "compCount": 4,
+        "maxDistanceMi": 0.3
+      },
+      "factors": {
+        "price": 95,
+        "cost": 70,
+        "flood": 70,
+        "hoa": 80,
+        "ins": 85,
+        "size": 55
+      },
+      "expected": {
+        "totalStatus": "estimate",
+        "statusLabel": "Estimate · needs HO-6 quote, flood quote +2",
+        "monthlyTotal": 5242,
+        "gapLabel": "≈ +$2,142/mo",
+        "upfrontCash": 105800,
+        "score": 78,
+        "rank": 3,
+        "provisional": false
+      }
+    },
+    {
+      "id": "mia-3250-ne-2nd-ave-507",
+      "address": "3250 NE 2nd Ave",
+      "unit": "507",
+      "city": "Miami",
+      "zip": "33137",
+      "county": "Miami-Dade",
+      "inConfiguredMarket": true,
+      "type": "condo",
+      "beds": 2,
+      "baths": 2.0,
+      "livingAreaSqft": 2900,
+      "yearBuilt": 1981,
+      "floodZone": "X",
+      "association": {
+        "status": "condo",
+        "feeMonthly": 640,
+        "feeSource": "same_building_median",
+        "sameBuildingUnits": 3,
+        "specialAssessment": "not checked"
+      },
+      "flags": [
+        {
+          "field": "livingAreaSqft",
+          "message": "$98/sq ft; this area runs about $450–$650 (sample). The living area or price may be wrong."
+        }
+      ],
+      "listings": [
+        {
+          "mode": "sale",
+          "price": 285000,
+          "status": "active",
+          "lastSeen": "2026-10-04",
+          "sample": true
+        }
+      ],
+      "costLines": [
+        {
+          "line": "principalInterest",
+          "state": "calc",
+          "monthly": 1441
+        },
+        {
+          "line": "propertyTax",
+          "state": "calc",
+          "monthly": 475
+        },
+        {
+          "line": "ho6",
+          "state": "est",
+          "monthly": 120,
+          "note": "HO-6 default"
+        },
+        {
+          "line": "flood",
+          "state": "est",
+          "monthly": 50,
+          "note": "zone X default"
+        },
+        {
+          "line": "hoa",
+          "state": "est",
+          "monthly": 640,
+          "note": "median of 3 units in this building"
+        },
+        {
+          "line": "nonAdValorem",
+          "state": "est",
+          "monthly": 54,
+          "note": "CDD not checked"
+        },
+        {
+          "line": "specialAssessment",
+          "state": "est",
+          "monthly": 0,
+          "note": "not checked"
+        },
+        {
+          "line": "maintenance",
+          "state": "calc",
+          "monthly": 238
+        }
+      ],
+      "rent": {
+        "source": "local_comps",
+        "label": "3 local comps · median · within 0.4 mi",
+        "value": 3300,
+        "compCount": 3,
+        "maxDistanceMi": 0.4
+      },
+      "factors": {
+        "price": 100,
+        "cost": 100,
+        "flood": 95,
+        "hoa": 50,
+        "ins": 25,
+        "size": null
+      },
+      "expected": {
+        "totalStatus": "estimate",
+        "statusLabel": "Estimate · needs HOA confirmation, HO-6 quote +3",
+        "monthlyTotal": 3018,
+        "gapLabel": "≈ −$282/mo",
+        "upfrontCash": 57000,
+        "score": 74,
+        "rank": 4,
+        "provisional": true,
+        "provisionalReason": "check price per sq ft"
+      }
+    },
+    {
+      "id": "nmi-1460-ne-135th-st",
+      "address": "1460 NE 135th St",
+      "unit": null,
+      "city": "North Miami",
+      "zip": "33161",
+      "county": "Miami-Dade",
+      "inConfiguredMarket": true,
+      "type": "single_family",
+      "beds": 3,
+      "baths": 2.0,
+      "livingAreaSqft": 1400,
+      "yearBuilt": 1955,
+      "roofYear": 2006,
+      "windMitigation": [],
+      "floodZone": "X",
+      "association": {
+        "status": "not_confirmed"
+      },
+      "flags": [],
+      "listings": [
+        {
+          "mode": "sale",
+          "price": 560000,
+          "status": "active",
+          "lastSeen": "2026-09-28",
+          "sample": true
+        }
+      ],
+      "costLines": [
+        {
+          "line": "principalInterest",
+          "state": "calc",
+          "monthly": 2832
+        },
+        {
+          "line": "propertyTax",
+          "state": "calc",
+          "monthly": 933
+        },
+        {
+          "line": "homeowners",
+          "state": "est",
+          "monthly": 560,
+          "note": "Miami-Dade house default (sample)"
+        },
+        {
+          "line": "flood",
+          "state": "est",
+          "monthly": 50,
+          "note": "zone X default"
+        },
+        {
+          "line": "hoa",
+          "state": "est",
+          "monthly": 0,
+          "note": "HOA not confirmed"
+        },
+        {
+          "line": "nonAdValorem",
+          "state": "est",
+          "monthly": 54,
+          "note": "CDD not checked"
+        },
+        {
+          "line": "specialAssessment",
+          "state": "est",
+          "monthly": 0,
+          "note": "not checked"
+        },
+        {
+          "line": "maintenance",
+          "state": "calc",
+          "monthly": 467
+        }
+      ],
+      "rent": {
+        "source": "unavailable",
+        "label": "Unavailable · only 2 local comps",
+        "value": null,
+        "compCount": 2
+      },
+      "factors": {
+        "price": 85,
+        "cost": null,
+        "flood": 95,
+        "hoa": 90,
+        "ins": 40,
+        "size": 80
+      },
+      "expected": {
+        "totalStatus": "estimate",
+        "statusLabel": "Estimate · needs insurance quote, flood quote +3",
+        "monthlyTotal": 4896,
+        "gapLabel": null,
+        "gapHiddenReason": "rent unavailable",
+        "upfrontCash": 112000,
+        "score": 66,
+        "rank": 5,
+        "provisional": true,
+        "provisionalReason": "1 factor unknown: comparable rent"
+      }
+    },
+    {
+      "id": "boc-618-ne-7th-st",
+      "address": "618 NE 7th St",
+      "unit": null,
+      "city": "Boca Raton",
+      "zip": "33432",
+      "county": "Palm Beach",
+      "inConfiguredMarket": false,
+      "type": "single_family",
+      "beds": 3,
+      "baths": 2.0,
+      "livingAreaSqft": 1600,
+      "yearBuilt": 1978,
+      "floodZone": "X",
+      "association": {
+        "status": "not_confirmed"
+      },
+      "flags": [],
+      "note": "Picked up by a radius search at the Broward line.",
+      "listings": [
+        {
+          "mode": "sale",
+          "price": 615000,
+          "status": "active",
+          "lastSeen": "2026-10-05",
+          "sample": true
+        }
+      ],
+      "costLines": [
+        {
+          "line": "principalInterest",
+          "state": "calc",
+          "monthly": 3110
+        },
+        {
+          "line": "propertyTax",
+          "state": "unknown",
+          "monthly": null,
+          "note": "no Palm Beach rates"
+        },
+        {
+          "line": "homeowners",
+          "state": "unknown",
+          "monthly": null,
+          "note": "no Palm Beach rates"
+        },
+        {
+          "line": "flood",
+          "state": "unknown",
+          "monthly": null,
+          "note": "no Palm Beach rates"
+        },
+        {
+          "line": "hoa",
+          "state": "est",
+          "monthly": 0,
+          "note": "HOA not confirmed"
+        },
+        {
+          "line": "nonAdValorem",
+          "state": "unknown",
+          "monthly": null,
+          "note": "no Palm Beach rates · tax bill not checked"
+        },
+        {
+          "line": "specialAssessment",
+          "state": "est",
+          "monthly": 0,
+          "note": "not checked"
+        },
+        {
+          "line": "maintenance",
+          "state": "calc",
+          "monthly": 513
+        }
+      ],
+      "rent": {
+        "source": "unavailable",
+        "label": "Unavailable · no Rent search covers this area",
+        "value": null
+      },
+      "factors": {
+        "price": 80,
+        "cost": null,
+        "flood": 95,
+        "hoa": 90,
+        "ins": null,
+        "size": 75
+      },
+      "expected": {
+        "totalStatus": "incomplete",
+        "statusLabel": "Incomplete · no Palm Beach rates",
+        "knownSubtotal": 3623,
+        "gapLabel": null,
+        "gapHiddenReason": "total incomplete",
+        "upfrontCash": 123000,
+        "score": 60,
+        "rank": 6,
+        "provisional": true,
+        "provisionalReason": "2 factors unknown: comparable rent, insurance",
+        "prompt": "Set local rates for Palm Beach County"
+      }
+    },
+    {
+      "id": "hol-2801-n-ocean-dr-9b",
+      "address": "2801 N Ocean Dr",
+      "unit": "9B",
+      "city": "Hollywood",
+      "zip": "33019",
+      "county": "Broward",
+      "inConfiguredMarket": true,
+      "type": "condo",
+      "beds": 2,
+      "baths": 2.0,
+      "livingAreaSqft": 1100,
+      "yearBuilt": 1972,
+      "floodZone": "VE",
+      "association": {
+        "status": "condo",
+        "feeMonthly": 1150,
+        "feeSource": "listing",
+        "milestoneInspection": "filed",
+        "countyRecertification": "40-year in progress",
+        "reserveStudy": "pending",
+        "specialAssessment": "pending, amount unknown"
+      },
+      "flags": [],
+      "listings": [
+        {
+          "mode": "sale",
+          "price": 389000,
+          "status": "active",
+          "lastSeen": "2026-10-06",
+          "sample": true
+        }
+      ],
+      "costLines": [
+        {
+          "line": "principalInterest",
+          "state": "calc",
+          "monthly": 1967
+        },
+        {
+          "line": "propertyTax",
+          "state": "calc",
+          "monthly": 632
+        },
+        {
+          "line": "ho6",
+          "state": "est",
+          "monthly": 110,
+          "note": "HO-6 default"
+        },
+        {
+          "line": "flood",
+          "state": "est",
+          "monthly": 420,
+          "note": "zone VE default"
+        },
+        {
+          "line": "hoa",
+          "state": "listing",
+          "monthly": 1150
+        },
+        {
+          "line": "nonAdValorem",
+          "state": "est",
+          "monthly": 58,
+          "note": "CDD not checked"
+        },
+        {
+          "line": "specialAssessment",
+          "state": "unknown",
+          "monthly": null,
+          "note": "pending · amount unknown"
+        },
+        {
+          "line": "maintenance",
+          "state": "calc",
+          "monthly": 324
+        }
+      ],
+      "rent": {
+        "source": "local_comps",
+        "label": "5 local comps · median · within 0.5 mi",
+        "value": 2900,
+        "compCount": 5,
+        "maxDistanceMi": 0.5
+      },
+      "factors": {
+        "price": 100,
+        "cost": null,
+        "flood": 20,
+        "hoa": 40,
+        "ins": 90,
+        "size": 80
+      },
+      "expected": {
+        "totalStatus": "incomplete",
+        "statusLabel": "Incomplete · special assessment amount unknown",
+        "knownSubtotal": 4661,
+        "totalLabel": "at least $4,661/mo + special assessment",
+        "gapLabel": null,
+        "gapHiddenReason": "total incomplete",
+        "upfrontCash": null,
+        "upfrontLabel": "$77,800 + assessment (amount unknown)",
+        "score": 52,
+        "rank": 7,
+        "provisional": true,
+        "provisionalReason": "1 factor unknown: own-vs-rent gap (incomplete total)"
+      }
+    }
+  ],
+  "rentComps": {
+    "ftl-2207-ne-32nd-ct": [
+      {
+        "address": "3121 NE 41st St",
+        "beds": 3,
+        "sqft": 1780,
+        "distanceMi": 0.4,
+        "rent": 5050,
+        "lastSeen": "2026-10-05"
+      },
+      {
+        "address": "2840 NE 33rd Ct",
+        "beds": 3,
+        "sqft": 1920,
+        "distanceMi": 0.6,
+        "rent": 5400,
+        "lastSeen": "2026-10-06"
+      },
+      {
+        "address": "3360 NE 38th St",
+        "beds": 3,
+        "sqft": 1700,
+        "distanceMi": 0.7,
+        "rent": 4900,
+        "lastSeen": "2026-10-02"
+      },
+      {
+        "address": "2615 NE 35th St",
+        "beds": 3,
+        "sqft": 2050,
+        "distanceMi": 0.9,
+        "rent": 5600,
+        "lastSeen": "2026-09-30"
+      }
+    ]
+  },
+  "compareShortlist": [
+    "ftl-2207-ne-32nd-ct",
+    "mir-3418-sw-129th-ter",
+    "nmi-1460-ne-135th-st",
+    "hol-2801-n-ocean-dr-9b"
+  ],
+  "expectedCompareLowest": "mir-3418-sw-129th-ter",
+  "priceSortExpectedRanks": [
+    [
+      "mia-3250-ne-2nd-ave-507",
+      4
+    ],
+    [
+      "hol-2801-n-ocean-dr-9b",
+      7
+    ],
+    [
+      "mir-3418-sw-129th-ter",
+      2
+    ],
+    [
+      "brk-1245-brickell-bay-dr-1408",
+      3
+    ],
+    [
+      "nmi-1460-ne-135th-st",
+      5
+    ],
+    [
+      "boc-618-ne-7th-st",
+      6
+    ],
+    [
+      "ftl-2207-ne-32nd-ct",
+      1
+    ]
+  ],
+  "matchReview": {
+    "incoming": {
+      "address": "1500 Bay Rd",
+      "unit": "1204",
+      "city": "Miami Beach",
+      "mode": "rent",
+      "price": 3400,
+      "seen": "2026-10-06"
+    },
+    "existing": {
+      "address": "1500 Bay Rd",
+      "unit": null,
+      "notes": 1
+    },
+    "reason": "same street address; unit missing on existing record"
+  }
+}

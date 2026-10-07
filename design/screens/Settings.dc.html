@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ranking and data settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&amp;family=Work+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6F7;color:#101820;font-family:'Work Sans',system-ui,sans-serif}
+a{color:#00699E}a:hover{color:#004B72}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+input[type=range]{accent-color:#101820}
+input[type=radio]{accent-color:#101820;width:18px;height:18px}
+:focus-visible{outline:2px solid #00A0F0;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; font-family: 'Work Sans', system-ui, sans-serif; color: #101820; background: #F4F6F7">
+
+<header style="background: #101820; color: #FFFFFF; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="36" height="24" viewBox="0 0 36 24" aria-hidden="true"><circle cx="11" cy="12" r="9" fill="#00A0F0" opacity="0.9"></circle><circle cx="18" cy="12" r="9" fill="#E80078" opacity="0.8"></circle><circle cx="25" cy="12" r="9" fill="#F8E000" opacity="0.75"></circle></svg>
+<div>
+<div style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px; line-height: 1.1">Florida Homes</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #AEB8C2; letter-spacing: 0.06em; text-transform: uppercase">Personal dashboard · runs locally</div>
+</div>
+</div>
+<nav aria-label="Sections" style="display: flex; flex-wrap: wrap; gap: 4px">
+<a href="Main.dc.html" style="color: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 14px">Search</a>
+<a href="Compare.dc.html" style="color: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 14px">Compare (4)</a>
+<a href="Settings.dc.html" aria-current="page" style="color: #101820; background: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 14px">Ranking &amp; data</a>
+</nav>
+</header>
+
+<main style="flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; max-width: 1440px; width: 100%; box-sizing: border-box; margin: 0 auto">
+<h1 style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 32px">Ranking &amp; data</h1>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+<section aria-labelledby="h-weights" style="flex: 1 1 560px; min-width: 0; background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 id="h-weights" style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px">Ranking weights · Buy</h2>
+<p style="margin: 0; font-size: 14px; color: #4A5560">Weights are normalized, so they don't need to add to 100. The ranking on the right updates as you move them.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 24px">
+<div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<sc-for list="{{weights}}" as="f" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px">
+<label for="{{f.id}}" style="font-weight: 500">{{f.label}}</label>
+<span style="font-family: 'DM Mono', monospace; font-size: 13px">{{f.val}} · {{f.pct}}</span>
+</div>
+<input id="{{f.id}}" type="range" min="0" max="40" step="5" value="{{f.val}}" onChange="{{f.onChange}}" style="width: 100%; min-height: 28px">
+</div>
+</sc-for>
+<button type="button" onClick="{{resetWeights}}" style="align-self: flex-start; background: #FFFFFF; border: 1px solid #C3CBD2; border-radius: 8px; padding: 8px 14px; min-height: 40px; font-size: 13px; font-weight: 600">Reset to defaults</button>
+</div>
+<div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Live ranking · Tallahassee · Buy</div>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{ranked}}" as="r" hint-placeholder-count="5">
+<li style="display: grid; grid-template-columns: 28px 1fr 44px; gap: 10px; align-items: center; background: #F4F6F7; border-radius: 8px; padding: 9px 12px">
+<span style="font-family: 'DM Mono', monospace; font-size: 13px; color: #4A5560">#{{r.rank}}</span>
+<span style="min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; font-weight: 500">{{r.name}}</span>
+<span style="height: 6px; background: #DDE2E6; border-radius: 3px; overflow: hidden"><span style="{{r.barStyle}}"></span></span>
+</span>
+<span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 20px; text-align: right">{{r.score}}</span>
+</li>
+</sc-for>
+</ol>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="h-assume" style="flex: 1 1 520px; min-width: 0; background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 id="h-assume" style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px">Rent-vs-buy assumptions</h2>
+<p style="margin: 0; font-size: 14px; color: #4A5560">Saved with the search profile. Insurance and flood figures are defaults until you enter a quote on a property.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px">
+<sc-for list="{{fields}}" as="fd" hint-placeholder-count="7">
+<label style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #4A5560">{{fd.label}}</span>
+<span style="display: flex; align-items: center; border: 1px solid #C3CBD2; border-radius: 8px; padding: 0 10px; min-height: 44px; gap: 6px">
+<input type="number" step="any" value="{{fd.val}}" onChange="{{fd.onChange}}" style="border: none; outline-offset: 4px; width: 100%; min-width: 0; padding: 10px 0; font-size: 15px; background: transparent">
+<span style="font-family: 'DM Mono', monospace; font-size: 12px; color: #4A5560; white-space: nowrap">{{fd.unit}}</span>
+</span>
+</label>
+</sc-for>
+</div>
+<div style="background: #F4F6F7; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Preview · 2418 Crestline Dr · $389,000</div>
+<sc-for list="{{rows}}" as="row" hint-placeholder-count="6">
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>{{row.label}}</span><span style="font-family: 'DM Mono', monospace">{{row.val}}</span></div>
+</sc-for>
+<div style="display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid #DDE2E6; padding-top: 8px"><span style="font-weight: 600">Estimated monthly to own</span><span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 20px">{{total}}</span></div>
+<div style="font-size: 13px; color: #4A5560">vs. $2,250 rent for the same home · {{gap}}</div>
+</div>
+</section>
+
+<section aria-labelledby="h-source" style="flex: 1 1 560px; min-width: 0; background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 id="h-source" style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px">Data source &amp; request budget</h2>
+<p style="margin: 0; font-size: 14px; color: #4A5560">Only the refresh job calls the provider. Searching, filtering, and panning the map never spend requests.</p>
+</div>
+<fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560; padding: 0; margin-bottom: 8px">Listing provider</legend>
+<sc-for list="{{providers}}" as="p" hint-placeholder-count="2">
+<label style="{{p.style}}">
+<input type="radio" name="provider" checked="{{p.checked}}" onChange="{{p.pick}}">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 14px">{{p.label}}</span><span style="font-size: 13px; color: #4A5560">{{p.note}}</span></span>
+</label>
+</sc-for>
+</fieldset>
+<fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560; padding: 0; margin-bottom: 8px">Refresh interval · 4 saved searches</legend>
+<sc-for list="{{intervals}}" as="iv" hint-placeholder-count="2">
+<label style="{{iv.style}}">
+<input type="radio" name="interval" checked="{{iv.checked}}" onChange="{{iv.pick}}">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 14px">{{iv.label}}</span><span style="font-size: 13px; color: #4A5560">{{iv.note}}</span></span>
+</label>
+</sc-for>
+</fieldset>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end">
+<label style="display: flex; flex-direction: column; gap: 4px; width: 180px">
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #4A5560">Monthly request ceiling</span>
+<input type="number" min="0" step="1" value="{{ceiling}}" onChange="{{onCeiling}}" style="border: 1px solid #C3CBD2; border-radius: 8px; padding: 10px 12px; min-height: 44px; box-sizing: border-box; font-size: 15px">
+</label>
+<div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px"><span>Used this month: <strong>{{used}}</strong></span><span>Projected: <strong>{{projected}}</strong></span></div>
+<div role="img" aria-label="{{meterLabel}}" style="height: 10px; background: #EEF1F3; border-radius: 5px; overflow: hidden"><div style="{{meterStyle}}"></div></div>
+<div style="font-family: 'DM Mono', monospace; font-size: 12px; color: #4A5560">Last successful refresh: Oct 6, 7:02 PM</div>
+</div>
+</div>
+<sc-if value="{{overBudget}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="background: #FCE4EF; color: #7A0040; border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.45"><strong>Over the ceiling.</strong> Daily refresh projects about 120 requests. Refreshes past {{ceiling}} will be blocked. Raise the ceiling and move to the Foundation tier ($74/month, 1,000 requests), or switch back to weekly.</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="h-review" style="flex: 1 1 520px; min-width: 0; background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 id="h-review" style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px">Property match review</h2>
+<p style="margin: 0; font-size: 14px; color: #4A5560">Exact address and unit matches link automatically. Ambiguous ones wait here so notes are never merged or split silently.</p>
+</div>
+<sc-if value="{{reviewOpen}}" hint-placeholder-val="{{ true }}">
+<div style="border: 1px solid #DDE2E6; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+<div style="background: #F4F6F7; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #4A5560">New listing · Oct 6 refresh</span>
+<span style="font-weight: 600">1702 Ocala Rd, Unit 210</span>
+<span style="font-size: 13px; color: #4A5560">Rent · $1,650/mo · 2 bd · 1,050 sf</span>
+</div>
+<div style="background: #F4F6F7; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #4A5560">Existing property · has 1 note</span>
+<span style="font-weight: 600">1702 Ocala Rd (no unit)</span>
+<span style="font-size: 13px; color: #4A5560">Added Sep 12 · 2 bd · 1,050 sf</span>
+</div>
+</div>
+<div style="font-size: 13px; color: #4A3F00; background: #FFF6B8; border-radius: 6px; padding: 6px 10px">Same street address; unit missing on the existing record.</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" onClick="{{linkIt}}" style="background: #101820; color: #FFFFFF; border: 1px solid #101820; border-radius: 8px; padding: 8px 16px; min-height: 44px; font-weight: 600; font-size: 14px">Same property · link</button>
+<button type="button" onClick="{{separate}}" style="background: #FFFFFF; border: 1px solid #101820; border-radius: 8px; padding: 8px 16px; min-height: 44px; font-weight: 600; font-size: 14px">Different · keep separate</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{reviewDone}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="background: #E1F3FD; color: #004B72; border-radius: 8px; padding: 12px 14px; font-size: 14px">{{reviewMsg}} <button type="button" onClick="{{undo}}" style="background: none; border: none; padding: 2px 4px; color: #004B72; text-decoration: underline; font-size: 14px">Undo</button></div>
+</sc-if>
+<div style="border-top: 1px solid #EEF1F3; padding-top: 14px; display: flex; flex-direction: column; gap: 10px">
+<h3 style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 16px">Backup</h3>
+<p style="margin: 0; font-size: 14px; color: #4A5560">Exports notes, saves, dismissals, saved searches, weights, and assumptions as JSON. Listing data stays within the provider's terms.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<button type="button" style="background: #FFFFFF; border: 1px solid #101820; border-radius: 8px; padding: 8px 16px; min-height: 44px; font-weight: 600; font-size: 14px">Export personal data</button>
+<button type="button" style="background: #FFFFFF; border: 1px solid #C3CBD2; border-radius: 8px; padding: 8px 16px; min-height: 44px; font-weight: 600; font-size: 14px">Import JSON</button>
+<span style="font-family: 'DM Mono', monospace; font-size: 12px; color: #4A5560">Last export: Sep 28</span>
+</div>
+</div>
+</section>
+</div>
+<p style="margin: 0; font-size: 12px; color: #4A5560">Sample data for layout only.</p>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1420}}'>
+var FAC = [['price','Price vs. budget'],['cost','Own vs. rent gap'],['flood','Flood zone'],['hoa','HOA & assessments'],['ins','Insurance & roof'],['size','Size']];
+var DEF_W = {price:25, cost:20, flood:20, hoa:15, ins:10, size:10};
+var LIST = [
+ {id:'a', name:'2418 Crestline Dr', sub:{price:80,cost:75,flood:95,hoa:100,ins:85,size:80}},
+ {id:'b', name:'1150 Lake Bradford Rd, 4B', sub:{price:85,cost:72,flood:30,hoa:25,ins:70,size:55}},
+ {id:'c', name:'87 Live Oak Pl', sub:{price:60,cost:70,flood:95,hoa:85,ins:85,size:95}},
+ {id:'d', name:'3305 Magnolia Ridge Rd', sub:{price:95,cost:85,flood:50,hoa:100,ins:40,size:60}},
+ {id:'e', name:'501 W Tennessee St, 12', sub:{price:98,cost:90,flood:95,hoa:55,ins:60,size:70}}
+];
+var DEF_A = {down:'20', rate:'6.50', term:'30', mill:'18.5', maint:'1.0', ins:'310', flood:'45'};
+var FIELDS = [['down','Down payment','%'],['rate','Mortgage rate','%'],['term','Term','years'],['mill','Millage','mills'],['maint','Maintenance','%/yr'],['ins','Insurance','$/mo'],['flood','Flood ins.','$/mo']];
+function money(v) { return '$' + Math.round(v).toLocaleString('en-US'); }
+function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+var OPT = 'display:flex;gap:12px;align-items:flex-start;border-radius:10px;padding:12px 14px;cursor:pointer;';
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var s = this.state || {};
+    var w = Object.assign({}, DEF_W, s.w || {});
+    var total = FAC.reduce(function (a, f) { return a + w[f[0]]; }, 0) || 1;
+    var weights = FAC.map(function (f) {
+      var k = f[0];
+      return { id: 'w-' + k, label: f[1], val: w[k], pct: Math.round(w[k] / total * 100) + '%',
+        onChange: function (e) { var n = Object.assign({}, w); n[k] = Number(e.target.value); self.setState({ w: n }); } };
+    });
+    var ranked = LIST.map(function (x) {
+      var sc = Math.round(FAC.reduce(function (a, f) { return a + w[f[0]] * x.sub[f[0]]; }, 0) / total);
+      return { name: x.name, score: sc };
+    }).sort(function (a, b) { return b.score - a.score; }).map(function (r, i) {
+      return Object.assign({}, r, { rank: i + 1, barStyle: 'display:block;height:100%;background:#00A0F0;width:' + r.score + '%' });
+    });
+
+    var a = Object.assign({}, DEF_A, s.a || {});
+    var fields = FIELDS.map(function (f) {
+      return { label: f[1], unit: f[2], val: a[f[0]], onChange: function (e) { var n = Object.assign({}, a); n[f[0]] = e.target.value; self.setState({ a: n }); } };
+    });
+    var price = 389000, hoa = 0;
+    var loan = price * (1 - num(a.down) / 100);
+    var r = num(a.rate) / 100 / 12, n = num(a.term) * 12;
+    var pi = n > 0 ? (r > 0 ? loan * r / (1 - Math.pow(1 + r, -n)) : loan / n) : 0;
+    var tax = price * num(a.mill) / 1000 / 12;
+    var maint = price * num(a.maint) / 100 / 12;
+    var ins = num(a.ins), fl = num(a.flood);
+    var tot = pi + tax + ins + fl + hoa + maint;
+    var diff = tot - 2250;
+    var rows = [['Principal & interest', pi], ['Property tax', tax], ['Homeowners insurance', ins], ['Flood insurance', fl], ['HOA', hoa], ['Maintenance reserve', maint]].map(function (x) { return { label: x[0], val: money(x[1]) }; });
+
+    var prov = s.prov || 'rentcast';
+    var intv = s.intv || 'weekly';
+    var ceiling = s.ceiling != null ? s.ceiling : '45';
+    var used = prov === 'mock' ? 0 : 17;
+    var projected = prov === 'mock' ? 0 : (intv === 'daily' ? 120 : 21);
+    var ceil = num(ceiling) || 1;
+    var over = projected > ceil;
+    var mk = function (on) { return OPT + (on ? 'border:2px solid #101820;background:#FFFFFF;' : 'border:1px solid #DDE2E6;background:#FFFFFF;'); };
+    var providers = [
+      ['mock', 'Mock provider', 'Synthetic Florida fixtures · no account, no requests'],
+      ['rentcast', 'RentCast API · Developer tier', '50 requests included, then $0.20 each · no photos or source URLs']
+    ].map(function (p) { var on = prov === p[0]; return { label: p[1], note: p[2], checked: on, style: mk(on), pick: function () { self.setState({ prov: p[0] }); } }; });
+    var intervals = [
+      ['weekly', 'Weekly', '~17 requests/month · fits the free tier'],
+      ['daily', 'Daily', '~120 requests/month · needs Foundation, $74/month']
+    ].map(function (p) { var on = intv === p[0]; return { label: p[1], note: p[2], checked: on, style: mk(on), pick: function () { self.setState({ intv: p[0] }); } }; });
+    var pct = Math.min(100, Math.round(projected / ceil * 100));
+
+    var rv = s.review || null;
+    return {
+      weights: weights,
+      ranked: ranked,
+      resetWeights: function () { self.setState({ w: null }); },
+      fields: fields,
+      rows: rows,
+      total: money(tot),
+      gap: (diff >= 0 ? 'owning costs ' + money(diff) + ' more' : 'owning costs ' + money(-diff) + ' less') + ' per month',
+      providers: providers,
+      intervals: intervals,
+      ceiling: ceiling,
+      onCeiling: function (e) { self.setState({ ceiling: e.target.value }); },
+      used: used,
+      projected: projected + ' of ' + ceiling,
+      meterLabel: 'Projected ' + projected + ' of ' + ceiling + ' requests',
+      meterStyle: 'height:100%;width:' + pct + '%;background:' + (over ? '#E80078' : '#00A0F0') + ';',
+      overBudget: over,
+      reviewOpen: !rv,
+      reviewDone: !!rv,
+      reviewMsg: rv === 'linked' ? 'Linked. The rental listing now sits under the existing property, with its note.' : 'Kept separate. Unit 210 is now its own property.',
+      linkIt: function () { self.setState({ review: 'linked' }); },
+      separate: function () { self.setState({ review: 'separate' }); },
+      undo: function () { self.setState({ review: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mobile compare</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&amp;family=Work+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6F7;color:#101820;font-family:'Work Sans',system-ui,sans-serif}
+a{color:#00699E}a:hover{color:#004B72}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #00A0F0;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #F4F6F7; font-family: 'Work Sans', system-ui, sans-serif; color: #101820">
+
+<header style="flex: none; background: #101820; color: #FFFFFF; padding: 14px 16px 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px">
+<h1 style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 22px">Compare</h1>
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #C9D1D8; text-transform: uppercase; letter-spacing: 0.05em">Buy · 4 shortlisted</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<label style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #AEB8C2">Left</span>
+<select value="{{left}}" onChange="{{onLeft}}" style="border: none; border-radius: 8px; padding: 8px; min-height: 44px; background: #FFFFFF; color: #101820; font-size: 14px; font-weight: 600">
+<sc-for list="{{opts}}" as="o" hint-placeholder-count="4"><option value="{{o.id}}">{{o.short}}</option></sc-for>
+</select>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #AEB8C2">Right</span>
+<select value="{{right}}" onChange="{{onRight}}" style="border: none; border-radius: 8px; padding: 8px; min-height: 44px; background: #FFFFFF; color: #101820; font-size: 14px; font-weight: 600">
+<sc-for list="{{opts}}" as="o" hint-placeholder-count="4"><option value="{{o.id}}">{{o.short}}</option></sc-for>
+</select>
+</label>
+</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #C9D1D8">20% down · 6.50% 30-yr · 18.5 mills · 1%/yr upkeep</div>
+</header>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px 12px 16px; display: flex; flex-direction: column; gap: 12px">
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<div style="background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 19px">{{L.price}}</span>
+<span style="font-weight: 600; font-size: 13px; line-height: 1.3">{{L.addr}}</span>
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #2A333C">{{L.facts}}</span>
+<span style="margin-top: 4px; display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 22px">{{L.score}}</span><span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #4A5560">score · #{{L.rank}}</span></span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 19px">{{R.price}}</span>
+<span style="font-weight: 600; font-size: 13px; line-height: 1.3">{{R.addr}}</span>
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #2A333C">{{R.facts}}</span>
+<span style="margin-top: 4px; display: inline-flex; align-items: baseline; gap: 6px"><span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 22px">{{R.score}}</span><span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #4A5560">score · #{{R.rank}}</span></span>
+</div>
+</div>
+
+<sc-for list="{{sections}}" as="sec" hint-placeholder-count="3">
+<section aria-label="{{sec.title}}" style="background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px; overflow: hidden">
+<h2 style="margin: 0; padding: 10px 12px; background: #F4F6F7; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; color: #2A333C">{{sec.title}}</h2>
+<sc-for list="{{sec.rows}}" as="row" hint-placeholder-count="4">
+<div style="{{row.wrapStyle}}">
+<div style="grid-column: 1 / -1; font-size: 12px; color: #4A5560">{{row.label}}</div>
+<div style="{{row.lStyle}}">{{row.l}}</div>
+<div style="{{row.rStyle}}">{{row.r}}</div>
+</div>
+</sc-for>
+</section>
+</sc-for>
+<p style="margin: 0 4px; font-size: 11px; color: #4A5560; line-height: 1.5">Monthly estimates from your inputs, not quotes. Blue marks the lower total. Sample data.</p>
+</div>
+
+<nav aria-label="Sections" style="flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #DDE2E6; background: #FFFFFF; padding: 4px 8px 14px">
+<a href="MobileSearch.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; text-decoration: none; color: #4A5560; font-size: 11px; font-weight: 500"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="9.5" cy="9.5" r="6.5" fill="none" stroke="#4A5560" stroke-width="1.6"></circle><path d="M14.5 14.5l5 5" stroke="#4A5560" stroke-width="1.6" stroke-linecap="round"></path></svg>Search</a>
+<a href="MobileCompare.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; text-decoration: none; color: #101820; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="2.5" y="4" width="7" height="14" rx="1.5" fill="none" stroke="#101820" stroke-width="2"></rect><rect x="12.5" y="4" width="7" height="14" rx="1.5" fill="none" stroke="#101820" stroke-width="2"></rect></svg>Compare (4)</a>
+<a href="MobileSettings.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; text-decoration: none; color: #4A5560; font-size: 11px; font-weight: 500"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M3 6h16M3 11h16M3 16h16" stroke="#4A5560" stroke-width="1.6" stroke-linecap="round"></path><circle cx="8" cy="6" r="2" fill="#FFFFFF" stroke="#4A5560" stroke-width="1.6"></circle><circle cx="14" cy="11" r="2" fill="#FFFFFF" stroke="#4A5560" stroke-width="1.6"></circle><circle cx="7" cy="16" r="2" fill="#FFFFFF" stroke="#4A5560" stroke-width="1.6"></circle></svg>Ranking &amp; data</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var P = {
+ a:{short:'Crestline', price:'$389,000', addr:'2418 Crestline Dr', facts:'3 bd · 2 ba · 1,840 sf', score:86, rank:1, seen:'1 day ago', pi:1967, tax:600, ins:310, flood:45, hoa:0, maint:324, rent:2250, down:77800, zone:'X', roof:'2019 · built 1998', condo:'n/a', note:'Quiet street; ask for roof permit.'},
+ b:{short:'Lake Bradford 4B', price:'$315,000', addr:'1150 Lake Bradford Rd, 4B', facts:'2 bd · 2 ba · 1,210 sf', score:58, rank:5, seen:'2 days ago', pi:1593, tax:486, ins:140, flood:160, hoa:685, maint:263, rent:2400, down:63000, zone:'AE', roof:'Assoc. · built 1979', condo:'Inspection not filed · assessment pending', note:'Get association minutes first.'},
+ c:{short:'Live Oak', price:'$462,000', addr:'87 Live Oak Pl', facts:'4 bd · 2.5 ba · 2,150 sf', score:79, rank:3, seen:'today', pi:2336, tax:712, ins:285, flood:40, hoa:95, maint:385, rent:2900, down:92400, zone:'X', roof:'2006 · built 2006', condo:'HOA only', note:'No note yet'},
+ d:{short:'Magnolia Ridge', price:'$298,500', addr:'3305 Magnolia Ridge Rd', facts:'3 bd · 2 ba · 1,520 sf', score:76, rank:4, seen:'9 days ago · stale', pi:1509, tax:460, ins:360, flood:120, hoa:0, maint:249, rent:1950, down:59700, zone:'A', roof:'2009 · built 1987', condo:'n/a', note:'Confirm available; 2 insurance quotes.'}
+};
+function m(v) { return '$' + Math.round(v).toLocaleString('en-US'); }
+function tot(p) { return p.pi + p.tax + p.ins + p.flood + p.hoa + p.maint; }
+var CELL = 'font-size:14px;padding:6px 8px;border-radius:6px;';
+var ZONE_RISK = {AE:true, A:true};
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var s = this.state || {};
+    var left = s.left || 'a', right = s.right || 'd';
+    var L = P[left], R = P[right];
+    var tl = tot(L), tr = tot(R);
+    function row(label, l, r, opt) {
+      opt = opt || {};
+      var base = CELL + (opt.mono ? 'font-family:\'DM Mono\',monospace;' : '') + (opt.big ? 'font-family:Outfit,sans-serif;font-weight:700;font-size:18px;' : '');
+      return {
+        label: label, l: l, r: r,
+        wrapStyle: 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 8px;padding:10px 12px;border-top:1px solid #EEF1F3;',
+        lStyle: base + (opt.lHi ? opt.lHi : ''),
+        rStyle: base + (opt.rHi ? opt.rHi : '')
+      };
+    }
+    var BLUE = 'background:#E1F3FD;color:#004B72;';
+    var PINK = 'background:#FCE4EF;color:#8A0049;';
+    var YEL = 'background:#FFF6B8;color:#4A3F00;';
+    var sections = [
+      { title: 'Monthly cost to own', rows: [
+        row('Principal & interest', m(L.pi), m(R.pi), {mono:true}),
+        row('Property tax (purchase price)', m(L.tax), m(R.tax), {mono:true}),
+        row('Insurance', m(L.ins), m(R.ins), {mono:true}),
+        row('Flood insurance', m(L.flood), m(R.flood), {mono:true}),
+        row('HOA', m(L.hoa), m(R.hoa), {mono:true}),
+        row('Maintenance reserve', m(L.maint), m(R.maint), {mono:true}),
+        row('Total to own', m(tl), m(tr), {big:true, lHi: tl <= tr ? BLUE : '', rHi: tr <= tl ? BLUE : ''}),
+        row('Comparable rent', m(L.rent), m(R.rent), {mono:true}),
+        row('Owning costs more by', '+' + m(tl - L.rent), '+' + m(tr - R.rent), {mono:true}),
+        row('Down payment (20%)', m(L.down), m(R.down), {mono:true})
+      ]},
+      { title: 'Florida cost & risk', rows: [
+        row('FEMA flood zone · X is lower risk, not none', L.zone, R.zone, {lHi: ZONE_RISK[L.zone] ? PINK : '', rHi: ZONE_RISK[R.zone] ? PINK : ''}),
+        row('Roof · year built', L.roof, R.roof, {lHi: left === 'd' ? YEL : '', rHi: right === 'd' ? YEL : ''}),
+        row('Condo association', L.condo, R.condo, {lHi: left === 'b' ? PINK : '', rHi: right === 'b' ? PINK : ''})
+      ]},
+      { title: 'Listing & notes', rows: [
+        row('Last seen', L.seen, R.seen, {lHi: left === 'd' ? YEL : '', rHi: right === 'd' ? YEL : ''}),
+        row('Your note', L.note, R.note)
+      ]}
+    ];
+    var opts = Object.keys(P).map(function (k) { return { id: k, short: P[k].short }; });
+    return {
+      left: left, right: right, opts: opts, L: L, R: R, sections: sections,
+      onLeft: function (e) { self.setState({ left: e.target.value }); },
+      onRight: function (e) { self.setState({ right: e.target.value }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

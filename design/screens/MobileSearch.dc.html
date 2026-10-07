@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mobile search and results</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&amp;family=Work+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6F7;color:#101820;font-family:'Work Sans',system-ui,sans-serif}
+a{color:#00699E}a:hover{color:#004B72}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #00A0F0;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; position: relative; background: #F4F6F7; font-family: 'Work Sans', system-ui, sans-serif; color: #101820">
+
+<header style="background: #101820; color: #FFFFFF; padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 12px; flex: none">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px">
+<svg width="30" height="20" viewBox="0 0 36 24" aria-hidden="true"><circle cx="11" cy="12" r="9" fill="#00A0F0" opacity="0.9"></circle><circle cx="18" cy="12" r="9" fill="#E80078" opacity="0.8"></circle><circle cx="25" cy="12" r="9" fill="#F8E000" opacity="0.75"></circle></svg>
+<span style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 18px">Florida Homes</span>
+</div>
+<button type="button" aria-label="Refresh this search, uses 1 request. 17 of 45 used this month." style="display: flex; align-items: center; gap: 8px; background: #2C3843; color: #FFFFFF; border: none; border-radius: 8px; padding: 8px 10px; min-height: 44px">
+<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3" fill="none" stroke="#00A0F0" stroke-width="1.6" stroke-linecap="round"></path></svg>
+<span style="font-family: 'DM Mono', monospace; font-size: 12px">17/45</span>
+</button>
+</div>
+<div role="group" aria-label="Listing mode" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: #2C3843; border-radius: 10px; padding: 3px">
+<button type="button" aria-pressed="{{buyPressed}}" onClick="{{setBuy}}" style="{{buyStyle}}">Buy</button>
+<button type="button" aria-pressed="{{rentPressed}}" onClick="{{setRent}}" style="{{rentStyle}}">Rent</button>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; background: #FFFFFF; border-radius: 10px; padding: 0 12px; min-height: 44px">
+<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="#4A5560" stroke-width="1.6"></circle><path d="M11 11l3.5 3.5" stroke="#4A5560" stroke-width="1.6" stroke-linecap="round"></path></svg>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">City, ZIP, or area</span>
+<input type="search" value="{{loc}}" onChange="{{onLoc}}" style="border: none; flex: 1; min-width: 0; font-size: 16px; color: #101820; background: transparent; padding: 10px 0">
+</label>
+</header>
+
+<div style="flex: none; background: #FFFFFF; border-bottom: 1px solid #DDE2E6; padding: 10px 0 10px 16px; display: flex; gap: 8px; overflow-x: auto">
+<button type="button" style="flex: none; display: inline-flex; align-items: center; gap: 6px; background: #101820; color: #FFFFFF; border: none; border-radius: 999px; padding: 6px 12px; min-height: 36px; font-size: 13px; font-weight: 600">
+<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 3h12M3 7h8M5 11h4" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"></path></svg>Filters · {{filterCount}}</button>
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="5">
+<span style="flex: none; display: inline-flex; align-items: center; background: #EEF1F3; border-radius: 999px; padding: 6px 12px; min-height: 36px; box-sizing: border-box; font-size: 13px; white-space: nowrap">{{c}}</span>
+</sc-for>
+<span style="flex: none; width: 8px"></span>
+</div>
+
+<div style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px">
+<span style="font-size: 13px; color: #4A5560">{{countLabel}}</span>
+<div style="display: flex; gap: 8px; align-items: center">
+<label style="position: relative">
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Sort by</span>
+<select value="{{sort}}" onChange="{{onSort}}" style="border: 1px solid #C3CBD2; border-radius: 8px; padding: 6px 8px; min-height: 40px; background: #FFFFFF; font-size: 13px">
+<option value="score">Your score</option>
+<option value="newest">Newest</option>
+<option value="price">Price</option>
+</select>
+</label>
+<div role="group" aria-label="View" style="display: inline-flex; border: 1px solid #101820; border-radius: 8px; overflow: hidden">
+<button type="button" aria-pressed="{{listPressed}}" onClick="{{setList}}" style="{{listStyle}}">List</button>
+<button type="button" aria-pressed="{{mapPressed}}" onClick="{{setMap}}" style="{{mapStyle}}">Map</button>
+</div>
+</div>
+</div>
+
+<sc-if value="{{isList}}" hint-placeholder-val="{{ true }}">
+<section aria-label="Results" style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 16px; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{items}}" as="item" hint-placeholder-count="3">
+<article aria-label="{{item.addr}}" style="{{item.cardStyle}}">
+<div style="display: flex; justify-content: space-between; gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 22px; line-height: 1.1">{{item.price}}</span>
+<span style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; background: #E1F3FD; color: #005A87; padding: 2px 6px; border-radius: 4px">{{item.status}}</span>
+</div>
+<div style="font-weight: 600; font-size: 15px">{{item.addr}}</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 12px; color: #2A333C">{{item.facts}}</div>
+</div>
+<button type="button" onClick="{{item.pick}}" aria-expanded="{{item.expanded}}" aria-label="Score {{item.score}}, rank {{item.rank}}. Show breakdown" style="{{item.scoreStyle}}">
+<span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 22px; line-height: 1">{{item.score}}</span>
+<span style="font-family: 'DM Mono', monospace; font-size: 10px">#{{item.rank}}</span>
+</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+<div style="background: #F4F6F7; border-radius: 8px; padding: 8px 10px">
+<div style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #4A5560">{{item.aL}}</div>
+<div style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 17px">{{item.aV}}</div>
+</div>
+<div style="background: #F4F6F7; border-radius: 8px; padding: 8px 10px">
+<div style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #4A5560">{{item.bL}}</div>
+<div style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 17px">{{item.bV}}</div>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 5px">
+<sc-for list="{{item.chips}}" as="c" hint-placeholder-count="2">
+<span style="{{c.style}}">{{c.t}}</span>
+</sc-for>
+</div>
+<sc-if value="{{item.hasFlag}}" hint-placeholder-val="{{ false }}">
+<div role="note" style="background: #FCE4EF; color: #7A0040; border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.4"><strong>Check this listing.</strong> {{item.flag}}</div>
+</sc-if>
+<sc-if value="{{item.selected}}" hint-placeholder-val="{{ false }}">
+<div style="border-top: 1px solid #DDE2E6; padding-top: 10px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Score breakdown</div>
+<sc-for list="{{item.factors}}" as="f" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 112px 1fr 58px; gap: 8px; align-items: center; font-size: 12px">
+<span>{{f.label}}</span>
+<div style="height: 6px; background: #E6EAED; border-radius: 3px; overflow: hidden"><div style="{{f.barStyle}}"></div></div>
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-align: right">{{f.ptsLabel}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="{{item.seenStyle}}">{{item.seen}}</span>
+<div style="display: flex; gap: 6px">
+<button type="button" aria-pressed="{{item.savedPressed}}" aria-label="{{item.saveLabel}} {{item.addr}}" onClick="{{item.toggleSave}}" style="{{item.saveStyle}}"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2l2.2 4.6 5 .7-3.6 3.5.9 5L9 13.4 4.5 15.8l.9-5L1.8 7.3l5-.7z" fill="{{item.starFill}}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path></svg></button>
+<button type="button" aria-pressed="{{item.cmpPressed}}" aria-label="{{item.cmpLabel}} {{item.addr}}" onClick="{{item.toggleCmp}}" style="{{item.cmpStyle}}"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2" y="3" width="5.5" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"></rect><rect x="10.5" y="3" width="5.5" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"></rect></svg></button>
+<a href="MobileProperty.dc.html" style="display: inline-flex; align-items: center; background: #101820; color: #FFFFFF; text-decoration: none; border-radius: 8px; padding: 0 14px; min-height: 44px; box-sizing: border-box; font-size: 13px; font-weight: 600">Details</a>
+</div>
+</div>
+</article>
+</sc-for>
+<p style="margin: 4px 4px 0; font-size: 11px; color: #4A5560; line-height: 1.5">Sample data. Costs are estimates from your saved assumptions.</p>
+</section>
+</sc-if>
+
+<sc-if value="{{isMap}}" hint-placeholder-val="{{ false }}">
+<section aria-label="Map" style="flex: 1; min-height: 0; position: relative; background-color: #E9EEF1; background-image: linear-gradient(#D9E0E5 1px, transparent 1px), linear-gradient(90deg, #D9E0E5 1px, transparent 1px); background-size: 40px 40px; overflow: hidden">
+<div style="position: absolute; left: -5%; top: 40%; width: 110%; height: 6px; background: #FFFFFF; transform: rotate(-9deg)"></div>
+<div style="position: absolute; left: 48%; top: -5%; width: 6px; height: 110%; background: #FFFFFF; transform: rotate(6deg)"></div>
+<div style="position: absolute; left: 4%; top: 52%; width: 34%; height: 14%; background: #C6DCEA; border-radius: 50%"></div>
+<sc-for list="{{items}}" as="item" hint-placeholder-count="4">
+<button type="button" onClick="{{item.pick}}" aria-label="{{item.addr}}, {{item.price}}" style="{{item.pinStyle}}">{{item.pinLabel}}</button>
+</sc-for>
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: 10px; right: 10px; bottom: 10px; background: #FFFFFF; border-radius: 14px; box-shadow: 0 4px 16px rgba(16,24,32,0.2); padding: 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; gap: 10px; align-items: flex-start">
+<div style="min-width: 0">
+<div style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px">{{sel.price}}</div>
+<div style="font-weight: 600; font-size: 14px">{{sel.addr}}</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #2A333C">{{sel.facts}}</div>
+</div>
+<div style="flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 10px; background: #101820; color: #FFFFFF"><span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 20px; line-height: 1">{{sel.score}}</span><span style="font-family: 'DM Mono', monospace; font-size: 10px">#{{sel.rank}}</span></div>
+</div>
+<div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px"><span>{{sel.aL}}: <strong>{{sel.aV}}</strong></span><span>{{sel.bL}}: <strong>{{sel.bV}}</strong></span></div>
+<a href="MobileProperty.dc.html" style="display: flex; align-items: center; justify-content: center; background: #101820; color: #FFFFFF; text-decoration: none; border-radius: 8px; min-height: 44px; font-size: 14px; font-weight: 600">Details &amp; verify</a>
+</div>
+</sc-if>
+</section>
+</sc-if>
+
+<nav aria-label="Sections" style="flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #DDE2E6; background: #FFFFFF; padding: 4px 8px 14px">
+<a href="MobileSearch.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; text-decoration: none; color: #101820; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="9.5" cy="9.5" r="6.5" fill="none" stroke="#101820" stroke-width="2"></circle><path d="M14.5 14.5l5 5" stroke="#101820" stroke-width="2" stroke-linecap="round"></path></svg>Search</a>
+<a href="MobileCompare.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; text-decoration: none; color: #4A5560; font-size: 11px; font-weight: 500"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="2.5" y="4" width="7" height="14" rx="1.5" fill="none" stroke="#4A5560" stroke-width="1.6"></rect><rect x="12.5" y="4" width="7" height="14" rx="1.5" fill="none" stroke="#4A5560" stroke-width="1.6"></rect></svg>Compare ({{cmpCount}})</a>
+<a href="MobileSettings.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 52px; text-decoration: none; color: #4A5560; font-size: 11px; font-weight: 500"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M3 6h16M3 11h16M3 16h16" stroke="#4A5560" stroke-width="1.6" stroke-linecap="round"></path><circle cx="8" cy="6" r="2" fill="#FFFFFF" stroke="#4A5560" stroke-width="1.6"></circle><circle cx="14" cy="11" r="2" fill="#FFFFFF" stroke="#4A5560" stroke-width="1.6"></circle><circle cx="7" cy="16" r="2" fill="#FFFFFF" stroke="#4A5560" stroke-width="1.6"></circle></svg>Ranking &amp; data</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var W_BUY = {price:25, cost:20, flood:20, hoa:15, ins:10, size:10};
+var L_BUY = {price:'Price', cost:'Own vs. rent', flood:'Flood zone', hoa:'HOA', ins:'Insurance', size:'Size'};
+var W_RENT = {price:40, flood:25, lease:20, size:15};
+var L_RENT = {price:'Rent', flood:'Flood zone', lease:'Lease & pets', size:'Size'};
+var BUY = [
+ {id:'a', priceNum:389000, price:'$389,000', pinLabel:'$389k', status:'Active', addr:'2418 Crestline Dr', facts:'3 bd · 2 ba · 1,840 sf · 32308', aL:'Own / mo', aV:'$3,246', bL:'Rent comp', bV:'$2,250', chips:[['Flood X','n'],['No HOA','n'],['Roof 2019','n']], flag:'', seen:'Seen 1d ago', stale:false, age:1, pin:[36,24], sub:{price:80,cost:75,flood:95,hoa:100,ins:85,size:80}},
+ {id:'b', priceNum:315000, price:'$315,000', pinLabel:'$315k', status:'Active', addr:'1150 Lake Bradford Rd, 4B', facts:'2 bd · 2 ba · 1,210 sf · Condo', aL:'Own / mo', aV:'$3,327', bL:'Rent comp', bV:'$2,400', chips:[['Flood AE','r'],['HOA $685','w'],['Assessment pending','r']], flag:'', seen:'Seen 2d ago', stale:false, age:2, pin:[18,56], sub:{price:85,cost:72,flood:30,hoa:25,ins:70,size:55}},
+ {id:'c', priceNum:462000, price:'$462,000', pinLabel:'$462k', status:'Active', addr:'87 Live Oak Pl', facts:'4 bd · 2.5 ba · 2,150 sf · 32309', aL:'Own / mo', aV:'$3,853', bL:'Rent comp', bV:'$2,900', chips:[['Flood X','n'],['HOA $95','n']], flag:'', seen:'Seen today', stale:false, age:0, pin:[74,14], sub:{price:60,cost:70,flood:95,hoa:85,ins:85,size:95}},
+ {id:'d', priceNum:298500, price:'$298,500', pinLabel:'$299k', status:'Active', addr:'3305 Magnolia Ridge Rd', facts:'3 bd · 2 ba · 1,520 sf · 32312', aL:'Own / mo', aV:'$2,698', bL:'Rent comp', bV:'$1,950', chips:[['Flood A','r'],['Roof 2009','w']], flag:'', seen:'Seen 9d ago · stale', stale:true, age:9, pin:[64,40], sub:{price:95,cost:85,flood:50,hoa:100,ins:40,size:60}},
+ {id:'e', priceNum:189000, price:'$189,000', pinLabel:'$189k', status:'Active', addr:'501 W Tennessee St, 12', facts:'2 bd · 1 ba · 1,900 sf · Condo', aL:'Own / mo', aV:'$1,970', bL:'Rent comp', bV:'$1,500', chips:[['Flood X','n'],['HOA $410','w']], flag:'$99/sf vs. area $180–$260. Area or price may be wrong.', seen:'Seen 3d ago', stale:false, age:3, pin:[44,34], sub:{price:98,cost:90,flood:95,hoa:55,ins:60,size:70}}
+];
+var RENT = [
+ {id:'r1', priceNum:1650, price:'$1,650/mo', pinLabel:'$1,650', status:'Active', addr:'1702 Ocala Rd, Unit 210', facts:'2 bd · 2 ba · 1,050 sf · Condo', aL:'Rent', aV:'$1,650', bL:'Lease', bV:'12 mo', chips:[['Flood X','n'],['Approval required','w'],['Possible duplicate','w']], flag:'', seen:'Seen today', stale:false, age:0, pin:[24,30], sub:{price:90,flood:95,lease:60,size:55}},
+ {id:'r2', priceNum:2250, price:'$2,250/mo', pinLabel:'$2,250', status:'Active', addr:'2418 Crestline Dr', facts:'3 bd · 2 ba · 1,840 sf · 32308', aL:'Rent', aV:'$2,250', bL:'Lease', bV:'12 mo', chips:[['Flood X','n'],['Also for sale','i']], flag:'', seen:'Seen 1d ago', stale:false, age:1, pin:[36,24], sub:{price:70,flood:95,lease:90,size:80}},
+ {id:'r3', priceNum:1975, price:'$1,975/mo', pinLabel:'$1,975', status:'Active', addr:'940 Hickory Glen Ln', facts:'3 bd · 2 ba · 1,600 sf · 32317', aL:'Rent', aV:'$1,975', bL:'Lease', bV:'12 mo', chips:[['Flood X','n'],['Pets OK','n']], flag:'', seen:'Seen 4d ago', stale:false, age:4, pin:[80,38], sub:{price:80,flood:95,lease:85,size:75}},
+ {id:'r4', priceNum:2600, price:'$2,600/mo', pinLabel:'$2,600', status:'Active', addr:'455 Cypress Bend Ct', facts:'4 bd · 3 ba · 2,200 sf · 32311', aL:'Rent', aV:'$2,600', bL:'Lease', bV:'6–12 mo', chips:[['Flood AE','r']], flag:'', seen:'Seen 2d ago', stale:false, age:2, pin:[62,58], sub:{price:55,flood:30,lease:80,size:95}}
+];
+var TONES = {n:'background:#EEF1F3;color:#2A333C;', w:'background:#FFF6B8;color:#4A3F00;', r:'background:#FCE4EF;color:#8A0049;', i:'background:#E1F3FD;color:#005A87;'};
+var CHIP = 'display:inline-block;font-size:11px;font-weight:500;padding:3px 7px;border-radius:4px;';
+var ICON = 'display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:8px;';
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var s = this.state || {};
+    var mode = s.mode || 'buy', sort = s.sort || 'score', view = s.view || 'list';
+    var saved = s.saved || {a:true, r2:true}, cmp = s.cmp || {a:true, b:true, c:true, d:true};
+    var buy = mode === 'buy';
+    var W = buy ? W_BUY : W_RENT, L = buy ? L_BUY : L_RENT, src = buy ? BUY : RENT;
+    var list = src.map(function (x) {
+      var keys = Object.keys(W);
+      var score = Math.round(keys.reduce(function (a, k) { return a + W[k] * x.sub[k] / 100; }, 0));
+      var factors = keys.map(function (k) { return { label: L[k], ptsLabel: (W[k] * x.sub[k] / 100).toFixed(1) + '/' + W[k], barStyle: 'height:100%;background:#00A0F0;width:' + x.sub[k] + '%' }; });
+      return Object.assign({}, x, { score: score, factors: factors });
+    });
+    if (sort === 'score') list.sort(function (a, b) { return b.score - a.score; });
+    else if (sort === 'price') list.sort(function (a, b) { return a.priceNum - b.priceNum; });
+    else list.sort(function (a, b) { return a.age - b.age; });
+    var selId = s.sel && list.some(function (x) { return x.id === s.sel; }) ? s.sel : null;
+    var mapSel = selId || (list[0] && list[0].id);
+    var items = list.map(function (x, i) {
+      var on = x.id === selId, pinOn = x.id === mapSel, sv = !!saved[x.id], cp = !!cmp[x.id];
+      return Object.assign({}, x, {
+        rank: i + 1, selected: on, expanded: on ? 'true' : 'false', hasFlag: !!x.flag,
+        pick: function () { self.setState({ sel: (view === 'list' && on) ? null : x.id }); },
+        toggleSave: function () { var n = Object.assign({}, saved); n[x.id] = !sv; self.setState({ saved: n }); },
+        toggleCmp: function () { var n = Object.assign({}, cmp); n[x.id] = !cp; self.setState({ cmp: n }); },
+        chips: x.chips.map(function (c) { return { t: c[0], style: CHIP + TONES[c[1]] }; }),
+        cardStyle: 'background:#FFFFFF;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;border:' + (on ? '2px solid #101820' : '1px solid #DDE2E6') + ';',
+        scoreStyle: 'flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:54px;height:54px;border-radius:10px;' + (on ? 'background:#101820;color:#FFFFFF;border:2px solid #101820;' : 'background:#FFFFFF;color:#101820;border:1.5px solid #101820;'),
+        seenStyle: 'font-family:\'DM Mono\',monospace;font-size:11px;padding:2px 5px;border-radius:4px;' + (x.stale ? 'background:#FFF6B8;color:#4A3F00;' : 'color:#4A5560;'),
+        savedPressed: sv ? 'true' : 'false', saveLabel: sv ? 'Unsave' : 'Save', starFill: sv ? '#101820' : 'none',
+        saveStyle: ICON + 'background:#FFFFFF;color:#101820;border:1px solid #C3CBD2;',
+        cmpPressed: cp ? 'true' : 'false', cmpLabel: cp ? 'Remove from compare:' : 'Add to compare:',
+        cmpStyle: ICON + (cp ? 'background:#E1F3FD;color:#005A87;border:1px solid #00A0F0;' : 'background:#FFFFFF;color:#101820;border:1px solid #C3CBD2;'),
+        pinStyle: 'position:absolute;left:' + x.pin[0] + '%;top:' + x.pin[1] + '%;transform:translate(-50%,-50%);font-family:\'DM Mono\',monospace;font-size:12px;font-weight:500;padding:0 9px;min-height:36px;border-radius:6px;border:1.5px solid #101820;box-shadow:0 1px 3px rgba(16,24,32,0.25);' + (pinOn ? 'background:#101820;color:#FFFFFF;z-index:2;' : 'background:#FFFFFF;color:#101820;')
+      });
+    });
+    var sel = items.filter(function (x) { return x.id === mapSel; })[0] || null;
+    var seg = 'border:none;border-radius:8px;min-height:40px;font-family:Outfit,sans-serif;font-weight:600;font-size:15px;';
+    var tog = 'border:none;padding:0 12px;min-height:40px;font-size:13px;font-weight:600;';
+    return {
+      loc: s.loc != null ? s.loc : 'Tallahassee, FL',
+      onLoc: function (e) { self.setState({ loc: e.target.value }); },
+      buyPressed: buy ? 'true' : 'false', rentPressed: buy ? 'false' : 'true',
+      setBuy: function () { self.setState({ mode: 'buy', sel: null }); },
+      setRent: function () { self.setState({ mode: 'rent', sel: null }); },
+      buyStyle: seg + (buy ? 'background:#FFFFFF;color:#101820;' : 'background:transparent;color:#FFFFFF;'),
+      rentStyle: seg + (buy ? 'background:transparent;color:#FFFFFF;' : 'background:#FFFFFF;color:#101820;'),
+      filterCount: buy ? 6 : 4,
+      chips: buy ? ['$250k–$475k', '2+ bd', 'House, Condo', '1,000+ sf', 'Active'] : ['$1,500–$2,800', '2+ bd', 'Long-term', 'Active'],
+      countLabel: items.length + ' results',
+      sort: sort,
+      onSort: function (e) { self.setState({ sort: e.target.value }); },
+      isList: view === 'list', isMap: view === 'map',
+      listPressed: view === 'list' ? 'true' : 'false', mapPressed: view === 'map' ? 'true' : 'false',
+      setList: function () { self.setState({ view: 'list' }); },
+      setMap: function () { self.setState({ view: 'map' }); },
+      listStyle: tog + (view === 'list' ? 'background:#101820;color:#FFFFFF;' : 'background:#FFFFFF;color:#101820;'),
+      mapStyle: tog + (view === 'map' ? 'background:#101820;color:#FFFFFF;' : 'background:#FFFFFF;color:#101820;'),
+      items: items,
+      hasSel: !!sel,
+      sel: sel || {},
+      cmpCount: BUY.filter(function (x) { return cmp[x.id]; }).length
+    };
+  }
+}
+</script>
+</body>
+</html>

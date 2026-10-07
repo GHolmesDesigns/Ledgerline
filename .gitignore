@@ -1,0 +1,39 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Provider credentials stay on the local server, never in Git (plan: Security and cost controls)
+.env
+.env.*
+!.env.example
+
+# Local database: personal data, listings, snapshots
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+
+# Earlier review files (see AGENTS.md); superseded, kept locally only
+tmp/
+/Florida Home Dashboard UI.pdf
+/Florida Home Dashboard UI – 4 · Ranking & data.html
+
+# Editor and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+desktop.ini

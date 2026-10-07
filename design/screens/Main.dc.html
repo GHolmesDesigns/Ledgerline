@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search and results</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&amp;family=Work+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6F7;color:#101820;font-family:'Work Sans',system-ui,sans-serif}
+a{color:#00699E}a:hover{color:#004B72}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #00A0F0;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; font-family: 'Work Sans', system-ui, sans-serif; color: #101820; background: #F4F6F7">
+
+<header style="background: #101820; color: #FFFFFF; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="36" height="24" viewBox="0 0 36 24" aria-hidden="true"><circle cx="11" cy="12" r="9" fill="#00A0F0" opacity="0.9"></circle><circle cx="18" cy="12" r="9" fill="#E80078" opacity="0.8"></circle><circle cx="25" cy="12" r="9" fill="#F8E000" opacity="0.75"></circle></svg>
+<div>
+<div style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px; line-height: 1.1">Florida Homes</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #AEB8C2; letter-spacing: 0.06em; text-transform: uppercase">Personal dashboard · runs locally</div>
+</div>
+</div>
+<nav aria-label="Sections" style="display: flex; flex-wrap: wrap; gap: 4px">
+<a href="Main.dc.html" aria-current="page" style="color: #101820; background: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 14px">Search</a>
+<a href="Compare.dc.html" style="color: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 14px">Compare ({{cmpCount}})</a>
+<a href="Settings.dc.html" style="color: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 14px">Ranking &amp; data</a>
+</nav>
+<div style="margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px">
+<div style="display: flex; flex-direction: column; gap: 5px; min-width: 230px">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-family: 'DM Mono', monospace; font-size: 11px; color: #C9D1D8; text-transform: uppercase; letter-spacing: 0.05em"><span>RentCast · Developer</span><span>23 / 45 requests</span></div>
+<div role="img" aria-label="23 of 45 monthly requests used" style="height: 6px; background: #2C3843; border-radius: 3px; overflow: hidden"><div style="width: 51%; height: 100%; background: #00A0F0"></div></div>
+<div style="font-size: 12px; color: #AEB8C2">Refreshed Oct 6, 7:02 PM · browsing uses no requests</div>
+</div>
+<button type="button" style="background: #00A0F0; color: #101820; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 600; font-size: 14px; min-height: 44px">Refresh this search · ~2 requests (measured)</button>
+</div>
+</header>
+
+<section aria-label="Search" style="background: #FFFFFF; border-bottom: 1px solid #DDE2E6; padding: 16px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end">
+<div role="group" aria-label="Listing mode" style="display: inline-flex; border: 1.5px solid #101820; border-radius: 10px; overflow: hidden">
+<button type="button" aria-pressed="{{buyPressed}}" onClick="{{setBuy}}" style="{{buyStyle}}">Buy</button>
+<button type="button" aria-pressed="{{rentPressed}}" onClick="{{setRent}}" style="{{rentStyle}}">Rent</button>
+</div>
+<label style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">City, ZIP, or area</span>
+<input type="search" value="{{loc}}" onChange="{{onLoc}}" style="border: 1px solid #C3CBD2; border-radius: 8px; padding: 10px 12px; min-height: 44px; box-sizing: border-box; font-size: 15px">
+</label>
+<label style="flex: 0 1 340px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Saved search</span>
+<select value="{{mode}}" onChange="{{onSaved}}" style="border: 1px solid #C3CBD2; border-radius: 8px; padding: 10px 12px; min-height: 44px; background: #FFFFFF; font-size: 15px">
+<option value="buy">Fort Lauderdale 33308 · Buy · $250k–$900k</option>
+<option value="rent">Fort Lauderdale 33308 · Rent · $2,500–$6,000</option>
+</select>
+</label>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-bottom: 2px">
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #2A333C"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7.5l3 3 7-7" fill="none" stroke="#005A87" stroke-width="2" stroke-linecap="round"></path></svg>{{pairNote}}</span>
+<button type="button" style="align-self: flex-start; background: #FFFFFF; border: 1px solid #101820; border-radius: 8px; padding: 6px 14px; min-height: 40px; font-weight: 600; font-size: 13px">Save search</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="6">
+<button type="button" aria-label="Remove filter: {{c}}" style="display: inline-flex; align-items: center; gap: 8px; background: #EEF1F3; border: 1px solid #DDE2E6; border-radius: 999px; padding: 6px 12px; font-size: 13px; min-height: 34px">{{c}}<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="#4A5560" stroke-width="1.5" fill="none"></path></svg></button>
+</sc-for>
+<button type="button" style="background: transparent; border: 1px dashed #8A96A1; border-radius: 999px; padding: 6px 14px; font-size: 13px; min-height: 34px">More filters</button>
+<div style="margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<span style="font-size: 14px; color: #4A5560">{{countLabel}}</span>
+<sc-if value="{{hasDismissed}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{restore}}" style="background: none; border: none; color: #00699E; text-decoration: underline; font-size: 14px; padding: 4px">Show {{dismissedCount}} dismissed</button>
+</sc-if>
+<div role="group" aria-label="Sort results" style="display: inline-flex; background: #EEF1F3; border-radius: 8px; padding: 3px; gap: 2px">
+<sc-for list="{{sorts}}" as="so" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{so.pressed}}" onClick="{{so.pick}}" style="{{so.style}}">{{so.label}}</button>
+</sc-for>
+</div>
+</div>
+</div>
+</section>
+
+<main style="flex: 1; display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 24px; align-items: flex-start">
+<section aria-label="Results" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{items}}" as="item" hint-placeholder-count="4">
+<article aria-label="{{item.addr}}" style="{{item.cardStyle}}">
+<div style="display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap">
+<span style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 26px; line-height: 1.1">{{item.price}}</span>
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; background: #E1F3FD; color: #005A87; padding: 3px 8px; border-radius: 4px">{{item.status}}</span>
+</div>
+<div style="font-weight: 600; font-size: 16px">{{item.addr}}</div>
+<div style="font-size: 14px; color: #4A5560">{{item.city}} · {{item.county}}</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 13px; color: #2A333C">{{item.facts}}</div>
+<sc-if value="{{item.isProv}}" hint-placeholder-val="{{ false }}">
+<span style="align-self: flex-start; margin-top: 4px; font-size: 12px; font-weight: 500; padding: 3px 8px; border-radius: 4px; border: 1px dashed #4A5560; color: #2A333C">Provisional · {{item.prov}}</span>
+</sc-if>
+</div>
+<button type="button" onClick="{{item.pick}}" aria-expanded="{{item.expanded}}" aria-label="Score {{item.score}}, rank {{item.rank}}{{item.provAria}}. Show breakdown for {{item.addr}}" style="{{item.scoreStyle}}">
+<span style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em">{{item.scoreHead}}</span>
+<span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 30px; line-height: 1">{{item.score}}</span>
+<span style="font-family: 'DM Mono', monospace; font-size: 11px">#{{item.rank}}</span>
+</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px">
+<div style="background: #F4F6F7; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #4A5560">{{item.aL}}</div>
+<div style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px">{{item.aV}}</div>
+<span style="{{item.aChipStyle}}">{{item.aChip}}</span>
+</div>
+<div style="background: #F4F6F7; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #4A5560">{{item.bL}}</div>
+<div style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px">{{item.bV}}</div>
+<span style="font-size: 12px; color: #2A333C">{{item.bSub}}</span>
+</div>
+</div>
+<sc-if value="{{item.hasGapRow}}" hint-placeholder-val="{{ true }}">
+<div style="{{item.gapStyle}}">{{item.gapText}}</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{item.chips}}" as="c" hint-placeholder-count="3">
+<span style="{{c.style}}">{{c.t}}</span>
+</sc-for>
+</div>
+<sc-if value="{{item.hasFlag}}" hint-placeholder-val="{{ false }}">
+<div role="note" style="display: flex; gap: 10px; align-items: flex-start; background: #FCE4EF; color: #7A0040; border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.4">
+<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M8 1.5L15 14H1L8 1.5z" fill="none" stroke="#7A0040" stroke-width="1.5" stroke-linejoin="round"></path><path d="M8 6v4M8 11.5v1" stroke="#7A0040" stroke-width="1.5"></path></svg>
+<span><strong>Check this listing.</strong> {{item.flag}}</span>
+</div>
+</sc-if>
+<sc-if value="{{item.hasPrompt}}" hint-placeholder-val="{{ false }}">
+<div role="note" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; background: #FFF6B8; color: #4A3F00; border: 1.5px solid #4A3F00; border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.4">
+<span><strong>No local rates for Palm Beach County.</strong> Tax, insurance, and flood can't be estimated, so the total is incomplete.</span>
+<a href="Settings.dc.html" style="display: inline-flex; align-items: center; background: #101820; color: #FFFFFF; text-decoration: none; border-radius: 8px; padding: 0 14px; min-height: 40px; font-weight: 600; font-size: 13px">Set local rates for Palm Beach County</a>
+</div>
+</sc-if>
+<sc-if value="{{item.selected}}" hint-placeholder-val="{{ false }}">
+<div style="border-top: 1px solid #DDE2E6; padding-top: 12px; display: flex; flex-direction: column; gap: 7px">
+<div style="display: flex; justify-content: space-between; gap: 10px; font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560"><span>Score breakdown · your weights</span><a href="Settings.dc.html" style="text-transform: none; letter-spacing: 0; font-family: 'Work Sans', sans-serif; font-size: 13px">Adjust weights</a></div>
+<sc-for list="{{item.factors}}" as="f" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: minmax(120px, 170px) 1fr 150px; gap: 10px; align-items: center; font-size: 13px">
+<span>{{f.label}}</span>
+<div style="height: 8px; background: #E6EAED; border-radius: 4px; overflow: hidden"><div style="{{f.barStyle}}"></div></div>
+<span style="{{f.ptsStyle}}">{{f.ptsLabel}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; border-top: 1px solid #EEF1F3; padding-top: 10px">
+<span style="{{item.seenStyle}}">RentCast · {{item.seen}}</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" aria-pressed="{{item.savedPressed}}" onClick="{{item.toggleSave}}" style="{{item.saveStyle}}">{{item.saveLabel}}</button>
+<button type="button" aria-pressed="{{item.cmpPressed}}" onClick="{{item.toggleCmp}}" style="{{item.cmpStyle}}">{{item.cmpLabel}}</button>
+<button type="button" onClick="{{item.dismiss}}" style="background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 8px 12px; min-height: 40px; font-size: 13px; color: #4A5560">Dismiss</button>
+<a href="Property.dc.html" style="display: inline-flex; align-items: center; background: #101820; color: #FFFFFF; text-decoration: none; border-radius: 8px; padding: 8px 14px; min-height: 40px; box-sizing: border-box; font-size: 13px; font-weight: 600">Details &amp; verify</a>
+</div>
+</div>
+</article>
+</sc-for>
+<p style="margin: 6px 2px 0; font-size: 12px; color: #4A5560; line-height: 1.5">Sample data — not real listings. Monthly costs use your personal assumptions (20% down, 6.50% 30-yr fixed, maintenance 1%/yr) and each county's local rates. Local rates shown are sample placeholders. No photos: the first candidate provider does not supply them.</p>
+</section>
+
+<section aria-label="Map" style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="position: relative; height: 720px; border-radius: 12px; border: 1px solid #DDE2E6; background-color: #E9EEF1; background-image: linear-gradient(#D9E0E5 1px, transparent 1px), linear-gradient(90deg, #D9E0E5 1px, transparent 1px); background-size: 48px 48px; overflow: hidden">
+<div style="position: absolute; right: 0; top: 0; width: 14%; height: 100%; background: #C6DCEA"></div>
+<div style="position: absolute; left: 0; right: 14%; top: 18%; border-top: 2px dashed #8A96A1"></div>
+<div style="position: absolute; left: 0; right: 14%; top: 58%; border-top: 2px dashed #8A96A1"></div>
+<span style="position: absolute; left: 10px; top: calc(18% - 22px); font-family: 'DM Mono', monospace; font-size: 11px; color: #2A333C">Palm Beach · no local rates</span>
+<span style="position: absolute; left: 10px; top: calc(18% + 6px); font-family: 'DM Mono', monospace; font-size: 11px; color: #2A333C">Broward</span>
+<span style="position: absolute; left: 10px; top: calc(58% + 6px); font-family: 'DM Mono', monospace; font-size: 11px; color: #2A333C">Miami-Dade</span>
+<div style="position: absolute; left: 40%; top: 0; width: 6px; height: 100%; background: #FFFFFF"></div>
+<sc-for list="{{items}}" as="item" hint-placeholder-count="4">
+<button type="button" onClick="{{item.pick}}" aria-label="{{item.addr}}, {{item.price}}" style="{{item.pinStyle}}">{{item.pinLabel}}</button>
+</sc-for>
+<div style="position: absolute; left: 12px; bottom: 12px; right: 12px; background: #FFFFFF; border-radius: 6px; padding: 8px 10px; font-family: 'DM Mono', monospace; font-size: 11px; color: #2A333C; line-height: 1.4">Map placeholder · dashed lines are county borders · panning reads local data only</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #4A5560">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #101820"></span>Selected</span>
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #FFFFFF; border: 1.5px solid #101820"></span>In results</span>
+<span>Pins and list stay in sync.</span>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1240}}'>
+var W_BUY = {price:25, cost:20, flood:20, hoa:15, ins:10, size:10};
+var L_BUY = {price:'Price vs. budget', cost:'Own vs. rent gap', flood:'Flood zone', hoa:'HOA & assessments', ins:'Insurance & roof', size:'Size'};
+var W_RENT = {price:40, flood:25, lease:20, size:15};
+var L_RENT = {price:'Rent vs. budget', flood:'Flood zone', lease:'Lease & pets', size:'Size'};
+var EST = 'Estimate · needs ';
+var BUY = [
+ {id:'ftl', priceNum:849000, price:'$849,000', pinLabel:'$849k', status:'Active', addr:'2207 NE 32nd Ct', city:'Fort Lauderdale, FL 33308', county:'Broward', facts:'3 bd · 2 ba · 1,850 sf · Single-family · Built 1964', own:7171, state:'est', stateText:EST+'flood quote', rentV:'$5,200', rentSub:'same home · listed Sep 28', rent:5200, chips:[['Flood zone AE','r'],['No HOA · confirmed','n'],['Roof 2020','n'],['Impact windows','n'],['Also listed for rent','i']], flag:'', prov:'', seen:'last seen 1 day ago', stale:false, age:1, pin:[54,29], sub:{price:80,cost:75,flood:70,hoa:100,ins:95,size:100}},
+ {id:'mir', priceNum:465000, price:'$465,000', pinLabel:'$465k', status:'Active', addr:'3418 SW 129th Ter', city:'Miramar, FL 33027', county:'Broward', facts:'3 bd · 2.5 ba · 1,700 sf · Townhome · Built 2016', own:4525, state:'est', stateText:EST+'insurance quote, assessments not checked +1', rentV:'$3,600', rentSub:'3 local comps · median · within 0.9 mi', rent:3600, chips:[['Flood zone X','n'],['HOA $260/mo','n'],['CDD $2,400/yr','w']], flag:'', prov:'', seen:'last seen 2 days ago', stale:false, age:2, pin:[22,52], sub:{price:85,cost:80,flood:95,hoa:70,ins:70,size:75}},
+ {id:'brk', priceNum:529000, price:'$529,000', pinLabel:'$529k', status:'Active', addr:'1245 Brickell Bay Dr, Unit 1408', city:'Miami, FL 33131', county:'Miami-Dade', facts:'1 bd · 1 ba · 780 sf · High-rise condo · Built 2008', own:5242, state:'est', stateText:EST+'HO-6 quote, flood quote +2', rentV:'$3,100', rentSub:'4 local comps · median · within 0.3 mi', rent:3100, chips:[['Flood zone AE','r'],['HOA $890/mo','w'],['Milestone inspection filed','n'],['Reserve study complete','n']], flag:'', prov:'', seen:'last seen today', stale:false, age:0, pin:[64,88], sub:{price:95,cost:70,flood:70,hoa:80,ins:85,size:55}},
+ {id:'m37', priceNum:285000, price:'$285,000', pinLabel:'$285k', status:'Active', addr:'3250 NE 2nd Ave, Unit 507', city:'Miami, FL 33137', county:'Miami-Dade', facts:'2 bd · 2 ba · 2,900 sf (listed) · Condo · Built 1981', own:3018, state:'est', stateText:EST+'HOA confirmation, HO-6 quote +3', rentV:'$3,300', rentSub:'3 local comps · median · within 0.4 mi', rent:3300, chips:[['Flood zone X','n'],['HOA est. $640/mo','w']], flag:'$98/sq ft; this area runs about $450–$650 (sample). The living area or price may be wrong.', prov:'check price per sq ft', seen:'last seen 3 days ago', stale:false, age:3, pin:[62,78], sub:{price:100,cost:100,flood:95,hoa:50,ins:25,size:null}, unknownWhy:{size:'flagged value'}},
+ {id:'nmi', priceNum:560000, price:'$560,000', pinLabel:'$560k', status:'Active', addr:'1460 NE 135th St', city:'North Miami, FL 33161', county:'Miami-Dade', facts:'3 bd · 2 ba · 1,400 sf · Single-family · Built 1955', own:4896, state:'est', stateText:EST+'insurance quote, flood quote +3', rentV:'Unavailable', rentSub:'only 2 local comps', rent:null, rentReason:'rent unavailable', chips:[['Flood zone X','n'],['Roof 2006 · may limit carriers','w'],['HOA not confirmed','w']], flag:'', prov:'1 factor unknown: comparable rent', seen:'last seen 9 days ago · stale', stale:true, age:9, pin:[58,66], sub:{price:85,cost:null,flood:95,hoa:90,ins:40,size:80}, unknownWhy:{cost:'rent unavailable'}},
+ {id:'boc', priceNum:615000, price:'$615,000', pinLabel:'$615k', status:'Active', addr:'618 NE 7th St', city:'Boca Raton, FL 33432', county:'Palm Beach · outside your markets', facts:'3 bd · 2 ba · 1,600 sf · Single-family · Built 1978', own:3623, state:'inc', stateText:'Incomplete · no Palm Beach rates', rentV:'Unavailable', rentSub:'no Rent search covers this area', rent:null, rentReason:'total incomplete', chips:[['Flood zone X','n'],['Picked up by radius at Broward line','i']], flag:'', prompt:true, prov:'2 factors unknown: comparable rent, insurance', seen:'last seen 2 days ago', stale:false, age:2, pin:[56,8], sub:{price:80,cost:null,flood:95,hoa:90,ins:null,size:75}, unknownWhy:{cost:'no rent, no county rates', ins:'no county rates'}},
+ {id:'hol', priceNum:389000, price:'$389,000', pinLabel:'$389k', status:'Active', addr:'2801 N Ocean Dr, Unit 9B', city:'Hollywood, FL 33019', county:'Broward', facts:'2 bd · 2 ba · 1,100 sf · Oceanfront condo · Built 1972', own:4661, state:'inc', stateText:'Incomplete · special assessment amount unknown', rentV:'$2,900', rentSub:'5 local comps · median · within 0.5 mi', rent:2900, rentReason:'total incomplete', chips:[['Flood zone VE','r'],['HOA $1,150/mo','w'],['Special assessment pending · amount unknown','r'],['40-year recertification in progress','w'],['Reserve study pending','w']], flag:'', prov:'1 factor unknown: own-vs-rent gap (incomplete total)', seen:'last seen 1 day ago', stale:false, age:1, pin:[80,47], sub:{price:100,cost:null,flood:20,hoa:40,ins:90,size:80}, unknownWhy:{cost:'total incomplete'}}
+];
+var RENT = [
+ {id:'r1', priceNum:5200, price:'$5,200/mo', pinLabel:'$5,200', status:'Active', addr:'2207 NE 32nd Ct', city:'Fort Lauderdale, FL 33308', county:'Broward', facts:'3 bd · 2 ba · 1,850 sf · Single-family · Built 1964', rentV:'$5,200', lease:'12 mo', leaseSub:'pets OK', chips:[['Flood zone AE','r'],['Also for sale · $849,000','i']], seen:'last seen 1 day ago', age:1, pin:[54,29], sub:{price:60,flood:70,lease:90,size:90}},
+ {id:'r2', priceNum:3550, price:'$3,550/mo', pinLabel:'$3,550', status:'Active', addr:'3502 SW 128th Ave', city:'Miramar, FL 33027', county:'Broward', facts:'3 bd · 2.5 ba · 1,680 sf · Townhome · Built 2017', rentV:'$3,550', lease:'12 mo', leaseSub:'HOA approval required', chips:[['Flood zone X','n']], seen:'last seen today', age:0, pin:[22,54], sub:{price:85,flood:95,lease:70,size:80}},
+ {id:'r3', priceNum:3400, price:'$3,400/mo', pinLabel:'$3,400', status:'Active', addr:'1500 Bay Rd, Unit 1204', city:'Miami Beach, FL 33139', county:'Miami-Dade', facts:'2 bd · 2 ba · 1,050 sf · Condo · Built 1999', rentV:'$3,400', lease:'12 mo', leaseSub:'no pets', chips:[['Flood zone AE','r'],['Possible duplicate · review','w']], seen:'last seen today', age:0, pin:[78,74], sub:{price:90,flood:70,lease:50,size:60}},
+ {id:'r4', priceNum:3150, price:'$3,150/mo', pinLabel:'$3,150', status:'Active', addr:'1001 Brickell Bay Dr, Unit 2010', city:'Miami, FL 33131', county:'Miami-Dade', facts:'1 bd · 1 ba · 760 sf · High-rise condo · Built 2006', rentV:'$3,150', lease:'12 mo', leaseSub:'cats only', chips:[['Flood zone AE','r']], seen:'last seen 3 days ago', age:3, pin:[64,90], sub:{price:92,flood:70,lease:65,size:45}}
+];
+var TONES = {n:'background:#EEF1F3;color:#2A333C;', w:'background:#FFF6B8;color:#4A3F00;', r:'background:#FCE4EF;color:#8A0049;', i:'background:#E1F3FD;color:#005A87;'};
+var CHIP_BASE = 'display:inline-block;font-size:12px;font-weight:500;padding:4px 9px;border-radius:5px;';
+var STATE_CHIP = {
+  calc: 'align-self:flex-start;font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:#FFFFFF;color:#101820;border:1px solid #101820;',
+  est: 'align-self:flex-start;font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:#FFF6B8;color:#4A3F00;border:1px solid #4A3F00;',
+  inc: 'align-self:flex-start;font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:#FCE4EF;color:#7A0040;border:1px solid #7A0040;'
+};
+var BTN = 'border-radius:8px;padding:8px 12px;min-height:40px;font-size:13px;font-weight:600;';
+function money(v) { return '$' + Math.round(Math.abs(v)).toLocaleString('en-US'); }
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var s = this.state || {};
+    var mode = s.mode || 'buy';
+    var sort = s.sort || 'score';
+    var saved = s.saved || {ftl:true, r1:true};
+    var cmp = s.cmp || {ftl:true, mir:true, nmi:true, hol:true};
+    var dis = s.dismissed || {};
+    var buy = mode === 'buy';
+    var W = buy ? W_BUY : W_RENT, L = buy ? L_BUY : L_RENT, src = buy ? BUY : RENT;
+    var keys = Object.keys(W);
+    var list = src.map(function (x) {
+      var factors = keys.map(function (k) {
+        var v = x.sub[k];
+        var unknown = v === null || v === undefined;
+        var pts = unknown ? 0 : W[k] * v / 100;
+        var why = (x.unknownWhy && x.unknownWhy[k]) || 'unknown';
+        return {
+          label: L[k],
+          ptsLabel: unknown ? 'Unknown · scored 0 / ' + W[k] : pts.toFixed(1) + ' / ' + W[k],
+          ptsStyle: 'font-family:\'DM Mono\',monospace;font-size:12px;text-align:right;' + (unknown ? 'color:#7A0040;' : ''),
+          barStyle: 'height:100%;background:#00A0F0;width:' + (unknown ? 0 : v) + '%',
+          why: why
+        };
+      });
+      var score = Math.round(keys.reduce(function (a, k) { var v = x.sub[k]; return a + (v == null ? 0 : W[k] * v / 100); }, 0));
+      return Object.assign({}, x, { score: score, factors: factors });
+    });
+    // Ranks always follow score order, whatever the selected sort.
+    var byScore = list.slice().sort(function (a, b) { return b.score - a.score; });
+    var rankOf = {};
+    byScore.forEach(function (x, i) { rankOf[x.id] = i + 1; });
+    var dismissedCount = list.filter(function (x) { return dis[x.id]; }).length;
+    list = list.filter(function (x) { return !dis[x.id]; });
+    if (sort === 'score') list.sort(function (a, b) { return b.score - a.score; });
+    else if (sort === 'price') list.sort(function (a, b) { return a.priceNum - b.priceNum; });
+    else list.sort(function (a, b) { return a.age - b.age; });
+    var sel = (s.sel && list.some(function (x) { return x.id === s.sel; })) ? s.sel : (list[0] && list[0].id);
+    var items = list.map(function (x) {
+      var on = x.id === sel, sv = !!saved[x.id], cp = !!cmp[x.id];
+      var prov = !!x.prov;
+      var v = {};
+      if (buy) {
+        var inc = x.state === 'inc';
+        v.aL = 'Est. monthly to own';
+        v.aV = inc ? 'at least ' + money(x.own) : money(x.own);
+        v.aChip = x.stateText;
+        v.aChipStyle = STATE_CHIP[x.state];
+        v.bL = 'Comparable rent';
+        v.bV = x.rentV;
+        v.bSub = x.rentSub;
+        var showGap = !inc && x.rent != null;
+        v.hasGapRow = true;
+        if (showGap) {
+          var d = x.own - x.rent;
+          v.gapText = 'Own vs. rent: ' + (x.state === 'est' ? '≈ ' : '') + (d >= 0 ? '+' : '−') + money(d) + '/mo ' + (d >= 0 ? 'to own' : 'cheaper to own');
+          v.gapStyle = 'font-size:14px;font-weight:600;padding:2px 2px;';
+        } else {
+          v.gapText = 'No own-vs-rent gap · ' + (inc ? 'total incomplete' : x.rentReason);
+          v.gapStyle = 'font-size:13px;color:#4A5560;padding:2px 2px;';
+        }
+      } else {
+        v.aL = 'Monthly rent'; v.aV = x.rentV; v.aChip = 'Listing'; v.aChipStyle = STATE_CHIP.calc;
+        v.bL = 'Lease'; v.bV = x.lease; v.bSub = x.leaseSub; v.hasGapRow = false; v.gapText = ''; v.gapStyle = '';
+      }
+      return Object.assign({}, x, v, {
+        rank: rankOf[x.id],
+        isProv: prov,
+        provAria: prov ? ', provisional' : '',
+        scoreHead: prov ? 'PROVISIONAL' : 'SCORE',
+        selected: on,
+        expanded: on ? 'true' : 'false',
+        hasFlag: !!x.flag,
+        hasPrompt: !!x.prompt,
+        pick: function () { self.setState({ sel: x.id }); },
+        toggleSave: function () { var n = Object.assign({}, saved); n[x.id] = !sv; self.setState({ saved: n }); },
+        toggleCmp: function () { var n = Object.assign({}, cmp); n[x.id] = !cp; self.setState({ cmp: n }); },
+        dismiss: function () { var n = Object.assign({}, dis); n[x.id] = true; self.setState({ dismissed: n }); },
+        chips: x.chips.map(function (c) { return { t: c[0], style: CHIP_BASE + TONES[c[1]] }; }),
+        cardStyle: 'background:#FFFFFF;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;border:' + (on ? '2px solid #101820' : '1px solid #DDE2E6') + ';',
+        scoreStyle: 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:96px;min-height:80px;border-radius:10px;' + (prov ? 'border-style:dashed;' : '') + (on ? 'border-width:2px;border-color:#101820;' + (prov ? 'border-style:dashed;' : 'border-style:solid;') + 'background:#101820;color:#FFFFFF;' : 'border-width:1.5px;border-color:#101820;' + (prov ? 'border-style:dashed;' : 'border-style:solid;') + 'background:#FFFFFF;color:#101820;'),
+        seenStyle: 'font-family:\'DM Mono\',monospace;font-size:12px;padding:3px 6px;border-radius:4px;' + (x.stale ? 'background:#FFF6B8;color:#4A3F00;' : 'color:#4A5560;'),
+        savedPressed: sv ? 'true' : 'false',
+        saveLabel: sv ? 'Saved' : 'Save',
+        saveStyle: BTN + (sv ? 'background:#101820;color:#FFFFFF;border:1px solid #101820;' : 'background:#FFFFFF;color:#101820;border:1px solid #101820;'),
+        cmpPressed: cp ? 'true' : 'false',
+        cmpLabel: cp ? 'In compare' : 'Compare',
+        cmpStyle: BTN + (cp ? 'background:#E1F3FD;color:#005A87;border:1px solid #00A0F0;' : 'background:#FFFFFF;color:#101820;border:1px solid #C3CBD2;'),
+        pinStyle: 'position:absolute;left:' + x.pin[0] + '%;top:' + x.pin[1] + '%;transform:translate(-50%,-50%);font-family:\'DM Mono\',monospace;font-size:12px;font-weight:500;padding:6px 9px;min-height:32px;border-radius:6px;border:1.5px solid #101820;box-shadow:0 1px 3px rgba(16,24,32,0.25);' + (on ? 'background:#101820;color:#FFFFFF;z-index:2;' : 'background:#FFFFFF;color:#101820;')
+      });
+    });
+    var cmpCount = BUY.filter(function (x) { return cmp[x.id]; }).length;
+    var seg = 'border:none;border-radius:6px;padding:6px 12px;min-height:34px;font-size:13px;font-weight:500;';
+    var sorts = [['score','Your score'],['newest','Newest'],['price','Price']].map(function (o) {
+      var on = sort === o[0];
+      return { label: o[1], pressed: on ? 'true' : 'false', pick: function () { self.setState({ sort: o[0] }); }, style: seg + (on ? 'background:#FFFFFF;color:#101820;box-shadow:0 1px 2px rgba(16,24,32,0.2);' : 'background:transparent;color:#4A5560;') };
+    });
+    var modeBtn = 'border:none;padding:10px 26px;min-height:44px;font-family:Outfit,sans-serif;font-weight:600;font-size:16px;';
+    return {
+      mode: mode,
+      loc: s.loc != null ? s.loc : 'Fort Lauderdale, FL 33308',
+      onLoc: function (e) { self.setState({ loc: e.target.value }); },
+      onSaved: function (e) { self.setState({ mode: e.target.value, sel: null }); },
+      pairNote: buy ? 'Paired Rent search on · needed for local comps' : 'Paired Buy search on',
+      buyPressed: buy ? 'true' : 'false',
+      rentPressed: buy ? 'false' : 'true',
+      setBuy: function () { self.setState({ mode: 'buy', sel: null }); },
+      setRent: function () { self.setState({ mode: 'rent', sel: null }); },
+      buyStyle: modeBtn + (buy ? 'background:#101820;color:#FFFFFF;' : 'background:#FFFFFF;color:#101820;'),
+      rentStyle: modeBtn + (buy ? 'background:#FFFFFF;color:#101820;' : 'background:#101820;color:#FFFFFF;'),
+      chips: buy ? ['Within 25 mi of 33308', '$250k–$900k', '1+ bd', '1+ ba', 'House, Townhome, Condo', 'Active only'] : ['Within 25 mi of 33308', '$2,500–$6,000/mo', '1+ bd', 'Long-term lease', 'Active only'],
+      countLabel: items.length + ' results · newest data Oct 6',
+      hasDismissed: dismissedCount > 0,
+      dismissedCount: dismissedCount,
+      restore: function () { self.setState({ dismissed: {} }); },
+      sorts: sorts,
+      items: items,
+      cmpCount: cmpCount
+    };
+  }
+}
+</script>
+</body>
+</html>

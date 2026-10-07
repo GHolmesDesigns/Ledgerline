@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Compare shortlist</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&amp;family=Work+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F6F7;color:#101820;font-family:'Work Sans',system-ui,sans-serif}
+a{color:#00699E}a:hover{color:#004B72}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid #00A0F0;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; font-family: 'Work Sans', system-ui, sans-serif; color: #101820; background: #F4F6F7">
+
+<header style="background: #101820; color: #FFFFFF; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg width="36" height="24" viewBox="0 0 36 24" aria-hidden="true"><circle cx="11" cy="12" r="9" fill="#00A0F0" opacity="0.9"></circle><circle cx="18" cy="12" r="9" fill="#E80078" opacity="0.8"></circle><circle cx="25" cy="12" r="9" fill="#F8E000" opacity="0.75"></circle></svg>
+<div>
+<div style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px; line-height: 1.1">Florida Homes</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #AEB8C2; letter-spacing: 0.06em; text-transform: uppercase">Personal dashboard · runs locally</div>
+</div>
+</div>
+<nav aria-label="Sections" style="display: flex; flex-wrap: wrap; gap: 4px">
+<a href="Main.dc.html" style="color: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 14px">Search</a>
+<a href="Compare.dc.html" aria-current="page" style="color: #101820; background: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 14px">Compare (4)</a>
+<a href="Settings.dc.html" style="color: #FFFFFF; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 14px">Ranking &amp; data</a>
+</nav>
+<div style="margin-left: auto; font-family: 'DM Mono', monospace; font-size: 11px; color: #C9D1D8; text-transform: uppercase; letter-spacing: 0.05em">RentCast · Developer · 23 / 45 requests</div>
+</header>
+
+<main style="flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 16px; max-width: 1440px; width: 100%; box-sizing: border-box; margin: 0 auto">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #4A5560">Shortlist · Buy · 4 of 4</div>
+<h1 style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 32px">Owning vs. renting, side by side</h1>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 10px; padding: 10px 14px">
+<div style="display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline"><span style="font-family: 'DM Mono', monospace; font-size: 12px; color: #2A333C">Personal: 20% down · 6.50% 30-yr · maintenance 1%/yr</span><a href="Settings.dc.html" style="font-size: 13px; font-weight: 600">Edit personal</a></div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline"><span style="font-family: 'DM Mono', monospace; font-size: 12px; color: #2A333C">Local: Miami-Dade (sample) · Broward (sample)</span><a href="Settings.dc.html" style="font-size: 13px; font-weight: 600">Edit local rates</a></div>
+</div>
+</div>
+
+<div aria-label="Cost tag legend" style="display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #2A333C">
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Cost tags</span>
+<sc-for list="{{legend}}" as="lg" hint-placeholder-count="7">
+<span style="display: inline-flex; align-items: center; gap: 6px"><span style="{{lg.style}}">{{lg.tag}}</span>{{lg.text}}</span>
+</sc-for>
+</div>
+
+<div style="overflow-x: auto; background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px">
+<div role="table" aria-label="Comparison of four shortlisted purchase listings" style="min-width: 1100px; display: flex; flex-direction: column; font-size: 14px">
+<div role="row" style="display: grid; grid-template-columns: 210px repeat(4, minmax(0, 1fr)); border-bottom: 1px solid #DDE2E6">
+<div role="columnheader" style="padding: 18px 18px 14px; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Property</div>
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+<div role="columnheader" style="padding: 18px 16px 14px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: Outfit, sans-serif; font-weight: 600; font-size: 17px">{{c.name}}</span>
+<span style="font-size: 13px; color: #4A5560">{{c.sub}}</span>
+<button type="button" aria-label="Remove {{c.name}} from compare" style="align-self: flex-start; background: none; border: none; padding: 4px 0; font-size: 12px; color: #00699E; text-decoration: underline">Remove</button>
+</div>
+</sc-for>
+</div>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+<div role="rowgroup">
+<div role="row" style="background: #F4F6F7"><div role="columnheader" style="padding: 16px 18px 8px; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #2A333C">{{g.title}}</div></div>
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="4">
+<div role="row" style="{{r.rowStyle}}">
+<div role="rowheader" style="{{r.thStyle}}">{{r.label}}<sc-if value="{{r.hasHint}}" hint-placeholder-val="{{ false }}"><span style="display: block; font-weight: 400; font-size: 12px; color: #4A5560">{{r.hint}}</span></sc-if></div>
+<sc-for list="{{r.cells}}" as="cell" hint-placeholder-count="4">
+<div role="cell" style="{{cell.tdStyle}}">
+<span style="{{cell.vStyle}}">{{cell.v}}</span>
+<sc-if value="{{cell.hasTag}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: #4A5560"><span style="{{cell.tagStyle}}">{{cell.tag}}</span>{{cell.note}}</span></sc-if>
+<sc-if value="{{cell.hasChip}}" hint-placeholder-val="{{ false }}"><span style="{{cell.chipStyle}}">{{cell.chip}}</span></sc-if>
+<sc-if value="{{cell.lowest}}" hint-placeholder-val="{{ false }}"><span style="font-family: 'DM Mono', monospace; font-weight: 500; font-size: 11px; color: #004B72; background: #E1F3FD; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em">Lowest complete total</span></sc-if>
+<sc-if value="{{cell.hasNote}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #4A5560; line-height: 1.4">{{cell.plain}}</span></sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+<p style="margin: 0; font-size: 12px; color: #4A5560; line-height: 1.5">Sample data — not real listings. Every figure is a monthly estimate from your personal assumptions and each county's local rates (sample placeholders), not a quote or an offer. The total takes the weakest line: any Est. makes it an Estimate, any Unknown makes it Incomplete. Incomplete totals show only the known subtotal and never get an own-vs-rent gap.</p>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1240}}'>
+var TAG = 'font-family:\'DM Mono\',monospace;font-size:11px;font-weight:500;padding:1px 6px;border-radius:4px;';
+var TAGS = {
+  'Listing': TAG + 'border:1px solid #8A96A1;color:#2A333C;background:#FFFFFF;',
+  'Calc': TAG + 'border:1px solid #8A96A1;color:#2A333C;background:#FFFFFF;',
+  'Quote': TAG + 'border:1px solid #005A87;color:#005A87;background:#E1F3FD;',
+  'Doc': TAG + 'border:1px solid #005A87;color:#005A87;background:#E1F3FD;',
+  'N/A': TAG + 'border:1px solid #8A96A1;color:#4A5560;background:#EEF1F3;',
+  'Est.': TAG + 'border:1px solid #4A3F00;color:#4A3F00;background:#FFF6B8;',
+  'Unknown': TAG + 'border:1px solid #7A0040;color:#7A0040;background:#FCE4EF;'
+};
+var CHIP = {
+  est: 'font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:#FFF6B8;color:#4A3F00;border:1px solid #4A3F00;line-height:1.35;',
+  inc: 'font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:#FCE4EF;color:#7A0040;border:1px solid #7A0040;line-height:1.35;',
+  calc: 'font-size:12px;font-weight:600;padding:3px 8px;border-radius:4px;background:#FFFFFF;color:#101820;border:1px solid #101820;line-height:1.35;'
+};
+var LEGEND = [
+  ['Listing','from the listing'], ['Calc','calculated from your inputs'], ['Quote','insurer quote you entered'], ['Doc','from a document you checked'],
+  ['N/A','does not apply · counts as $0'], ['Est.','estimate or not checked'], ['Unknown','missing · total incomplete']
+];
+var COLS = [
+  {name:'2207 NE 32nd Ct', sub:'Single-family · Fort Lauderdale 33308 · Broward'},
+  {name:'3418 SW 129th Ter', sub:'Townhome · Miramar 33027 · Broward'},
+  {name:'1460 NE 135th St', sub:'Single-family · North Miami 33161 · Miami-Dade'},
+  {name:'2801 N Ocean Dr, 9B', sub:'Oceanfront condo · Hollywood 33019 · Broward'}
+];
+// cell: [value, tag, note]  · tag null = plain text cell
+var GROUPS = [
+ {title:'Listing', rows:[
+  {label:'List price', big:true, cells:[['$849,000'],['$465,000'],['$560,000'],['$389,000']]},
+  {label:'Status · last seen', cells:[['Active · 1 day ago'],['Active · 2 days ago'],['Active · 9 days ago (stale)', null, null, 'stale'],['Active · 1 day ago']]},
+  {label:'Beds · baths · area', mono:true, cells:[['3 · 2 · 1,850 sf'],['3 · 2.5 · 1,700 sf'],['3 · 2 · 1,400 sf'],['2 · 2 · 1,100 sf']]},
+  {label:'Your score', cells:[['84 · #1'],['81 · #2'],['66 · #5', null, null, null, 'Provisional · 1 factor unknown: comparable rent'],['52 · #7', null, null, null, 'Provisional · own-vs-rent gap unknown (incomplete total)']], score:true}
+ ]},
+ {title:'Estimated monthly cost to own', rows:[
+  {label:'Principal & interest', cells:[['$4,293','Calc'],['$2,351','Calc'],['$2,832','Calc'],['$1,967','Calc']]},
+  {label:'Property tax', hint:'purchase price × county millage (sample)', cells:[['$1,380','Calc','Broward'],['$756','Calc','Broward'],['$933','Calc','Miami-Dade'],['$632','Calc','Broward']]},
+  {label:'Homeowners / HO-6', cells:[['$610','Quote','entered Oct 5'],['$520','Est.','house default · townhome'],['$560','Est.','county default'],['$110','Est.','HO-6 default']]},
+  {label:'Flood insurance', cells:[['$180','Est.','enter a quote'],['$50','Est.','zone X default'],['$50','Est.','zone X default'],['$420','Est.','zone VE default']]},
+  {label:'HOA', cells:[['N/A','N/A','no association (confirmed)'],['$260','Listing'],['$0','Est.','HOA not confirmed'],['$1,150','Listing']]},
+  {label:'Non-ad valorem / CDD', cells:[['$0','Doc','no CDD on tax bill'],['$200','Doc','$2,400/yr on tax bill'],['$54','Est.','CDD not checked'],['$58','Est.','CDD not checked']]},
+  {label:'Special assessment', cells:[['N/A','N/A','no association (confirmed)'],['$0','Est.','not checked'],['$0','Est.','not checked'],['Unknown','Unknown','pending · amount unknown']]},
+  {label:'Maintenance reserve', cells:[['$708','Calc'],['$388','Calc'],['$467','Calc'],['$324','Calc']], lastLine:true},
+  {label:'Total to own', total:true, cells:[
+    {v:'$7,171', chip:'Estimate · needs flood quote', st:'est'},
+    {v:'$4,525', chip:'Estimate · needs insurance quote, assessments not checked +1', st:'est', lowest:true},
+    {v:'$4,896', chip:'Estimate · needs insurance quote, flood quote +3', st:'est'},
+    {v:'at least $4,661 + special assessment', chip:'Incomplete · special assessment amount unknown', st:'inc'}
+  ]},
+  {label:'Comparable rent', cells:[['$5,200', null, null, null, 'same home · listed Sep 28'],['$3,600', null, null, null, '3 local comps · median · within 0.9 mi'],['Unavailable', null, null, null, 'only 2 local comps'],['$2,900', null, null, null, '5 local comps · median · within 0.5 mi']]},
+  {label:'Own vs. rent', cells:[['≈ +$1,971/mo'],['≈ +$925/mo'],['Not shown', null, null, 'muted', 'rent unavailable'],['Not shown', null, null, 'muted', 'total incomplete']]},
+  {label:'Upfront cash', hint:'down payment + one-time assessments', cells:[['$169,800', null, null, null, 'down payment · no association'],['$93,000', null, null, null, 'down payment · assessments not checked'],['$112,000', null, null, null, 'down payment · assessments not checked'],['$77,800 + assessment', null, null, null, 'assessment amount unknown']]}
+ ]},
+ {title:'Florida cost & risk', rows:[
+  {label:'FEMA flood zone', hint:'zone X is lower risk, not no risk', cells:[['AE', null, null, 'risk', 'flood policy required with a mortgage'],['X'],['X'],['VE', null, null, 'risk', 'coastal high-hazard · flood policy required']]},
+  {label:'Insurance & wind mitigation', cells:[['Roof 2020 · impact windows', null, null, null, 'built 1964 · homeowners quote on file'],['Built 2016', null, null, null, 'wind-mitigation report not entered'],['Roof 2006 · may limit carriers', null, null, 'warn', 'built 1955 · no wind-mitigation report'],['Association roof', null, null, null, 'oceanfront wind exposure · built 1972']]},
+  {label:'Condo & association', cells:[['No association (confirmed)'],['HOA $260 · CDD on tax bill', null, null, null, 'not a condo · no milestone rules'],['HOA not confirmed', null, null, 'warn'],['Special assessment pending · amount unknown', null, null, 'risk', 'Milestone inspection filed · County 40-year recertification in progress · Reserve study pending']]}
+ ]},
+ {title:'Notes & verification', rows:[
+  {label:'Your notes', small:true, cells:[['Impact windows throughout. Get a flood quote before touring.'],['Ask HOA for the CDD payoff schedule.'],['Need 2 more rent comps; confirm no HOA.'],['Get the assessment letter and recertification status first.']]},
+  {label:'Verify', cells:[['MLS # and agent', null, null, 'link'],['MLS # and agent', null, null, 'link'],['MLS # and agent', null, null, 'link'],['MLS # and agent', null, null, 'link']]}
+ ]}
+];
+var TH = 'padding:10px 18px;font-weight:500;';
+class Component extends DCLogic {
+  renderVals() {
+    var groups = GROUPS.map(function (g) {
+      return { title: g.title, rows: g.rows.map(function (r) {
+        var line = r.lastLine ? '1px solid #DDE2E6' : '1px solid #EEF1F3';
+        return {
+          label: r.label, hint: r.hint || '', hasHint: !!r.hint,
+          rowStyle: 'display:grid;grid-template-columns:210px repeat(4,minmax(0,1fr));border-bottom:' + line + ';',
+          thStyle: TH + (r.total ? 'font-weight:600;' : ''),
+          cells: r.cells.map(function (c) {
+            if (!Array.isArray(c)) {
+              return {
+                v: c.v, tdStyle: 'padding:12px 16px;display:flex;flex-direction:column;gap:4px;align-items:flex-start;',
+                vStyle: 'font-family:Outfit,sans-serif;font-weight:700;font-size:' + (c.st === 'inc' ? '16px' : '20px') + ';',
+                hasTag: false, tag: '', tagStyle: '', note: '',
+                hasChip: true, chip: c.chip, chipStyle: CHIP[c.st],
+                lowest: !!c.lowest, hasNote: false, plain: ''
+              };
+            }
+            var v = c[0], tag = c[1], note = c[2], kind = c[3], plain = c[4];
+            var vStyle = r.big ? 'font-family:Outfit,sans-serif;font-weight:600;font-size:18px;' :
+              (tag || r.mono) ? 'font-family:\'DM Mono\',monospace;' :
+              r.score ? 'font-family:Outfit,sans-serif;font-weight:700;font-size:18px;' :
+              r.small ? 'font-size:13px;line-height:1.5;' : '';
+            if (kind === 'stale') vStyle += 'background:#FFF6B8;color:#4A3F00;padding:2px 6px;border-radius:4px;';
+            if (kind === 'warn') vStyle += 'background:#FFF6B8;color:#4A3F00;padding:2px 6px;border-radius:4px;';
+            if (kind === 'risk') vStyle += 'background:#FCE4EF;color:#8A0049;padding:2px 6px;border-radius:4px;font-weight:600;';
+            if (kind === 'muted') vStyle += 'color:#4A5560;';
+            if (kind === 'link') vStyle += 'color:#00699E;text-decoration:underline;';
+            if (/^≈/.test(v)) vStyle += 'font-family:\'DM Mono\',monospace;font-weight:500;';
+            return {
+              v: v, tdStyle: 'padding:10px 16px;display:flex;flex-direction:column;gap:4px;align-items:flex-start;',
+              vStyle: vStyle,
+              hasTag: !!tag, tag: tag || '', tagStyle: tag ? TAGS[tag] : '', note: note || '',
+              hasChip: false, chip: '', chipStyle: '', lowest: false,
+              hasNote: !!plain, plain: plain || ''
+            };
+          })
+        };
+      }) };
+    });
+    return {
+      cols: COLS,
+      groups: groups,
+      legend: LEGEND.map(function (l) { return { tag: l[0], text: l[1], style: TAGS[l[0]] }; })
+    };
+  }
+}
+</script>
+</body>
+</html>
