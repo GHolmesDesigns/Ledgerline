@@ -98,3 +98,23 @@ test('no sheets at all is an empty result, not an error', async () => {
     assert.deepEqual(loadSheets(join(dir, 'does-not-exist')).rows, []);
   });
 });
+
+test('checkedProviderIds collects ids from still-available sheets only, and skips the sheet about to be written', async () => {
+  const { checkedProviderIds } = await import('./sheet.mjs');
+  await withTempDir(async (dir) => {
+    writeFileSync(join(dir, 'picks-1.csv'), csv([record({ provider_id: 'inv-a' }), record({ provider_id: 'inv-b', classification: 'Available' })]));
+    writeFileSync(join(dir, 'coverage.csv'), csv([record({ direction: PUBLIC_TO_PROVIDER, provider_id: 'inv-c' })])); // a coverage row is not a still-available check
+    writeFileSync(join(dir, 'picks-2.csv'), csv([record({ provider_id: 'inv-d' })]));
+    assert.deepEqual([...checkedProviderIds(dir, 'picks-2.csv')].sort(), ['inv-a', 'inv-b']);
+    assert.deepEqual([...checkedProviderIds(dir)].sort(), ['inv-a', 'inv-b', 'inv-d']);
+    assert.deepEqual([...checkedProviderIds(join(dir, 'nope'))], []);
+  });
+});
+
+test('checkedProviderIds still reads a sheet that has bad cells, since it may be half filled in', async () => {
+  const { checkedProviderIds } = await import('./sheet.mjs');
+  await withTempDir(async (dir) => {
+    writeFileSync(join(dir, 'picks-1.csv'), csv([record({ provider_id: 'inv-a', classification: 'Maybe' })]));
+    assert.deepEqual([...checkedProviderIds(dir)], ['inv-a']);
+  });
+});

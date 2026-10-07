@@ -18,6 +18,7 @@ const STATUS_GROUPS = new Map([
 ]);
 
 const MODES = new Map([['sale', 'sale'], ['buy', 'sale'], ['rental', 'rental'], ['rent', 'rental']]);
+export const modeOf = (text) => MODES.get(String(text ?? '').trim().toLowerCase());
 const CLASSIFICATIONS = {
   [PROVIDER_TO_PUBLIC]: ['available', 'not available', 'not found', 'ambiguous'],
   [PUBLIC_TO_PROVIDER]: ['found', 'not found'],
@@ -85,6 +86,22 @@ export function normalizeRow(record, line, problems) {
     }
   }
   return row;
+}
+
+// Provider ids already in a still-available sheet, so extra picks are new listings. Lenient on purpose: a sheet
+// half-way through being filled in still has its ids. `skipFile` is the sheet about to be written, so rerunning
+// the same seed gives the same picks.
+export function checkedProviderIds(picksDir, skipFile = null) {
+  const ids = new Set();
+  if (!existsSync(picksDir)) return ids;
+  for (const name of readdirSync(picksDir).filter((f) => f.toLowerCase().endsWith('.csv') && f !== skipFile)) {
+    const [header = [], ...records] = parseCsv(readFileSync(join(picksDir, name), 'utf8'));
+    const col = (c) => header.map(lower).indexOf(c);
+    const [id, direction] = [col('provider_id'), col('direction')];
+    if (id < 0 || direction < 0) continue;
+    for (const cells of records) if (lower(cells[direction]) === PROVIDER_TO_PUBLIC && cells[id]?.trim()) ids.add(cells[id].trim());
+  }
+  return ids;
 }
 
 export class SheetError extends Error {
