@@ -2,7 +2,7 @@
 
 **Status: draft.** The pull is done and its measures are scored below. The 80 manual checks are not recorded yet, so four of the six measures, the decision, and the photo-less decision are pending. Nothing in a pending section is an estimate; it is blank on purpose.
 
-Follows plan version 2.4 (Provider evaluation, steps 1–6; Request budget). This doc holds counts, seeds, and rules only. No listing address, unit, or provider ID appears here. The record sheets and raw responses stay on Garnie's computer (`tools/rentcast-sample/local/`, git-ignored), and `node tools/rentcast-sample/cli.mjs score` re-scores them.
+Follows plan version 2.5 (Provider evaluation, steps 1–6; Request budget). This doc holds counts, seeds, and rules only. No listing address, unit, or provider ID appears here. The record sheets and raw responses stay on Garnie's computer (`tools/rentcast-sample/local/`, git-ignored), and `node tools/rentcast-sample/cli.mjs score` re-scores them.
 
 | Part | State |
 |---|---|
@@ -11,7 +11,7 @@ Follows plan version 2.4 (Provider evaluation, steps 1–6; Request budget). Thi
 | Coverage, still available, status agrees, price agrees | **Pending**: 0 of 80 checks recorded |
 | Decision-table row | **Pending** |
 | Photo-less decision | **Pending** (Garnie's call) |
-| Request budget recalculated | Done below; the plan's table is not edited yet |
+| Request budget recalculated | Done below, and in the plan's Request budget table (version 2.5) |
 
 The plan wants steps 3 and 4 done within 24 hours of the pull. The pull finished at 2026-10-07 17:29 UTC (1:29 pm EDT), so the window closes at 2026-10-08 17:29 UTC. If it closes first, the doc must say so and the pull must be repeated (25 requests remain under the cap of 40; one full refresh of the four searches costs 5).
 
@@ -88,7 +88,7 @@ Measured: one refresh of the four searches above costs **5 requests** (Broward R
 | 8 saved searches, daily refresh, some over 500 results | ~300 | **~300** (8 × 1.25 × 30), if the other four resemble these | Foundation |
 | Provider rent estimates, on request | +1 per shortlisted property | unchanged | Same ceiling |
 
-The conclusion in the plan's open decision holds: weekly fits the free tier with about 28 requests a month to spare for rent estimates, and daily needs Foundation. The measure is sensitive to the filter: widening Broward Rent's price band is what pushed it past 500 listings. A whole-city search would take several requests per refresh.
+The plan's Request budget table carries these numbers (version 2.5), and its open decision holds: weekly fits the free tier with about 28 requests a month to spare for rent estimates, and daily needs Foundation. The measure is sensitive to the filter: widening Broward Rent's price band is what pushed it past 500 listings. A whole-city search would take several requests per refresh.
 
 **Recommended refresh interval: weekly.** That is a recommendation. The plan's open decision stays open until Garnie takes it, and it only matters if the decision below is a Go.
 
@@ -105,4 +105,4 @@ Pending the manual checks. The matching row of the plan's decision table goes he
 1. Do the 80 checks and fill the record sheets (`tools/rentcast-sample/README.md`, "Record sheets and scoring").
 2. Run `node tools/rentcast-sample/cli.mjs score`, and paste its tables over the "Pending" tables above, with the seeds.
 3. Name the decision-table row, record the photo-less decision, and set the refresh interval.
-4. Update the plan where these settle its open decisions (refresh interval, photo-less results, comparable-rent radius if measured), apply its bump rule, move `planVersion` in `fixtures/sample-data.json` with it, and run `node fixtures/check-fixtures.mjs`.
+4. Update the plan where the result settles its open decisions (refresh interval, photo-less results, comparable-rent radius if measured) and records the Milestone 0 decision. That is the next bump (2.6): apply the bump rule, move `planVersion` in `fixtures/sample-data.json` with it, and run `node fixtures/check-fixtures.mjs`. The budget table was already updated in 2.5.

@@ -1,6 +1,6 @@
 # Personal Florida Real Estate Dashboard — Planning Document
 
-*Version 2.4 · October 7, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
+*Version 2.5 · October 7, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
 
 ## Goal
 
@@ -168,12 +168,12 @@ The same Florida home is often listed for sale and for rent at the same time, re
 
 | Setup | Requests/month (approx.) | RentCast tier |
 |---|---:|---|
-| 4 saved searches (one Miami-Dade and one Broward area × Buy and Rent), weekly refresh | ~17 | Developer (free, 50 included) |
-| Same 4 saved searches, daily refresh | ~120 | Foundation ($74/month, 1,000 included) |
+| 4 saved searches (one Miami-Dade and one Broward area × Buy and Rent), weekly refresh | ~22 | Developer (free, 50 included) |
+| Same 4 saved searches, daily refresh | ~150 | Foundation ($74/month, 1,000 included) |
 | 8 saved searches, daily refresh, some over 500 results | ~300 | Foundation |
 | Provider rent estimates, on request | +1 per shortlisted property | Counts toward the same ceiling |
 
-The table assumes each saved search returns under 500 listings. Whole-city searches in Miami or Fort Lauderdale may return several pages per refresh, so Milestone 0 records how many requests a typical search in each county actually takes, and the budget is recalculated from that.
+The Milestone 0 pull measured these (details in `docs/PROVIDER_EVALUATION.md`). In ZIP-sized sample areas, one refresh of the four searches cost 5 requests: the Broward Rent search returned 664 listings at $1,500–$4,000 and took two, and the other three took one each. That is 1.25 requests per search, so weekly is 5 × 4.3 ≈ 22 a month and daily is 5 × 30 = 150. The 8-search row is 8 × 1.25 × 30 and assumes the other four searches resemble the measured four. The count depends on the area and the price filters: every additional 500 results costs one more request, and whole-city searches in Miami or Fort Lauderdale may take several.
 
 ## Data-source providers and costs
 
@@ -274,7 +274,7 @@ The data source is the biggest risk, and the free tier makes testing it cost not
 ## Open decisions
 
 - **Search areas within the test market:** which ZIPs, radius, or neighborhoods in Miami-Dade and Broward, and the Buy price range and Rent budget for each. Needed before Milestone 0.
-- **Refresh interval:** weekly fits the free tier; daily needs the $74/month Foundation tier (see Request budget). Recheck after Milestone 0 measures actual requests per search.
+- **Refresh interval:** weekly fits the free tier (about 22 requests a month, measured in Milestone 0); daily needs the $74/month Foundation tier (about 150). Decide after the Milestone 0 provider decision is taken.
 - **Ranking factors and weights:** which matter most beyond price and location (for example HOA fee, flood zone, insurance estimate, waterfront, parking, pets, lease term).
 - **Personal assumptions:** down payment, mortgage rate and term, maintenance reserve percentage.
 - **Local assumptions for Miami-Dade and Broward:** millage rate, typical non-ad valorem assessments, and homeowners and flood insurance defaults by zone. Insurance and flood defaults are best taken from one or two real quotes, since South Florida premiums vary widely.
@@ -285,8 +285,8 @@ The data source is the biggest risk, and the free tier makes testing it cost not
 
 The version line at the top is `MAJOR.MINOR`. Decide the bump for every change to this document:
 
-- **Major** (2.4 → 3.0): product scope, architecture rules, the data model, or the milestone list changes in a way that can invalidate work already built.
-- **Minor** (2.4 → 2.5): a rule, threshold, label, default, or decision is added or changed.
+- **Major** (2.5 → 3.0): product scope, architecture rules, the data model, or the milestone list changes in a way that can invalidate work already built.
+- **Minor** (2.5 → 2.6): a rule, threshold, label, default, or decision is added or changed.
 - **No bump:** wording, typo, formatting, or link fixes that don't change what any rule means.
 
 When the version changes:
@@ -297,6 +297,7 @@ When the version changes:
 
 Git history holds version 2.3 onward. Numbers before 2.4 were assigned on October 7, 2026 to revisions that had been named by order ("second revision" and so on); the bump rule applies from 2.4 on.
 
+- **2.5** · Oct 7, 2026 · Request budget recalculated from the Milestone 0 pull, which measured 5 requests per refresh of the four-search setup (Broward Rent returned 664 listings and took two): weekly is about 22 requests a month (was ~17) and daily about 150 (was ~120). The tiers are unchanged, and the refresh interval stays an open decision. No Milestone 0 result is recorded here yet; those are in `docs/PROVIDER_EVALUATION.md` as a draft.
 - **2.4** · Oct 7, 2026 · Adds this version number and bump rule. Sets the order in which an Estimate label names the lines to verify (Rent vs. buy estimate, Total status).
 - **2.3** · Oct 7, 2026 · *Was "fourth revision."* Non-ad valorem lines in a county without local rates are Unknown unless the tax bill has been checked; a property's own Quote or Document always outranks county rates; townhomes use the house insurance default; Estimate labels count unnamed lines as "+n".
 - **2.2** · Oct 7, 2026 · *Was "third revision."* Cost lines now have precise rules for when an amount is firm, an Estimate, a verified $0, Not applicable, or Unknown, so Incomplete totals are limited to four defined triggers; the provider test now has sampling, price-tolerance, not-found, rounding, per-county floor, and decision rules, so the Milestone 0 result can be reproduced.
