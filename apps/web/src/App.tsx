@@ -1,4 +1,4 @@
-import { useEffect, useState, type PointerEvent } from 'react';
+import { useEffect, useState, type FormEvent, type PointerEvent } from 'react';
 
 type Route = { title: string; eyebrow: string; path: string };
 
@@ -247,6 +247,256 @@ type SearchFilters = {
   status: string;
   sort: 'newest' | 'price';
 };
+
+type SavedSearch = {
+  id: number;
+  name: string;
+  mode: 'sale' | 'rent';
+  location: string;
+  filters: Record<string, unknown>;
+  priceMin: number | null;
+  priceMax: number | null;
+  pairedSearchId: number | null;
+  refreshIntervalDays: number | null;
+};
+
+const profileFromSearch = (search: SavedSearch): SearchFilters => ({
+  ...emptyFilters(search.mode),
+  location: search.location,
+  priceMin: search.priceMin?.toString() ?? '',
+  priceMax: search.priceMax?.toString() ?? '',
+  beds: String(search.filters.beds ?? ''),
+  baths: String(search.filters.baths ?? ''),
+  propertyType: String(search.filters.propertyType ?? ''),
+  minSqft: String(search.filters.minSqft ?? ''),
+  status: String(search.filters.status ?? 'active'),
+  sort: search.filters.sort === 'price' ? 'price' : 'newest',
+});
+
+const searchUrl = (search: SavedSearch) => {
+  const filters = profileFromSearch(search);
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value) query.set(key, value);
+  return `/?${query.toString()}`;
+};
+
+const intervalLabel = (days: number | null) =>
+  days === null ? 'Not set' : days === 1 ? 'Daily' : days === 7 ? 'Weekly' : `Every ${days} days`;
+
+function SavedSearchPanel() {
+  const [items, setItems] = useState<SavedSearch[]>([]);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const refresh = async () => {
+    try {
+      const response = await fetch('/api/saved-searches');
+      if (!response.ok) throw new Error('Could not load saved searches.');
+      setItems(((await response.json()) as { items: SavedSearch[] }).items);
+      setError('');
+    } catch {
+      setError('Saved searches are unavailable. Start the local API and try again.');
+    }
+  };
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const update = async (id: number, form: HTMLFormElement) => {
+    const data = new FormData(form);
+    const interval = String(data.get('interval') ?? '');
+    const response = await fetch(`/api/saved-searches/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: String(data.get('name') ?? ''),
+        refreshIntervalDays: interval ? Number(interval) : null,
+      }),
+    });
+    if (!response.ok)
+      throw new Error(
+        ((await response.json()) as { error?: string }).error ?? 'Could not update saved search.',
+      );
+    await refresh();
+  };
+
+  const addRentPair = async (search: SavedSearch) => {
+    setBusy(true);
+    try {
+      const filters = { ...search.filters };
+      delete filters.priceMin;
+      delete filters.priceMax;
+      const response = await fetch('/api/saved-searches', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: `${search.location} · Rent`,
+          mode: 'rent',
+          location: search.location,
+          filters,
+          refreshIntervalDays: search.refreshIntervalDays,
+        }),
+      });
+      if (!response.ok)
+        throw new Error(
+          ((await response.json()) as { error?: string }).error ?? 'Could not create Rent search.',
+        );
+      const rent = ((await response.json()) as { item: SavedSearch }).item;
+      const pairResponse = await fetch(`/api/saved-searches/${search.id}/pair`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pairedSearchId: rent.id }),
+      });
+      if (!pairResponse.ok)
+        throw new Error(
+          ((await pairResponse.json()) as { error?: string }).error ?? 'Could not pair searches.',
+        );
+      await refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not create a paired Rent search.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (search: SavedSearch) => {
+    const response = await fetch(`/api/saved-searches/${search.id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      setError('Could not delete saved search.');
+      return;
+    }
+    await refresh();
+  };
+
+  const groups = new Map<string, SavedSearch[]>();
+  for (const item of items) {
+    const key = item.location.trim().toLocaleLowerCase('en-US');
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+
+  return (
+    <section
+      aria-labelledby="saved-searches-heading"
+      className="match-review-panel saved-search-panel"
+    >
+      <div className="panel-heading">
+        <div>
+          <p className="screen-eyebrow">Search profiles</p>
+          <h2 id="saved-searches-heading">Saved searches</h2>
+        </div>
+        <span className="review-count">{items.length} saved</span>
+      </div>
+      <p className="panel-intro">
+        Saved searches keep their filters on this computer. Opening and filtering searches the local
+        database only.
+      </p>
+      {error && (
+        <p role="alert" className="search-error">
+          {error}
+        </p>
+      )}
+      {items.length === 0 ? (
+        <p className="review-empty">No saved searches yet. Save one from Search.</p>
+      ) : (
+        <div className="saved-search-groups">
+          {[...groups.values()].map((group) => (
+            <section
+              className="saved-search-group"
+              key={group[0].location.toLocaleLowerCase('en-US')}
+              aria-label={`${group[0].location} saved searches`}
+            >
+              <h3>{group[0].location}</h3>
+              {group.map((search) => {
+                const paired = items.find((item) => item.id === search.pairedSearchId);
+                return (
+                  <form
+                    className="saved-search-row"
+                    key={search.id}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void update(search.id, event.currentTarget).catch((reason: unknown) =>
+                        setError(
+                          reason instanceof Error
+                            ? reason.message
+                            : 'Could not update saved search.',
+                        ),
+                      );
+                    }}
+                  >
+                    <div className="saved-search-summary">
+                      <strong>
+                        {search.mode === 'sale' ? 'Buy' : 'Rent'} · {search.name}
+                      </strong>
+                      <span>
+                        {search.priceMin != null || search.priceMax != null
+                          ? `$${search.priceMin?.toLocaleString() ?? '0'}–$${search.priceMax?.toLocaleString() ?? 'any'}`
+                          : 'No price range'}{' '}
+                        · {intervalLabel(search.refreshIntervalDays)}
+                      </span>
+                      {search.mode === 'sale' && (
+                        <span>
+                          {paired
+                            ? `Paired Rent search on · ${paired.name}`
+                            : 'No Rent search · local comps unavailable'}
+                        </span>
+                      )}
+                    </div>
+                    <label className="saved-search-edit">
+                      Name
+                      <input
+                        name="name"
+                        aria-label={`${search.name} name`}
+                        defaultValue={search.name}
+                      />
+                    </label>
+                    <label className="saved-search-edit">
+                      Refresh interval
+                      <select
+                        name="interval"
+                        aria-label={`${search.name} refresh interval`}
+                        defaultValue={search.refreshIntervalDays?.toString() ?? ''}
+                      >
+                        <option value="">Not set</option>
+                        <option value="1">Daily</option>
+                        <option value="7">Weekly</option>
+                        <option value="14">Every 14 days</option>
+                        <option value="30">Every 30 days</option>
+                      </select>
+                    </label>
+                    <div className="saved-search-actions">
+                      <a className="text-button" href={searchUrl(search)}>
+                        Open
+                      </a>
+                      <button className="text-button" type="submit">
+                        Save changes
+                      </button>
+                      {search.mode === 'sale' && !paired && (
+                        <button
+                          className="text-button"
+                          disabled={busy}
+                          onClick={() => void addRentPair(search)}
+                          type="button"
+                        >
+                          Add Rent search
+                        </button>
+                      )}
+                      <button
+                        className="text-button"
+                        onClick={() => void remove(search)}
+                        type="button"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </form>
+                );
+              })}
+            </section>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 const emptyFilters = (mode: 'sale' | 'rent'): SearchFilters => ({
   mode,
@@ -516,6 +766,11 @@ function CountyMap({
 
 function SearchScreen() {
   const [filters, setFilters] = useState<SearchFilters>(searchFromUrl);
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [selectedSearchId, setSelectedSearchId] = useState('');
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [saveInterval, setSaveInterval] = useState('');
   const [ranges, setRanges] = useState({ sale: { min: '', max: '' }, rent: { min: '', max: '' } });
   const [items, setItems] = useState<SearchListing[]>([]);
   const [error, setError] = useState('');
@@ -525,6 +780,75 @@ function SearchScreen() {
   const [boundaryError, setBoundaryError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
+
+  const refreshSavedSearches = async () => {
+    try {
+      const response = await fetch('/api/saved-searches');
+      if (response.ok)
+        setSavedSearches(((await response.json()) as { items: SavedSearch[] }).items);
+    } catch {
+      /* The search page remains usable if saved searches are unavailable. */
+    }
+  };
+
+  useEffect(() => {
+    void refreshSavedSearches();
+  }, []);
+
+  const savedSearchPayload = (name: string) => ({
+    name: name.trim(),
+    mode: filters.mode,
+    location: filters.location.trim(),
+    filters: {
+      beds: filters.beds,
+      baths: filters.baths,
+      propertyType: filters.propertyType,
+      minSqft: filters.minSqft,
+      status: filters.status,
+      sort: filters.sort,
+    },
+    priceMin: filters.priceMin ? Number(filters.priceMin) : null,
+    priceMax: filters.priceMax ? Number(filters.priceMax) : null,
+    refreshIntervalDays: saveInterval ? Number(saveInterval) : null,
+  });
+
+  const saveSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      const response = await fetch('/api/saved-searches', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(savedSearchPayload(saveName)),
+      });
+      const data = (await response.json()) as { item?: SavedSearch; error?: string };
+      if (!response.ok || !data.item) throw new Error(data.error ?? 'Could not save search.');
+      await refreshSavedSearches();
+      setSelectedSearchId(String(data.item.id));
+      setSaveName('');
+      setSaveInterval('');
+      setShowSaveForm(false);
+      setError('');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not save search.');
+    }
+  };
+
+  const updateCurrentSearch = async () => {
+    const search = savedSearches.find((item) => item.id === Number(selectedSearchId));
+    if (!search) return;
+    const response = await fetch(`/api/saved-searches/${search.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(savedSearchPayload(search.name)),
+    });
+    const data = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(data.error ?? 'Could not update saved search.');
+      return;
+    }
+    await refreshSavedSearches();
+    setError('');
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -677,6 +1001,106 @@ function SearchScreen() {
         </div>
         <p className="browse-note">Browsing uses no provider requests</p>
       </div>
+      <div className="search-profile-toolbar">
+        <label>
+          Saved search
+          <select
+            aria-label="Open saved search"
+            value={selectedSearchId}
+            onChange={(event) => {
+              setSelectedSearchId(event.target.value);
+              const selected = savedSearches.find((item) => item.id === Number(event.target.value));
+              if (selected) {
+                setFilters(profileFromSearch(selected));
+                setError('');
+              }
+            }}
+          >
+            <option value="">Current filters</option>
+            {savedSearches.map((search) => (
+              <option key={search.id} value={search.id}>
+                {search.name} · {search.mode === 'sale' ? 'Buy' : 'Rent'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="search-profile-actions">
+          <button
+            className="secondary-button"
+            onClick={() => {
+              setShowSaveForm((shown) => !shown);
+              setSaveName(
+                filters.location
+                  ? `${filters.location} · ${filters.mode === 'sale' ? 'Buy' : 'Rent'}`
+                  : '',
+              );
+            }}
+            type="button"
+          >
+            Save current search
+          </button>
+          {selectedSearchId && (
+            <button
+              className="text-button"
+              onClick={() => void updateCurrentSearch()}
+              type="button"
+            >
+              Update saved search
+            </button>
+          )}
+        </div>
+        {filters.mode === 'sale' &&
+          filters.location &&
+          (() => {
+            const current = savedSearches.find((item) => item.id === Number(selectedSearchId));
+            const paired = current?.pairedSearchId
+              ? savedSearches.find((item) => item.id === current.pairedSearchId)
+              : undefined;
+            return (
+              <p className="paired-search-note">
+                {paired ? (
+                  `Paired Rent search on · needed for local comps (${paired.name})`
+                ) : (
+                  <>
+                    No Rent search · local comps unavailable ·{' '}
+                    <a href="/settings">Add Rent search</a>
+                  </>
+                )}
+              </p>
+            );
+          })()}
+      </div>
+      {showSaveForm && (
+        <form className="save-search-form" onSubmit={(event) => void saveSearch(event)}>
+          <label>
+            Name
+            <input
+              aria-label="Saved search name"
+              value={saveName}
+              onChange={(event) => setSaveName(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Refresh interval
+            <select
+              aria-label="Saved search refresh interval"
+              value={saveInterval}
+              onChange={(event) => setSaveInterval(event.target.value)}
+            >
+              <option value="">Not set</option>
+              <option value="1">Daily</option>
+              <option value="7">Weekly</option>
+              <option value="14">Every 14 days</option>
+              <option value="30">Every 30 days</option>
+            </select>
+          </label>
+          <button type="submit">Save search</button>
+          <button className="text-button" onClick={() => setShowSaveForm(false)} type="button">
+            Cancel
+          </button>
+        </form>
+      )}
       <div className="filter-panel" aria-label="Search filters">
         <label className="filter-field location-field">
           Location
@@ -984,7 +1408,10 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
           <h1>{page.title}</h1>
         </div>
         {page.path === '/settings' ? (
-          <MatchReviewPanel />
+          <div className="settings-panels">
+            <SavedSearchPanel />
+            <MatchReviewPanel />
+          </div>
         ) : page.path === '/' ? (
           <SearchScreen />
         ) : (

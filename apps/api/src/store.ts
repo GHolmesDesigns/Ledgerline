@@ -94,6 +94,8 @@ export interface SavedSearchInput {
   refreshIntervalDays?: number | null;
 }
 
+export type SavedSearchUpdate = Partial<SavedSearchInput>;
+
 export interface ListingSearchCriteria {
   mode: ListingMode;
   location?: string;
@@ -732,6 +734,56 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       return all(`SELECT ${searchColumns} FROM saved_searches ORDER BY id`).map(toSearch);
     },
 
+    updateSavedSearch(searchId: number, input: SavedSearchUpdate): SavedSearch {
+      return transaction(() => {
+        const current = store.getSavedSearch(searchId);
+        if (!current) throw new Error('Saved search not found.');
+        const next = { ...current, ...input };
+        if (next.name.trim().length === 0) throw new Error('Name is required.');
+        if (next.location.trim().length === 0) throw new Error('Location is required.');
+        if (next.priceMin != null && next.priceMin < 0)
+          throw new Error('Minimum price must be 0 or higher.');
+        if (next.priceMax != null && next.priceMax < 0)
+          throw new Error('Maximum price must be 0 or higher.');
+        if (next.priceMin != null && next.priceMax != null && next.priceMin > next.priceMax) {
+          throw new Error('Minimum price cannot exceed maximum price.');
+        }
+        if (next.refreshIntervalDays != null && next.refreshIntervalDays <= 0) {
+          throw new Error('Refresh interval must be a positive number of days.');
+        }
+        if (current.pairedSearchId !== null) {
+          const paired = store.getSavedSearch(current.pairedSearchId);
+          if (
+            paired &&
+            (paired.mode === next.mode ||
+              paired.location.trim().toLocaleLowerCase('en-US') !==
+                next.location.trim().toLocaleLowerCase('en-US'))
+          ) {
+            throw new Error(
+              'Update or unpair the matching search before changing its mode or area.',
+            );
+          }
+        }
+        const at = now();
+        run(
+          `UPDATE saved_searches SET name = ?, mode = ?, location = ?, filters = ?, price_min = ?,
+             price_max = ?, refresh_interval_days = ?, updated_at = ? WHERE id = ?`,
+          [
+            next.name.trim(),
+            next.mode,
+            next.location.trim(),
+            JSON.stringify(next.filters ?? {}),
+            next.priceMin ?? null,
+            next.priceMax ?? null,
+            next.refreshIntervalDays ?? null,
+            at,
+            searchId,
+          ],
+        );
+        return store.getSavedSearch(searchId)!;
+      });
+    },
+
     /** Pairs a Buy search with a Rent search for the same area, in both directions. */
     pairSavedSearches(firstId: number, secondId: number) {
       transaction(() => {
@@ -740,6 +792,12 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         if (!first || !second) throw new Error('Both saved searches must exist to pair them');
         if (first.mode === second.mode)
           throw new Error('A pair is one Buy search and one Rent search');
+        if (
+          first.location.trim().toLocaleLowerCase('en-US') !==
+          second.location.trim().toLocaleLowerCase('en-US')
+        ) {
+          throw new Error('Paired searches must cover the same area.');
+        }
         // Unpair anything either search was paired with before.
         run('UPDATE saved_searches SET paired_search_id = NULL WHERE paired_search_id IN (?, ?)', [
           firstId,
@@ -755,6 +813,24 @@ export function createStore(database: Database, options: StoreOptions = {}) {
           now(),
           secondId,
         ]);
+      });
+    },
+
+    unpairSavedSearch(searchId: number) {
+      transaction(() => {
+        const search = store.getSavedSearch(searchId);
+        if (!search) throw new Error('Saved search not found.');
+        const pairedId = search.pairedSearchId;
+        run('UPDATE saved_searches SET paired_search_id = NULL, updated_at = ? WHERE id = ?', [
+          now(),
+          searchId,
+        ]);
+        if (pairedId !== null) {
+          run('UPDATE saved_searches SET paired_search_id = NULL, updated_at = ? WHERE id = ?', [
+            now(),
+            pairedId,
+          ]);
+        }
       });
     },
 

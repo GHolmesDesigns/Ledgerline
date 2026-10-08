@@ -440,6 +440,25 @@ describe('saved searches', () => {
     assert.equal(store.getSavedSearch(buy.id)?.pairedSearchId, null);
   });
 
+  it('updates a saved search and only pairs searches that cover the same area', () => {
+    const buy = store.createSavedSearch({ name: 'Buy', mode: 'sale', location: 'Miami 33131' });
+    const rent = store.createSavedSearch({ name: 'Rent', mode: 'rent', location: 'Miami 33131' });
+    store.pairSavedSearches(buy.id, rent.id);
+    const renamed = store.updateSavedSearch(buy.id, {
+      name: 'Miami shortlist',
+      refreshIntervalDays: 7,
+    });
+    assert.equal(renamed.name, 'Miami shortlist');
+    assert.equal(renamed.refreshIntervalDays, 7);
+    assert.throws(
+      () => store.updateSavedSearch(buy.id, { location: 'Miami 33132' }),
+      /Update or unpair/,
+    );
+    store.unpairSavedSearch(buy.id);
+    assert.equal(store.getSavedSearch(buy.id)?.pairedSearchId, null);
+    assert.equal(store.getSavedSearch(rent.id)?.pairedSearchId, null);
+  });
+
   it('rejects an inverted price range and a non-positive refresh interval', () => {
     assert.throws(() =>
       store.createSavedSearch({ name: 'x', mode: 'sale', location: 'y', priceMin: 2, priceMax: 1 }),

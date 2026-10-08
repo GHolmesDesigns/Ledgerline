@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { ListingInput, PropertyInput } from '../store.js';
+import type { ListingInput, PropertyInput, Store } from '../store.js';
 import type {
   ListingProvider,
   ProviderCapabilities,
@@ -34,6 +34,11 @@ interface SampleProperty {
 
 interface SampleData {
   properties: SampleProperty[];
+  savedSearches: Array<{
+    area: string;
+    buy: { requestsPerRefresh: number };
+    rent: { requestsPerRefresh: number } | null;
+  }>;
   matchReview: {
     incoming: {
       address: string;
@@ -51,6 +56,35 @@ const fixturePath = fileURLToPath(
   new URL('../../../../fixtures/sample-data.json', import.meta.url),
 );
 const sampleData = JSON.parse(readFileSync(fixturePath, 'utf8')) as SampleData;
+
+/** Adds the fictional saved-search examples once when the mock dataset is imported. */
+export function seedMockSavedSearches(store: Store) {
+  const existing = store.listSavedSearches();
+  const seeded = sampleData.savedSearches.flatMap((area) => {
+    const location = area.area.startsWith('Fort Lauderdale')
+      ? 'Fort Lauderdale 33308'
+      : area.area.startsWith('Miami')
+        ? '33131'
+        : 'North Miami 33161';
+    const searches = [
+      { name: `${area.area} · Buy`, mode: 'sale' as const, location },
+      ...(area.rent ? [{ name: `${area.area} · Rent`, mode: 'rent' as const, location }] : []),
+    ];
+    return searches.map((search) => {
+      const match = existing.find(
+        (entry) => entry.name === search.name && entry.mode === search.mode,
+      );
+      return match ?? store.createSavedSearch({ ...search, filters: { status: 'active' } });
+    });
+  });
+
+  for (const area of sampleData.savedSearches) {
+    const buy = seeded.find((entry) => entry.name === `${area.area} · Buy`);
+    const rent = seeded.find((entry) => entry.name === `${area.area} · Rent`);
+    if (buy && rent && buy.pairedSearchId !== rent.id) store.pairSavedSearches(buy.id, rent.id);
+  }
+  return store.listSavedSearches();
+}
 
 export const mockProviderCapabilities: ProviderCapabilities = {
   photos: false,
