@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type PointerEvent } from 'react';
+import { useEffect, useState, type FormEvent, type PointerEvent, type ReactNode } from 'react';
 
 type Route = { title: string; eyebrow: string; path: string };
 
@@ -819,12 +819,72 @@ type PropertyDetailData = {
   dismissed: boolean;
 };
 
+const compareStorageKey = 'ledgerline.compare-properties';
+const compareChangedEvent = 'ledgerline:compare-changed';
+
+function readCompareIds() {
+  if (typeof window === 'undefined') return [] as string[];
+  const queryIds = new URLSearchParams(window.location.search).get('properties');
+  if (window.location.pathname === '/compare' && queryIds !== null) {
+    return [...new Set(queryIds.split(',').filter(Boolean))].slice(0, 4);
+  }
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(compareStorageKey) ?? '[]');
+    return Array.isArray(saved)
+      ? [...new Set(saved.filter((value): value is string => typeof value === 'string'))].slice(
+          0,
+          4,
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCompareIds(ids: string[]) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(compareStorageKey, JSON.stringify(ids));
+  window.dispatchEvent(new CustomEvent(compareChangedEvent, { detail: ids }));
+}
+
+function useCompareSet() {
+  const [ids, setIds] = useState<string[]>(readCompareIds);
+  useEffect(() => {
+    const receive = (event: Event) => {
+      const detail = (event as CustomEvent<string[]>).detail;
+      if (Array.isArray(detail)) setIds(detail);
+    };
+    const restore = () => setIds(readCompareIds());
+    window.addEventListener(compareChangedEvent, receive);
+    window.addEventListener('popstate', restore);
+    return () => {
+      window.removeEventListener(compareChangedEvent, receive);
+      window.removeEventListener('popstate', restore);
+    };
+  }, []);
+  return { ids, save: saveCompareIds };
+}
+
 function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
+  const compare = useCompareSet();
   const [data, setData] = useState<PropertyDetailData | null>(null);
   const [noteBody, setNoteBody] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingBody, setEditingBody] = useState('');
   const [error, setError] = useState('');
+  const [compareMessage, setCompareMessage] = useState('');
+
+  const toggleCompare = () => {
+    if (compare.ids.includes(propertyId)) {
+      compare.save(compare.ids.filter((id) => id !== propertyId));
+      setCompareMessage('Removed from Compare.');
+    } else if (compare.ids.length >= 4) {
+      setCompareMessage('Compare is full. Remove a property before adding another.');
+    } else {
+      compare.save([...compare.ids, propertyId]);
+      setCompareMessage('Added to Compare.');
+    }
+  };
 
   const refresh = async () => {
     try {
@@ -953,9 +1013,9 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           >
             {data.dismissed ? 'Undo dismissal' : 'Dismiss property'}
           </button>
-          <a className="button-link secondary-button" href={`/compare?properties=${property.id}`}>
-            Compare
-          </a>
+          <button className="secondary-button" onClick={toggleCompare} type="button">
+            {compare.ids.includes(property.id) ? 'Remove from Compare' : 'Compare'}
+          </button>
           <a className="button-link secondary-button" href={`/?location=${addressQuery}`}>
             Search this address
           </a>
@@ -966,6 +1026,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           {error}
         </p>
       )}
+      {compareMessage && <p role="status">{compareMessage}</p>}
       <section aria-labelledby="property-listings-heading" className="property-detail-section">
         <h3 id="property-listings-heading">Listings</h3>
         <ul className="property-listing-list">
@@ -1228,14 +1289,272 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
         <button aria-pressed={data.saved} onClick={() => void toggle('favorite')} type="button">
           {data.saved ? 'Saved' : 'Save'}
         </button>
-        <a href={`/compare?properties=${property.id}`}>Compare</a>
+        <button onClick={toggleCompare} type="button">
+          {compare.ids.includes(property.id) ? 'Remove' : 'Compare'}
+        </button>
         <a href={`/?location=${addressQuery}`}>Search this address</a>
       </nav>
     </section>
   );
 }
 
+function CompareScreen() {
+  const compare = useCompareSet();
+  const [properties, setProperties] = useState<PropertyDetailData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [mobile, setMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 700px)').matches,
+  );
+  const [leftId, setLeftId] = useState('');
+  const [rightId, setRightId] = useState('');
+
+  useEffect(() => {
+    const updateViewport = () => setMobile(window.matchMedia('(max-width: 700px)').matches);
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    const search = compare.ids.length
+      ? `?${new URLSearchParams({ properties: compare.ids.join(',') }).toString()}`
+      : '';
+    const nextUrl = `${window.location.pathname}${search}`;
+    if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+      window.history.replaceState(null, '', nextUrl);
+    }
+    saveCompareIds(compare.ids);
+  }, [compare.ids]);
+
+  useEffect(() => {
+    setLeftId((current) => (compare.ids.includes(current) ? current : (compare.ids[0] ?? '')));
+    setRightId((current) =>
+      compare.ids.includes(current) ? current : (compare.ids[1] ?? compare.ids[0] ?? ''),
+    );
+  }, [compare.ids]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (compare.ids.length === 0) {
+      setProperties([]);
+      setLoading(false);
+      setError('');
+      return;
+    }
+    setLoading(true);
+    void Promise.all(
+      compare.ids.map(async (id) => {
+        const response = await fetch(`/api/properties/${id}`);
+        const result = (await response.json()) as PropertyDetailData & { error?: string };
+        if (!response.ok) throw new Error(result.error ?? `Could not load ${id}.`);
+        return result;
+      }),
+    )
+      .then((items) => {
+        if (!cancelled) {
+          setProperties(items);
+          setError('');
+        }
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) {
+          setProperties([]);
+          setError(reason instanceof Error ? reason.message : 'Compare is unavailable.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [compare.ids]);
+
+  const remove = (propertyId: string) =>
+    compare.save(compare.ids.filter((id) => id !== propertyId));
+  const displayColumns = mobile
+    ? [
+        properties.find((item) => item.property.id === leftId),
+        properties.find((item) => item.property.id === rightId),
+      ]
+        .filter((item): item is PropertyDetailData => item != null)
+        .filter(
+          (item, index, all) =>
+            all.findIndex((other) => other.property.id === item.property.id) === index,
+        )
+    : properties;
+  const addressOf = (item: PropertyDetailData) =>
+    `${item.property.street}${item.property.unit ? `, Unit ${item.property.unit}` : ''}`;
+  const listingPrice = (item: PropertyDetailData) =>
+    item.listings.length
+      ? item.listings
+          .map((listing) => {
+            const price =
+              listing.price == null ? 'Price unavailable' : `$${listing.price.toLocaleString()}`;
+            return `${listing.mode === 'sale' ? 'Buy' : 'Rent'}: ${price}${listing.mode === 'rent' ? '/mo' : ''}`;
+          })
+          .join(' · ')
+      : 'No listings on file';
+  const listingStatus = (item: PropertyDetailData) =>
+    item.listings
+      .map((listing) => `${listing.mode === 'sale' ? 'Buy' : 'Rent'}: ${listing.status}`)
+      .join(' · ') || 'No listings on file';
+  const addressSearch = (item: PropertyDetailData) =>
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${addressOf(item)}, ${item.property.city}, FL ${item.property.zip}`)}`;
+  const rows: Array<[string, (item: PropertyDetailData) => ReactNode]> = [
+    ['Price', listingPrice],
+    ['Status', listingStatus],
+    ['Type', (item) => item.property.propertyType?.replaceAll('_', ' ') ?? 'Unknown'],
+    [
+      'Beds / baths / area',
+      (item) =>
+        `${item.property.beds ?? '—'} bd · ${item.property.bathsTotal ?? '—'} ba · ${item.property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft`,
+    ],
+    ['Year built', (item) => item.property.yearBuilt ?? 'Unknown'],
+    [
+      'Notes',
+      (item) =>
+        item.notes.length ? (
+          <ul className="compare-notes">
+            {item.notes.map((note) => (
+              <li key={note.id}>{note.body}</li>
+            ))}
+          </ul>
+        ) : (
+          'No notes'
+        ),
+    ],
+    [
+      'Verify',
+      (item) => (
+        <div className="compare-verification">
+          {item.listings.map((listing) => (
+            <div key={listing.id}>
+              {listing.sourceUrl ? (
+                <a href={listing.sourceUrl} target="_blank" rel="noreferrer">
+                  Open {listing.mode === 'sale' ? 'Buy' : 'Rent'} source
+                </a>
+              ) : (
+                <span>
+                  {listing.mlsName || listing.mlsNumber
+                    ? `MLS ${[listing.mlsName, listing.mlsNumber].filter(Boolean).join(' ')}`
+                    : 'No MLS details supplied'}
+                </span>
+              )}
+              {(listing.agentName || listing.officeName) && (
+                <span>{[listing.agentName, listing.officeName].filter(Boolean).join(' · ')}</span>
+              )}
+            </div>
+          ))}
+          <a href={addressSearch(item)} target="_blank" rel="noreferrer">
+            Search address
+          </a>
+        </div>
+      ),
+    ],
+  ];
+
+  if (compare.ids.length === 0) {
+    return (
+      <section aria-label="Compare properties" className="compare-empty empty-panel">
+        <div>
+          <h2>No properties to compare yet</h2>
+          <p>Add up to four properties from Search to see them side by side.</p>
+          <a href="/">Go to Search</a>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="Compare properties" className="compare-screen">
+      <div className="compare-heading-row">
+        <p>{compare.ids.length} of 4 properties selected</p>
+        <a href="/">Add properties from Search</a>
+      </div>
+      {mobile && (
+        <div className="compare-selectors">
+          <label>
+            Left property
+            <select
+              aria-label="Left property"
+              value={leftId}
+              onChange={(event) => setLeftId(event.target.value)}
+            >
+              {properties.map((item) => (
+                <option key={item.property.id} value={item.property.id}>
+                  {addressOf(item)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Right property
+            <select
+              aria-label="Right property"
+              value={rightId}
+              onChange={(event) => setRightId(event.target.value)}
+            >
+              {properties.map((item) => (
+                <option key={item.property.id} value={item.property.id}>
+                  {addressOf(item)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      {error && <p role="alert">{error}</p>}
+      {loading ? (
+        <p aria-live="polite">Loading saved properties…</p>
+      ) : (
+        !error && (
+          <div className="compare-table-wrap">
+            <table className="compare-table">
+              <thead>
+                <tr>
+                  <th scope="col">Property</th>
+                  {displayColumns.map((item) => (
+                    <th data-property-id={item.property.id} key={item.property.id} scope="col">
+                      <div className="compare-property-heading">
+                        <a href={`/property/${item.property.id}`}>{addressOf(item)}</a>
+                        <span>
+                          {item.property.city} · {item.property.zip}
+                        </span>
+                        <button
+                          aria-label={`Remove ${addressOf(item)} from Compare`}
+                          onClick={() => remove(item.property.id)}
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(([label, value]) => (
+                  <tr key={label}>
+                    <th scope="row">{label}</th>
+                    {displayColumns.map((item) => (
+                      <td data-property-id={item.property.id} key={item.property.id}>
+                        {value(item)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </section>
+  );
+}
+
 function SearchScreen() {
+  const compare = useCompareSet();
   const [filters, setFilters] = useState<SearchFilters>(searchFromUrl);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [selectedSearchId, setSelectedSearchId] = useState('');
@@ -1251,6 +1570,7 @@ function SearchScreen() {
   const [boundaryError, setBoundaryError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
+  const [compareMessage, setCompareMessage] = useState('');
 
   const refreshSavedSearches = async () => {
     try {
@@ -1461,6 +1781,18 @@ function SearchScreen() {
       setError('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update this property.');
+    }
+  };
+
+  const toggleCompare = (propertyId: string) => {
+    if (compare.ids.includes(propertyId)) {
+      compare.save(compare.ids.filter((id) => id !== propertyId));
+      setCompareMessage('Property removed from Compare.');
+    } else if (compare.ids.length >= 4) {
+      setCompareMessage('Compare is full. Remove a property before adding another.');
+    } else {
+      compare.save([...compare.ids, propertyId]);
+      setCompareMessage('Property added to Compare.');
     }
   };
 
@@ -1810,6 +2142,17 @@ function SearchScreen() {
           <p className="result-count" aria-live="polite">
             {items.length} {filters.mode === 'sale' ? 'homes to buy' : 'homes to rent'}
           </p>
+          <div className="compare-shortcut">
+            <span>{compare.ids.length} of 4 properties selected</span>
+            <a
+              href={
+                compare.ids.length ? `/compare?properties=${compare.ids.join(',')}` : '/compare'
+              }
+            >
+              View Compare
+            </a>
+          </div>
+          {compareMessage && <p role="status">{compareMessage}</p>}
           <div className="mobile-map-toggle" aria-label="Results view">
             <button
               aria-pressed={mobileView === 'list'}
@@ -1887,6 +2230,18 @@ function SearchScreen() {
                       type="button"
                     >
                       {saved ? 'Saved' : 'Save'}
+                    </button>
+                    <button
+                      aria-pressed={compare.ids.includes(property.id)}
+                      className="secondary-button"
+                      aria-label={`${compare.ids.includes(property.id) ? 'Remove' : 'Compare'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}${compare.ids.includes(property.id) ? ' from Compare' : ''}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleCompare(property.id);
+                      }}
+                      type="button"
+                    >
+                      {compare.ids.includes(property.id) ? 'In Compare' : 'Compare'}
                     </button>
                     <button
                       aria-label={`${dismissed ? 'Undo dismissal for' : 'Dismiss'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}`}
@@ -1984,6 +2339,8 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
           </div>
         ) : page.path === '/' ? (
           <SearchScreen />
+        ) : page.path === '/compare' ? (
+          <CompareScreen />
         ) : page.path.startsWith('/property/') ? (
           <PropertyDetailScreen propertyId={page.path.slice('/property/'.length)} />
         ) : (
