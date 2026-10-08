@@ -5,6 +5,8 @@ build/
 coverage/
 *.tsbuildinfo
 .vite/
+playwright-report/
+test-results/
 
 # Provider credentials stay on the local server, never in Git (plan: Security and cost controls)
 .env
@@ -16,6 +18,8 @@ coverage/
 /tools/rentcast-sample/local/
 
 # Local database: personal data, listings, snapshots
+data/
+**/data/
 *.sqlite
 *.sqlite3
 *.sqlite-journal

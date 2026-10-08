@@ -1,0 +1,17 @@
+{
+  "name": "@ledgerline/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "sql.js": "^1.13.0"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.9",
+    "@types/node": "^22.18.6"
+  }
+}
