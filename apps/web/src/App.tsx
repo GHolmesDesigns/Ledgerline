@@ -198,6 +198,172 @@ function MatchReviewPanel() {
   );
 }
 
+type BackupCounts = {
+  properties: number;
+  notes: number;
+  saved: number;
+  dismissed: number;
+  savedSearches: number;
+  matchDecisions: number;
+};
+
+type BackupReport = {
+  migratedFromVersion: number | null;
+  added: BackupCounts;
+  alreadyPresent: BackupCounts;
+  skipped: Array<{ section: string; label: string; reason: string }>;
+};
+
+const backupCountLabels: Array<[keyof BackupCounts, string, string]> = [
+  ['notes', 'note', 'notes'],
+  ['saved', 'saved home', 'saved homes'],
+  ['dismissed', 'dismissed home', 'dismissed homes'],
+  ['savedSearches', 'saved search', 'saved searches'],
+  ['matchDecisions', 'match decision', 'match decisions'],
+  ['properties', 'property', 'properties'],
+];
+
+const describeBackupCounts = (counts: BackupCounts) =>
+  backupCountLabels
+    .filter(([key]) => counts[key] > 0)
+    .map(([key, one, many]) => `${counts[key]} ${counts[key] === 1 ? one : many}`)
+    .join(', ');
+
+function BackupPanel() {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const [exported, setExported] = useState('');
+  const [error, setError] = useState('');
+  const [report, setReport] = useState<BackupReport | null>(null);
+
+  const exportData = async () => {
+    setBusy('export');
+    setError('');
+    setExported('');
+    setReport(null);
+    try {
+      const response = await fetch('/api/backup/export');
+      if (!response.ok) throw new Error('The export failed.');
+      const name =
+        /filename="([^"]+)"/.exec(response.headers.get('content-disposition') ?? '')?.[1] ??
+        'ledgerline-backup.json';
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setExported(name);
+    } catch {
+      setError('Could not export your data. Start the local API and try again.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const importData = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!file) return;
+    setBusy('import');
+    setError('');
+    setExported('');
+    setReport(null);
+    try {
+      const response = await fetch('/api/backup/import', {
+        method: 'POST',
+        body: await file.text(),
+      });
+      const result = (await response.json()) as { report?: BackupReport; error?: string };
+      if (!response.ok || !result.report) {
+        setError(result.error ?? 'The import failed and nothing was changed.');
+      } else {
+        setReport(result.report);
+      }
+    } catch {
+      setError('Could not import the file. Start the local API and try again.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const added = report ? describeBackupCounts(report.added) : '';
+  const present = report ? describeBackupCounts(report.alreadyPresent) : '';
+
+  return (
+    <section aria-labelledby="backup-heading" className="match-review-panel backup-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="screen-eyebrow">Your data</p>
+          <h2 id="backup-heading">Backup and restore</h2>
+        </div>
+      </div>
+      <p className="panel-intro">
+        Export your notes, saved and dismissed homes, saved searches, and property match decisions
+        to one JSON file. Importing merges a file into this database by address and unit and never
+        creates duplicates. Listings, prices, and provider keys are not included; Refresh fetches
+        listings again. The file stays on this computer.
+      </p>
+      <div className="backup-actions">
+        <button disabled={busy !== null} onClick={() => void exportData()} type="button">
+          {busy === 'export' ? 'Exporting…' : 'Export personal data'}
+        </button>
+      </div>
+      <form className="backup-import" onSubmit={(event) => void importData(event)}>
+        <label className="backup-file">
+          <span>Backup file (.json)</span>
+          <input
+            accept="application/json,.json"
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null);
+              setReport(null);
+              setError('');
+            }}
+            type="file"
+          />
+        </label>
+        <button className="secondary-button" disabled={!file || busy !== null} type="submit">
+          {busy === 'import' ? 'Importing…' : 'Import personal data'}
+        </button>
+      </form>
+      {error && (
+        <p className="review-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div aria-live="polite" role="status">
+        {exported && <p className="backup-result">Exported your personal data to {exported}.</p>}
+        {report && (
+          <div className="backup-result">
+            <p>
+              {added ? `Imported ${added}.` : 'Nothing new to import.'}
+              {present ? ` Already here: ${present}.` : ''}
+              {report.migratedFromVersion !== null
+                ? ` Upgraded from backup format ${report.migratedFromVersion}.`
+                : ''}
+            </p>
+            {report.skipped.length > 0 && (
+              <>
+                <h3>
+                  {report.skipped.length} {report.skipped.length === 1 ? 'item' : 'items'} skipped
+                </h3>
+                <ul>
+                  {report.skipped.map((entry, index) => (
+                    <li key={index}>
+                      {entry.label}: {entry.reason}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 type SearchListing = {
   property: {
     id: string;
@@ -2336,6 +2502,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
           <div className="settings-panels">
             <SavedSearchPanel />
             <MatchReviewPanel />
+            <BackupPanel />
           </div>
         ) : page.path === '/' ? (
           <SearchScreen />
