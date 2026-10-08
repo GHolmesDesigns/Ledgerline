@@ -323,6 +323,11 @@ export function createStore(database: Database, options: StoreOptions = {}) {
   }
 
   const store = {
+    /** Group related store writes into one durable unit of work. */
+    transaction<T>(fn: () => T): T {
+      return transaction(fn);
+    },
+
     // Properties
 
     createProperty(input: PropertyInput): Property {
