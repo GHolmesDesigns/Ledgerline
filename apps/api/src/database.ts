@@ -15,6 +15,7 @@ export async function openDatabase(
     ? new SQL.Database(new Uint8Array(readFileSync(databasePath)))
     : new SQL.Database();
   databasePaths.set(database, databasePath);
+  enforceForeignKeys(database);
   migrate(database);
   persistDatabase(database);
   return database;
@@ -60,6 +61,13 @@ export function persistDatabase(database: Database) {
   const path = databasePaths.get(database);
   if (!path) throw new Error('Database was not opened by openDatabase');
   writeFileSync(path, Buffer.from(database.export()));
+  // export() reopens the connection, which resets connection settings.
+  enforceForeignKeys(database);
+}
+
+// SQLite ignores foreign keys unless each connection turns them on.
+function enforceForeignKeys(database: Database) {
+  database.run('PRAGMA foreign_keys = ON');
 }
 
 export function closeDatabase(database: Database) {

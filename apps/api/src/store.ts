@@ -1,0 +1,709 @@
+import type { Database, SqlValue } from 'sql.js';
+import { randomUUID } from 'node:crypto';
+
+// Data-access module for the core records (C5). Everything the API and web client
+// know about properties, listings, and personal data goes through here, so no SQL
+// lives anywhere else. Field names follow the normalized model, never a provider's.
+
+export type ListingMode = 'sale' | 'rent';
+export type PricePeriod = 'total' | 'month' | 'week' | 'year';
+
+export interface PropertyInput {
+  street: string;
+  unit?: string | null;
+  city: string;
+  zip: string;
+  county?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  propertyType?: string | null;
+  beds?: number | null;
+  bathsTotal?: number | null;
+  bathsFull?: number | null;
+  bathsHalf?: number | null;
+  livingAreaSqft?: number | null;
+  lotSizeSqft?: number | null;
+  yearBuilt?: number | null;
+  parcelId?: string | null;
+  sample?: boolean;
+}
+
+export interface Property extends Required<PropertyInput> {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListingInput {
+  provider: string;
+  providerId: string;
+  mlsName?: string | null;
+  mlsNumber?: string | null;
+  mode: ListingMode;
+  price?: number | null;
+  pricePeriod: PricePeriod;
+  status: string;
+  hoaFee?: number | null;
+  imageUrls?: string[];
+  sourceUrl?: string | null;
+  agentName?: string | null;
+  agentPhone?: string | null;
+  agentEmail?: string | null;
+  officeName?: string | null;
+  officePhone?: string | null;
+  officeEmail?: string | null;
+  providerListedDate?: string | null;
+  providerRemovedDate?: string | null;
+  providerLastSeenDate?: string | null;
+  /** Per-field quality flags, for example { hoaFee: 'missing' }. */
+  fieldQuality?: Record<string, string>;
+  sample?: boolean;
+}
+
+export interface Listing extends Required<ListingInput> {
+  id: string;
+  propertyId: string;
+  firstFetchedAt: string;
+  lastFetchedAt: string;
+}
+
+export interface Snapshot {
+  id: number;
+  listingId: string;
+  fetchedAt: string;
+  price: number | null;
+  status: string;
+}
+
+export interface Note {
+  id: number;
+  propertyId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedSearchInput {
+  name: string;
+  mode: ListingMode;
+  location: string;
+  filters?: Record<string, unknown>;
+  priceMin?: number | null;
+  priceMax?: number | null;
+  /** Days between refreshes. Stays null until the refresh interval is decided. */
+  refreshIntervalDays?: number | null;
+}
+
+export interface SavedSearch extends Required<SavedSearchInput> {
+  id: number;
+  pairedSearchId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReviewDecision = 'link' | 'keep_separate';
+
+export interface ReviewItem {
+  id: number;
+  incomingListing: unknown;
+  candidatePropertyId: string;
+  reason: string;
+  decision: ReviewDecision | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+export interface StoreOptions {
+  /** Called after every write, so the caller can save the database file. */
+  afterWrite?: () => void;
+  clock?: () => Date;
+}
+
+type Row = Record<string, SqlValue>;
+
+const propertyColumns = `id, street, unit, city, zip, county, latitude, longitude, property_type,
+  beds, baths_total, baths_full, baths_half, living_area_sqft, lot_size_sqft, year_built,
+  parcel_id, sample, created_at, updated_at`;
+
+const listingColumns = `id, property_id, provider, provider_id, mls_name, mls_number, mode, price,
+  price_period, status, hoa_fee, image_urls, source_url, agent_name, agent_phone, agent_email,
+  office_name, office_phone, office_email, provider_listed_date, provider_removed_date,
+  provider_last_seen_date, first_fetched_at, last_fetched_at, field_quality, sample`;
+
+const searchColumns = `id, name, mode, location, filters, price_min, price_max, paired_search_id,
+  refresh_interval_days, created_at, updated_at`;
+
+export function createStore(database: Database, options: StoreOptions = {}) {
+  const now = () => (options.clock ?? (() => new Date()))().toISOString();
+  let depth = 0;
+
+  function all(sql: string, params: SqlValue[] = []): Row[] {
+    const statement = database.prepare(sql);
+    try {
+      statement.bind(params);
+      const result: Row[] = [];
+      while (statement.step()) result.push(statement.getAsObject());
+      return result;
+    } finally {
+      statement.free();
+    }
+  }
+
+  function one(sql: string, params: SqlValue[] = []): Row | undefined {
+    return all(sql, params)[0];
+  }
+
+  function run(sql: string, params: SqlValue[] = []) {
+    database.run(sql, params);
+  }
+
+  function lastInsertId(): number {
+    return Number(one('SELECT last_insert_rowid() AS id')?.id);
+  }
+
+  // Runs fn as one unit of work: all of it is saved, or none of it. Nested calls
+  // join the outer unit, and the database file is saved once, after the outermost.
+  function transaction<T>(fn: () => T): T {
+    if (depth > 0) return fn();
+    depth += 1;
+    database.run('BEGIN');
+    try {
+      const result = fn();
+      database.run('COMMIT');
+      depth -= 1;
+      options.afterWrite?.();
+      return result;
+    } catch (error) {
+      depth -= 1;
+      database.run('ROLLBACK');
+      throw error;
+    }
+  }
+
+  function requireProperty(propertyId: string) {
+    if (
+      !propertyId.startsWith('prop_') ||
+      !one('SELECT 1 FROM properties WHERE id = ?', [propertyId])
+    ) {
+      throw new Error(
+        `Unknown property ID: ${propertyId}. Personal data is saved against a property, not a listing.`,
+      );
+    }
+  }
+
+  function requireListing(listingId: string) {
+    if (!one('SELECT 1 FROM listings WHERE id = ?', [listingId])) {
+      throw new Error(`Unknown listing ID: ${listingId}`);
+    }
+  }
+
+  const text = (value: SqlValue) => (value === null ? null : String(value));
+  const number = (value: SqlValue) => (value === null ? null : Number(value));
+
+  function toProperty(row: Row): Property {
+    return {
+      id: String(row.id),
+      street: String(row.street),
+      unit: text(row.unit),
+      city: String(row.city),
+      zip: String(row.zip),
+      county: text(row.county),
+      latitude: number(row.latitude),
+      longitude: number(row.longitude),
+      propertyType: text(row.property_type),
+      beds: number(row.beds),
+      bathsTotal: number(row.baths_total),
+      bathsFull: number(row.baths_full),
+      bathsHalf: number(row.baths_half),
+      livingAreaSqft: number(row.living_area_sqft),
+      lotSizeSqft: number(row.lot_size_sqft),
+      yearBuilt: number(row.year_built),
+      parcelId: text(row.parcel_id),
+      sample: row.sample === 1,
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+    };
+  }
+
+  function toListing(row: Row): Listing {
+    return {
+      id: String(row.id),
+      propertyId: String(row.property_id),
+      provider: String(row.provider),
+      providerId: String(row.provider_id),
+      mlsName: text(row.mls_name),
+      mlsNumber: text(row.mls_number),
+      mode: row.mode as ListingMode,
+      price: number(row.price),
+      pricePeriod: row.price_period as PricePeriod,
+      status: String(row.status),
+      hoaFee: number(row.hoa_fee),
+      imageUrls: JSON.parse(String(row.image_urls)) as string[],
+      sourceUrl: text(row.source_url),
+      agentName: text(row.agent_name),
+      agentPhone: text(row.agent_phone),
+      agentEmail: text(row.agent_email),
+      officeName: text(row.office_name),
+      officePhone: text(row.office_phone),
+      officeEmail: text(row.office_email),
+      providerListedDate: text(row.provider_listed_date),
+      providerRemovedDate: text(row.provider_removed_date),
+      providerLastSeenDate: text(row.provider_last_seen_date),
+      firstFetchedAt: String(row.first_fetched_at),
+      lastFetchedAt: String(row.last_fetched_at),
+      fieldQuality: JSON.parse(String(row.field_quality)) as Record<string, string>,
+      sample: row.sample === 1,
+    };
+  }
+
+  function toSearch(row: Row): SavedSearch {
+    return {
+      id: Number(row.id),
+      name: String(row.name),
+      mode: row.mode as ListingMode,
+      location: String(row.location),
+      filters: JSON.parse(String(row.filters)) as Record<string, unknown>,
+      priceMin: number(row.price_min),
+      priceMax: number(row.price_max),
+      pairedSearchId: number(row.paired_search_id),
+      refreshIntervalDays: number(row.refresh_interval_days),
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+    };
+  }
+
+  function toReview(row: Row): ReviewItem {
+    return {
+      id: Number(row.id),
+      incomingListing: JSON.parse(String(row.incoming_listing)),
+      candidatePropertyId: String(row.candidate_property_id),
+      reason: String(row.reason),
+      decision: row.decision === null ? null : (row.decision as ReviewDecision),
+      decidedAt: text(row.decided_at),
+      createdAt: String(row.created_at),
+    };
+  }
+
+  function insertListing(propertyId: string, input: ListingInput, at: string): Listing {
+    const id = `lst_${randomUUID()}`;
+    run(`INSERT INTO listings (${listingColumns}) VALUES (${Array(26).fill('?').join(', ')})`, [
+      id,
+      propertyId,
+      input.provider,
+      input.providerId,
+      input.mlsName ?? null,
+      input.mlsNumber ?? null,
+      input.mode,
+      input.price ?? null,
+      input.pricePeriod,
+      input.status,
+      input.hoaFee ?? null,
+      JSON.stringify(input.imageUrls ?? []),
+      input.sourceUrl ?? null,
+      input.agentName ?? null,
+      input.agentPhone ?? null,
+      input.agentEmail ?? null,
+      input.officeName ?? null,
+      input.officePhone ?? null,
+      input.officeEmail ?? null,
+      input.providerListedDate ?? null,
+      input.providerRemovedDate ?? null,
+      input.providerLastSeenDate ?? null,
+      at,
+      at,
+      JSON.stringify(input.fieldQuality ?? {}),
+      input.sample ? 1 : 0,
+    ]);
+    return getListing(id)!;
+  }
+
+  function getListing(listingId: string): Listing | null {
+    const row = one(`SELECT ${listingColumns} FROM listings WHERE id = ?`, [listingId]);
+    return row ? toListing(row) : null;
+  }
+
+  const store = {
+    // Properties
+
+    createProperty(input: PropertyInput): Property {
+      return transaction(() => {
+        const id = `prop_${randomUUID()}`;
+        const at = now();
+        run(
+          `INSERT INTO properties (${propertyColumns}) VALUES (${Array(20).fill('?').join(', ')})`,
+          [
+            id,
+            input.street,
+            input.unit ?? null,
+            input.city,
+            input.zip,
+            input.county ?? null,
+            input.latitude ?? null,
+            input.longitude ?? null,
+            input.propertyType ?? null,
+            input.beds ?? null,
+            input.bathsTotal ?? null,
+            input.bathsFull ?? null,
+            input.bathsHalf ?? null,
+            input.livingAreaSqft ?? null,
+            input.lotSizeSqft ?? null,
+            input.yearBuilt ?? null,
+            input.parcelId ?? null,
+            input.sample ? 1 : 0,
+            at,
+            at,
+          ],
+        );
+        return store.getProperty(id)!;
+      });
+    },
+
+    getProperty(propertyId: string): Property | null {
+      const row = one(`SELECT ${propertyColumns} FROM properties WHERE id = ?`, [propertyId]);
+      return row ? toProperty(row) : null;
+    },
+
+    /** Exact match on normalized street, unit, city, and ZIP. */
+    findPropertyByAddress(address: Pick<PropertyInput, 'street' | 'unit' | 'city' | 'zip'>) {
+      const row = one(
+        `SELECT ${propertyColumns} FROM properties
+         WHERE street = ? AND COALESCE(unit, '') = ? AND city = ? AND zip = ?`,
+        [address.street, address.unit ?? '', address.city, address.zip],
+      );
+      return row ? toProperty(row) : null;
+    },
+
+    /** Properties with the same street address in the same city and ZIP, any unit. */
+    findPropertiesOnStreetAddress(address: Pick<PropertyInput, 'street' | 'city' | 'zip'>) {
+      return all(
+        `SELECT ${propertyColumns} FROM properties WHERE street = ? AND city = ? AND zip = ? ORDER BY unit`,
+        [address.street, address.city, address.zip],
+      ).map(toProperty);
+    },
+
+    listProperties(): Property[] {
+      return all(`SELECT ${propertyColumns} FROM properties ORDER BY created_at, id`).map(
+        toProperty,
+      );
+    },
+
+    // Listings
+
+    getListing,
+
+    listListings(propertyId: string): Listing[] {
+      return all(`SELECT ${listingColumns} FROM listings WHERE property_id = ? ORDER BY mode, id`, [
+        propertyId,
+      ]).map(toListing);
+    },
+
+    /**
+     * Replaces every listing of a property. The property and its notes, favorite,
+     * and dismissal are untouched; the old listings go with their snapshots and
+     * raw payloads.
+     */
+    replaceListings(propertyId: string, inputs: ListingInput[]): Listing[] {
+      return transaction(() => {
+        requireProperty(propertyId);
+        run('DELETE FROM listings WHERE property_id = ?', [propertyId]);
+        const at = now();
+        const created = inputs.map((input) => insertListing(propertyId, input, at));
+        run('UPDATE properties SET updated_at = ? WHERE id = ?', [at, propertyId]);
+        return created;
+      });
+    },
+
+    /**
+     * Adds a listing, or refreshes the one already stored for the same provider and
+     * provider ID: first-fetched time is kept, last-fetched time moves.
+     */
+    upsertListing(propertyId: string, input: ListingInput): Listing {
+      return transaction(() => {
+        requireProperty(propertyId);
+        const at = now();
+        const existing = one(
+          'SELECT id, property_id FROM listings WHERE provider = ? AND provider_id = ?',
+          [input.provider, input.providerId],
+        );
+        if (!existing) return insertListing(propertyId, input, at);
+        if (existing.property_id !== propertyId) {
+          throw new Error(
+            `Listing ${input.provider}/${input.providerId} belongs to another property`,
+          );
+        }
+        run(
+          `UPDATE listings SET mls_name = ?, mls_number = ?, mode = ?, price = ?, price_period = ?,
+             status = ?, hoa_fee = ?, image_urls = ?, source_url = ?, agent_name = ?, agent_phone = ?,
+             agent_email = ?, office_name = ?, office_phone = ?, office_email = ?,
+             provider_listed_date = ?, provider_removed_date = ?, provider_last_seen_date = ?,
+             last_fetched_at = ?, field_quality = ?, sample = ?
+           WHERE id = ?`,
+          [
+            input.mlsName ?? null,
+            input.mlsNumber ?? null,
+            input.mode,
+            input.price ?? null,
+            input.pricePeriod,
+            input.status,
+            input.hoaFee ?? null,
+            JSON.stringify(input.imageUrls ?? []),
+            input.sourceUrl ?? null,
+            input.agentName ?? null,
+            input.agentPhone ?? null,
+            input.agentEmail ?? null,
+            input.officeName ?? null,
+            input.officePhone ?? null,
+            input.officeEmail ?? null,
+            input.providerListedDate ?? null,
+            input.providerRemovedDate ?? null,
+            input.providerLastSeenDate ?? null,
+            at,
+            JSON.stringify(input.fieldQuality ?? {}),
+            input.sample ? 1 : 0,
+            String(existing.id),
+          ],
+        );
+        return getListing(String(existing.id))!;
+      });
+    },
+
+    // Snapshots
+
+    addSnapshot(
+      listingId: string,
+      snapshot: { fetchedAt?: string; price: number | null; status: string },
+    ) {
+      return transaction(() => {
+        requireListing(listingId);
+        run(
+          'INSERT INTO listing_snapshots (listing_id, fetched_at, price, status) VALUES (?, ?, ?, ?)',
+          [listingId, snapshot.fetchedAt ?? now(), snapshot.price, snapshot.status],
+        );
+        return lastInsertId();
+      });
+    },
+
+    listSnapshots(listingId: string): Snapshot[] {
+      return all(
+        'SELECT id, listing_id, fetched_at, price, status FROM listing_snapshots WHERE listing_id = ? ORDER BY fetched_at, id',
+        [listingId],
+      ).map((row) => ({
+        id: Number(row.id),
+        listingId: String(row.listing_id),
+        fetchedAt: String(row.fetched_at),
+        price: number(row.price),
+        status: String(row.status),
+      }));
+    },
+
+    // Raw payloads. Server-side debugging only: no API route returns these.
+
+    addRawPayload(listingId: string, payload: unknown, fetchedAt?: string) {
+      return transaction(() => {
+        requireListing(listingId);
+        run('INSERT INTO listing_raw_payloads (listing_id, fetched_at, payload) VALUES (?, ?, ?)', [
+          listingId,
+          fetchedAt ?? now(),
+          JSON.stringify(payload),
+        ]);
+        return lastInsertId();
+      });
+    },
+
+    listRawPayloads(listingId: string) {
+      return all(
+        'SELECT id, fetched_at, payload FROM listing_raw_payloads WHERE listing_id = ? ORDER BY fetched_at, id',
+        [listingId],
+      ).map((row) => ({
+        id: Number(row.id),
+        fetchedAt: String(row.fetched_at),
+        payload: JSON.parse(String(row.payload)) as unknown,
+      }));
+    },
+
+    // Personal data, keyed to a property
+
+    addNote(propertyId: string, body: string): Note {
+      return transaction(() => {
+        requireProperty(propertyId);
+        const at = now();
+        run(
+          'INSERT INTO property_notes (property_id, body, created_at, updated_at) VALUES (?, ?, ?, ?)',
+          [propertyId, body, at, at],
+        );
+        return { id: lastInsertId(), propertyId, body, createdAt: at, updatedAt: at };
+      });
+    },
+
+    updateNote(noteId: number, body: string) {
+      transaction(() => {
+        run('UPDATE property_notes SET body = ?, updated_at = ? WHERE id = ?', [
+          body,
+          now(),
+          noteId,
+        ]);
+      });
+    },
+
+    deleteNote(noteId: number) {
+      transaction(() => run('DELETE FROM property_notes WHERE id = ?', [noteId]));
+    },
+
+    listNotes(propertyId: string): Note[] {
+      return all(
+        'SELECT id, property_id, body, created_at, updated_at FROM property_notes WHERE property_id = ? ORDER BY created_at, id',
+        [propertyId],
+      ).map((row) => ({
+        id: Number(row.id),
+        propertyId: String(row.property_id),
+        body: String(row.body),
+        createdAt: String(row.created_at),
+        updatedAt: String(row.updated_at),
+      }));
+    },
+
+    setFavorite(propertyId: string, favorite: boolean) {
+      transaction(() => {
+        requireProperty(propertyId);
+        if (favorite) {
+          run('INSERT OR IGNORE INTO property_favorites (property_id, created_at) VALUES (?, ?)', [
+            propertyId,
+            now(),
+          ]);
+        } else {
+          run('DELETE FROM property_favorites WHERE property_id = ?', [propertyId]);
+        }
+      });
+    },
+
+    isFavorite(propertyId: string): boolean {
+      return !!one('SELECT 1 FROM property_favorites WHERE property_id = ?', [propertyId]);
+    },
+
+    setDismissed(propertyId: string, dismissed: boolean) {
+      transaction(() => {
+        requireProperty(propertyId);
+        if (dismissed) {
+          run(
+            'INSERT OR IGNORE INTO property_dismissals (property_id, dismissed_at) VALUES (?, ?)',
+            [propertyId, now()],
+          );
+        } else {
+          run('DELETE FROM property_dismissals WHERE property_id = ?', [propertyId]);
+        }
+      });
+    },
+
+    isDismissed(propertyId: string): boolean {
+      return !!one('SELECT 1 FROM property_dismissals WHERE property_id = ?', [propertyId]);
+    },
+
+    // Saved searches
+
+    createSavedSearch(input: SavedSearchInput): SavedSearch {
+      return transaction(() => {
+        const at = now();
+        run(
+          `INSERT INTO saved_searches (name, mode, location, filters, price_min, price_max,
+             refresh_interval_days, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            input.name,
+            input.mode,
+            input.location,
+            JSON.stringify(input.filters ?? {}),
+            input.priceMin ?? null,
+            input.priceMax ?? null,
+            input.refreshIntervalDays ?? null,
+            at,
+            at,
+          ],
+        );
+        return store.getSavedSearch(lastInsertId())!;
+      });
+    },
+
+    getSavedSearch(searchId: number): SavedSearch | null {
+      const row = one(`SELECT ${searchColumns} FROM saved_searches WHERE id = ?`, [searchId]);
+      return row ? toSearch(row) : null;
+    },
+
+    listSavedSearches(): SavedSearch[] {
+      return all(`SELECT ${searchColumns} FROM saved_searches ORDER BY id`).map(toSearch);
+    },
+
+    /** Pairs a Buy search with a Rent search for the same area, in both directions. */
+    pairSavedSearches(firstId: number, secondId: number) {
+      transaction(() => {
+        const first = store.getSavedSearch(firstId);
+        const second = store.getSavedSearch(secondId);
+        if (!first || !second) throw new Error('Both saved searches must exist to pair them');
+        if (first.mode === second.mode)
+          throw new Error('A pair is one Buy search and one Rent search');
+        // Unpair anything either search was paired with before.
+        run('UPDATE saved_searches SET paired_search_id = NULL WHERE paired_search_id IN (?, ?)', [
+          firstId,
+          secondId,
+        ]);
+        run('UPDATE saved_searches SET paired_search_id = ?, updated_at = ? WHERE id = ?', [
+          secondId,
+          now(),
+          firstId,
+        ]);
+        run('UPDATE saved_searches SET paired_search_id = ?, updated_at = ? WHERE id = ?', [
+          firstId,
+          now(),
+          secondId,
+        ]);
+      });
+    },
+
+    deleteSavedSearch(searchId: number) {
+      transaction(() => run('DELETE FROM saved_searches WHERE id = ?', [searchId]));
+    },
+
+    // Match review queue
+
+    enqueueMatchReview(item: {
+      incomingListing: unknown;
+      candidatePropertyId: string;
+      reason: string;
+    }): ReviewItem {
+      return transaction(() => {
+        requireProperty(item.candidatePropertyId);
+        run(
+          'INSERT INTO match_review_queue (incoming_listing, candidate_property_id, reason, created_at) VALUES (?, ?, ?, ?)',
+          [JSON.stringify(item.incomingListing), item.candidatePropertyId, item.reason, now()],
+        );
+        return store.getMatchReview(lastInsertId())!;
+      });
+    },
+
+    getMatchReview(reviewId: number): ReviewItem | null {
+      const row = one('SELECT * FROM match_review_queue WHERE id = ?', [reviewId]);
+      return row ? toReview(row) : null;
+    },
+
+    listPendingMatchReviews(): ReviewItem[] {
+      return all(
+        'SELECT * FROM match_review_queue WHERE decision IS NULL ORDER BY created_at, id',
+      ).map(toReview);
+    },
+
+    decideMatchReview(reviewId: number, decision: ReviewDecision): ReviewItem {
+      return transaction(() => {
+        const current = store.getMatchReview(reviewId);
+        if (!current) throw new Error(`Unknown review item: ${reviewId}`);
+        if (current.decision) throw new Error(`Review item ${reviewId} is already decided`);
+        run('UPDATE match_review_queue SET decision = ?, decided_at = ? WHERE id = ?', [
+          decision,
+          now(),
+          reviewId,
+        ]);
+        return store.getMatchReview(reviewId)!;
+      });
+    },
+  };
+  return store;
+}
+
+export type Store = ReturnType<typeof createStore>;

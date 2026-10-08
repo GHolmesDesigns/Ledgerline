@@ -24,19 +24,20 @@ function rows(database: Database, sql: string) {
 }
 
 describe('local API bootstrap', () => {
-  it('creates an empty SQLite database and applies the numbered bootstrap migration once', async () => {
+  it('creates an empty SQLite database and applies each numbered migration once', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'ledgerline-api-'));
     temporaryDirectories.push(directory);
     const path = join(directory, 'data', 'ledgerline.sqlite');
     const first = await openDatabase(path);
     assert.deepEqual(rows(first, 'SELECT version, name FROM schema_migrations'), [
       { version: 1, name: '001_bootstrap.sql' },
+      { version: 2, name: '002_core_schema.sql' },
     ]);
     closeDatabase(first);
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 1 },
+      { count: 2 },
     ]);
     closeDatabase(second);
   });
