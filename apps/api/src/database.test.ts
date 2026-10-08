@@ -40,12 +40,13 @@ describe('local API bootstrap', () => {
       { version: 1, name: '001_bootstrap.sql' },
       { version: 2, name: '002_core_schema.sql' },
       { version: 3, name: '003_match_review_undo.sql' },
+      { version: 4, name: '004_provider_history.sql' },
     ]);
     closeDatabase(first);
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 3 },
+      { count: 4 },
     ]);
     closeDatabase(second);
   });
@@ -180,6 +181,72 @@ describe('saved-search API', () => {
         server.close((error) => (error ? reject(error) : resolve())),
       );
       closeDatabase(database);
+    }
+  });
+});
+
+describe('property detail API', () => {
+  it('returns normalized listing history and local snapshots without raw provider payloads', async () => {
+    const database = await temporaryDatabase();
+    const store = createStore(database);
+    const property = store.createProperty({
+      street: '2207 NE 32nd Ct',
+      city: 'Fort Lauderdale',
+      zip: '33308',
+      propertyType: 'single_family',
+      beds: 3,
+      bathsTotal: 2,
+      livingAreaSqft: 1850,
+      lotSizeSqft: 9148,
+      yearBuilt: 1964,
+    });
+    const [listing] = store.replaceListings(property.id, [
+      {
+        provider: 'mock',
+        providerId: 'detail-sale',
+        mode: 'sale',
+        price: 849000,
+        pricePeriod: 'total',
+        status: 'active',
+        providerHistory: [{ date: '2026-10-01', price: 859000, status: 'active' }],
+      },
+    ]);
+    store.addSnapshot(listing.id, {
+      fetchedAt: '2026-10-06T12:00:00.000Z',
+      price: 849000,
+      status: 'active',
+    });
+    store.addRawPayload(listing.id, { privateDebugData: 'never returned' });
+    const server = createApp(database, store);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/api/properties/${property.id}`,
+      );
+      assert.equal(response.status, 200);
+      const result = (await response.json()) as {
+        property: { lotSizeSqft: number };
+        listings: Array<{
+          providerHistory: Array<{ price: number }>;
+          localSnapshots: Array<{ price: number }>;
+          privateDebugData?: string;
+        }>;
+      };
+      assert.equal(result.property.lotSizeSqft, 9148);
+      assert.equal(result.listings[0].providerHistory[0].price, 859000);
+      assert.equal(result.listings[0].localSnapshots[0].price, 849000);
+      assert.equal(result.listings[0].privateDebugData, undefined);
+      assert.equal(
+        (await fetch(`http://127.0.0.1:${address.port}/api/properties/prop_missing`)).status,
+        404,
+      );
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+      database.close();
     }
   });
 });

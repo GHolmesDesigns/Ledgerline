@@ -783,8 +783,37 @@ type PropertyNote = {
   updatedAt: string;
 };
 type PropertyDetailData = {
-  property: SearchListing['property'];
-  listings: SearchListing['listing'][];
+  property: SearchListing['property'] & {
+    lotSizeSqft: number | null;
+    bathsFull: number | null;
+    bathsHalf: number | null;
+    parcelId: string | null;
+  };
+  listings: Array<
+    SearchListing['listing'] & {
+      mlsName: string | null;
+      mlsNumber: string | null;
+      sourceUrl: string | null;
+      agentName: string | null;
+      agentPhone: string | null;
+      agentEmail: string | null;
+      officeName: string | null;
+      officePhone: string | null;
+      officeEmail: string | null;
+      providerListedDate: string | null;
+      providerRemovedDate: string | null;
+      firstFetchedAt: string;
+      lastFetchedAt: string;
+      fieldQuality: Record<string, string>;
+      providerHistory: Array<{ date: string; price: number | null; status: string | null }>;
+      localSnapshots: Array<{
+        id: number;
+        fetchedAt: string;
+        price: number | null;
+        status: string;
+      }>;
+    }
+  >;
   notes: PropertyNote[];
   saved: boolean;
   dismissed: boolean;
@@ -876,6 +905,25 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       </section>
     );
   const { property, listings, notes } = data;
+  const missingFields = [
+    ['Property type', property.propertyType],
+    ['Bedrooms', property.beds],
+    ['Bathrooms', property.bathsTotal],
+    ['Living area', property.livingAreaSqft],
+    ['Lot size', property.lotSizeSqft],
+    ['Year built', property.yearBuilt],
+  ].filter(([, value]) => value == null);
+  const addressQuery = encodeURIComponent(
+    `${property.street}${property.unit ? ` ${property.unit}` : ''}, ${property.city}, FL ${property.zip}`,
+  );
+  const streetView =
+    property.latitude != null && property.longitude != null
+      ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${property.latitude},${property.longitude}`
+      : null;
+  const priceText = (price: number | null, mode: 'sale' | 'rent') =>
+    price == null
+      ? 'Price unavailable'
+      : `$${price.toLocaleString()}${mode === 'rent' ? '/mo' : ''}`;
   return (
     <section className="property-detail-panel" aria-label="Property details">
       <div className="property-detail-heading">
@@ -889,10 +937,11 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           </h2>
           <p>
             {property.beds ?? '—'} bd · {property.bathsTotal ?? '—'} ba ·{' '}
-            {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft
+            {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft ·{' '}
+            {property.yearBuilt ?? 'Year unknown'}
           </p>
         </div>
-        <div className="property-actions">
+        <div className="property-actions property-desktop-actions">
           <button aria-pressed={data.saved} onClick={() => void toggle('favorite')} type="button">
             {data.saved ? 'Saved' : 'Save property'}
           </button>
@@ -904,6 +953,12 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           >
             {data.dismissed ? 'Undo dismissal' : 'Dismiss property'}
           </button>
+          <a className="button-link secondary-button" href={`/compare?properties=${property.id}`}>
+            Compare
+          </a>
+          <a className="button-link secondary-button" href={`/?location=${addressQuery}`}>
+            Search this address
+          </a>
         </div>
       </div>
       {error && (
@@ -917,16 +972,178 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           {listings.map((listing) => (
             <li key={listing.id}>
               <strong>{listing.mode === 'sale' ? 'Buy' : 'Rent'}</strong>
-              <span>
-                {listing.price == null
-                  ? 'Price unavailable'
-                  : `$${listing.price.toLocaleString()}${listing.mode === 'rent' ? '/mo' : ''}`}
-              </span>
+              <span>{priceText(listing.price, listing.mode)}</span>
               <span>{listing.status}</span>
               <span>{listing.provider}</span>
+              <span>Last seen {listing.providerLastSeenDate ?? 'unknown'}</span>
             </li>
           ))}
         </ul>
+      </section>
+      <section aria-labelledby="property-facts-heading" className="property-detail-section">
+        <h3 id="property-facts-heading">Property facts</h3>
+        <dl className="property-facts-grid">
+          <div>
+            <dt>Type</dt>
+            <dd>{property.propertyType?.replaceAll('_', ' ') ?? 'Unknown'}</dd>
+          </div>
+          <div>
+            <dt>Bedrooms</dt>
+            <dd>{property.beds ?? 'Unknown'}</dd>
+          </div>
+          <div>
+            <dt>Bathrooms</dt>
+            <dd>
+              {property.bathsTotal ?? 'Unknown'}
+              {property.bathsFull != null
+                ? ` (${property.bathsFull} full${property.bathsHalf ? `, ${property.bathsHalf} half` : ''})`
+                : ''}
+            </dd>
+          </div>
+          <div>
+            <dt>Living area</dt>
+            <dd>{property.livingAreaSqft?.toLocaleString() ?? 'Unknown'} sq ft</dd>
+          </div>
+          <div>
+            <dt>Lot size</dt>
+            <dd>{property.lotSizeSqft?.toLocaleString() ?? 'Unknown'} sq ft</dd>
+          </div>
+          <div>
+            <dt>Year built</dt>
+            <dd>{property.yearBuilt ?? 'Unknown'}</dd>
+          </div>
+        </dl>
+      </section>
+      <section aria-labelledby="property-history-heading" className="property-detail-section">
+        <h3 id="property-history-heading">Price and status history</h3>
+        {listings.map((listing) => (
+          <div className="property-history-listing" key={listing.id}>
+            <h4>
+              {listing.mode === 'sale' ? 'Buy' : 'Rent'} · {listing.provider}
+            </h4>
+            <div className="history-columns">
+              <section aria-label={`${listing.mode} provider history`}>
+                <h5>Provider history</h5>
+                {(listing.providerHistory ?? []).length === 0 ? (
+                  <p>Not supplied by this provider.</p>
+                ) : (
+                  <ul>
+                    {listing.providerHistory.map((entry, index) => (
+                      <li key={`${entry.date}-${index}`}>
+                        <time dateTime={entry.date}>{entry.date}</time> ·{' '}
+                        {priceText(entry.price, listing.mode)} · {entry.status ?? 'Status unknown'}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section aria-label={`${listing.mode} local snapshots`}>
+                <h5>Local snapshots</h5>
+                {(listing.localSnapshots ?? []).length === 0 ? (
+                  <p>No local snapshots yet.</p>
+                ) : (
+                  <ul>
+                    {listing.localSnapshots.map((entry) => (
+                      <li key={entry.id}>
+                        <time dateTime={entry.fetchedAt}>
+                          {new Date(entry.fetchedAt).toLocaleDateString()}
+                        </time>{' '}
+                        · {priceText(entry.price, listing.mode)} · {entry.status}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+          </div>
+        ))}
+      </section>
+      <section aria-labelledby="verification-heading" className="property-detail-section">
+        <h3 id="verification-heading">Verify listing by hand</h3>
+        <p>The app does not open or fetch listing pages for you.</p>
+        <ul className="verification-list">
+          {listings.map((listing) => (
+            <li key={listing.id}>
+              <h4>
+                {listing.mode === 'sale' ? 'Buy' : 'Rent'} · {listing.provider}
+              </h4>
+              {listing.sourceUrl && (
+                <a href={listing.sourceUrl} target="_blank" rel="noreferrer">
+                  Open provider listing
+                </a>
+              )}
+              {(listing.mlsName || listing.mlsNumber) && (
+                <p>MLS: {[listing.mlsName, listing.mlsNumber].filter(Boolean).join(' ')}</p>
+              )}
+              {(listing.agentName || listing.agentPhone || listing.agentEmail) && (
+                <p>
+                  Agent:{' '}
+                  {[listing.agentName, listing.agentPhone, listing.agentEmail]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
+              {(listing.officeName || listing.officePhone || listing.officeEmail) && (
+                <p>
+                  Office:{' '}
+                  {[listing.officeName, listing.officePhone, listing.officeEmail]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${addressQuery}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Search this address
+              </a>
+            </li>
+          ))}
+        </ul>
+        {streetView && (
+          <a href={streetView} target="_blank" rel="noreferrer">
+            Open Street View
+          </a>
+        )}
+      </section>
+      <section aria-labelledby="data-quality-heading" className="property-detail-section">
+        <h3 id="data-quality-heading">Data quality and freshness</h3>
+        <p>
+          {missingFields.length
+            ? `Missing property fields: ${missingFields.map(([label]) => label).join(', ')}.`
+            : 'All core property facts are present.'}
+        </p>
+        {listings.map((listing) => {
+          const seen = listing.providerLastSeenDate
+            ? new Date(`${listing.providerLastSeenDate}T00:00:00`).getTime()
+            : Number.NaN;
+          const staleListing =
+            !Number.isFinite(seen) || Date.now() - seen > 7 * 24 * 60 * 60 * 1000;
+          const flagged = Object.entries(listing.fieldQuality ?? {}).filter(
+            ([, value]) => value && value !== 'ok',
+          );
+          return (
+            <div className="freshness-row" key={listing.id}>
+              <strong>{listing.mode === 'sale' ? 'Buy' : 'Rent'}</strong>
+              <span>
+                {staleListing ? 'Stale' : 'Current'} · provider last seen{' '}
+                {listing.providerLastSeenDate ?? 'unknown'}
+              </span>
+              <span>
+                Last local refresh{' '}
+                {listing.lastFetchedAt
+                  ? new Date(listing.lastFetchedAt).toLocaleString()
+                  : 'unknown'}
+              </span>
+              {flagged.length > 0 && (
+                <span>
+                  Check fields: {flagged.map(([field, value]) => `${field} (${value})`).join(', ')}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </section>
       <section aria-labelledby="property-notes-heading" className="property-detail-section">
         <h3 id="property-notes-heading">Notes</h3>
@@ -1007,6 +1224,13 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           <button type="submit">Add note</button>
         </form>
       </section>
+      <nav aria-label="Property actions" className="property-mobile-actions">
+        <button aria-pressed={data.saved} onClick={() => void toggle('favorite')} type="button">
+          {data.saved ? 'Saved' : 'Save'}
+        </button>
+        <a href={`/compare?properties=${property.id}`}>Compare</a>
+        <a href={`/?location=${addressQuery}`}>Search this address</a>
+      </nav>
     </section>
   );
 }

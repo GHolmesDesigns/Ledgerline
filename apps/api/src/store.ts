@@ -57,7 +57,14 @@ export interface ListingInput {
   providerLastSeenDate?: string | null;
   /** Per-field quality flags, for example { hoaFee: 'missing' }. */
   fieldQuality?: Record<string, string>;
+  providerHistory?: ProviderHistory[];
   sample?: boolean;
+}
+
+export interface ProviderHistory {
+  date: string;
+  price: number | null;
+  status: string | null;
 }
 
 export interface Listing extends Required<ListingInput> {
@@ -155,7 +162,7 @@ const propertyColumns = `id, street, unit, city, zip, county, latitude, longitud
 const listingColumns = `id, property_id, provider, provider_id, mls_name, mls_number, mode, price,
   price_period, status, hoa_fee, image_urls, source_url, agent_name, agent_phone, agent_email,
   office_name, office_phone, office_email, provider_listed_date, provider_removed_date,
-  provider_last_seen_date, first_fetched_at, last_fetched_at, field_quality, sample`;
+  provider_last_seen_date, first_fetched_at, last_fetched_at, field_quality, provider_history, sample`;
 
 const searchColumns = `id, name, mode, location, filters, price_min, price_max, paired_search_id,
   refresh_interval_days, created_at, updated_at`;
@@ -279,6 +286,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       firstFetchedAt: String(row.first_fetched_at),
       lastFetchedAt: String(row.last_fetched_at),
       fieldQuality: JSON.parse(String(row.field_quality)) as Record<string, string>,
+      providerHistory: JSON.parse(String(row.provider_history)) as ProviderHistory[],
       sample: row.sample === 1,
     };
   }
@@ -315,7 +323,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
   function insertListing(propertyId: string, input: ListingInput, at: string): Listing {
     const id = `lst_${randomUUID()}`;
-    run(`INSERT INTO listings (${listingColumns}) VALUES (${Array(26).fill('?').join(', ')})`, [
+    run(`INSERT INTO listings (${listingColumns}) VALUES (${Array(27).fill('?').join(', ')})`, [
       id,
       propertyId,
       input.provider,
@@ -341,6 +349,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       at,
       at,
       JSON.stringify(input.fieldQuality ?? {}),
+      JSON.stringify(input.providerHistory ?? []),
       input.sample ? 1 : 0,
     ]);
     return getListing(id)!;
@@ -545,7 +554,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
              status = ?, hoa_fee = ?, image_urls = ?, source_url = ?, agent_name = ?, agent_phone = ?,
              agent_email = ?, office_name = ?, office_phone = ?, office_email = ?,
              provider_listed_date = ?, provider_removed_date = ?, provider_last_seen_date = ?,
-             last_fetched_at = ?, field_quality = ?, sample = ?
+             last_fetched_at = ?, field_quality = ?, provider_history = ?, sample = ?
            WHERE id = ?`,
           [
             input.mlsName ?? null,
@@ -568,6 +577,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             input.providerLastSeenDate ?? null,
             at,
             JSON.stringify(input.fieldQuality ?? {}),
+            JSON.stringify(input.providerHistory ?? []),
             input.sample ? 1 : 0,
             String(existing.id),
           ],

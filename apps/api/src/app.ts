@@ -103,7 +103,10 @@ export function createApp(database: Database, store: Store = createStore(databas
       }
       json(200, {
         property,
-        listings: store.listListings(propertyId),
+        listings: store.listListings(propertyId).map((listing) => ({
+          ...listing,
+          localSnapshots: store.listSnapshots(listing.id),
+        })),
         notes: store.listNotes(propertyId),
         saved: store.isFavorite(propertyId),
         dismissed: store.isDismissed(propertyId),
