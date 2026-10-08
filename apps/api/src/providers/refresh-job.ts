@@ -1,11 +1,14 @@
 import type { SavedSearch, Store } from '../store.js';
 import { importProviderRecords, type ImportResult } from './import-listings.js';
 import type { ListingProvider, ProviderListing, SearchCriteria } from './listing-provider.js';
+import { RequestBudget, RequestCeilingError, type BudgetDecision } from './request-budget.js';
 
 export interface RefreshResult {
   searchId: number;
   imported?: ImportResult;
   error?: string;
+  /** Set when the monthly ceiling stopped the refresh; no further request was sent. */
+  blocked?: BudgetDecision;
 }
 
 function criteriaFor(search: SavedSearch): SearchCriteria {
@@ -42,18 +45,29 @@ export class RefreshJob {
 
   constructor(
     private readonly store: Store,
-    private readonly provider: ListingProvider,
+    readonly provider: ListingProvider,
+    readonly budget: RequestBudget = new RequestBudget(store),
   ) {}
 
   async refresh(searchId: number): Promise<RefreshResult> {
     if (this.running.has(searchId)) throw new Error('This saved search is already refreshing.');
     const search = this.store.getSavedSearch(searchId);
     if (!search) throw new Error('Saved search not found.');
+    const projected = this.budget.check(this.budget.projectedRefresh(searchId), 'Refresh');
+    if (!projected.allowed) {
+      // Show the reason on the search, without writing again on every scheduler tick.
+      if (search.lastRefreshError !== projected.message) {
+        this.store.markRefreshFailed(searchId, projected.message!);
+      }
+      return { searchId, error: projected.message!, blocked: projected };
+    }
     this.running.add(searchId);
     const records: ProviderListing[] = [];
     try {
       this.store.markRefreshStarted(searchId);
       for (let page = 1; ; page += 1) {
+        // Each page is a request, and a long result can need more than projected.
+        this.budget.assertCanSend(1, 'Refresh');
         const logId = this.store.beginProviderRequest({
           provider: this.provider.name,
           savedSearchId: search.id,
@@ -84,7 +98,11 @@ export class RefreshJob {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Refresh failed.';
       this.store.markRefreshFailed(search.id, message);
-      return { searchId, error: message };
+      return {
+        searchId,
+        error: message,
+        ...(error instanceof RequestCeilingError ? { blocked: error.decision } : {}),
+      };
     } finally {
       this.running.delete(searchId);
     }

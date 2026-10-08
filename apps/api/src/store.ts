@@ -132,6 +132,7 @@ export interface ProviderRequestLog {
   id: number;
   provider: string;
   savedSearchId: number | null;
+  propertyId: string | null;
   requestedAt: string;
   purpose: string;
   page: number;
@@ -851,15 +852,24 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
     beginProviderRequest(input: {
       provider: string;
-      savedSearchId: number;
+      savedSearchId?: number;
+      propertyId?: string;
       purpose: string;
       page: number;
     }) {
       return transaction(() => {
         run(
-          `INSERT INTO provider_request_logs (provider, saved_search_id, requested_at, purpose, page, status)
-           VALUES (?, ?, ?, ?, ?, 'started')`,
-          [input.provider, input.savedSearchId, now(), input.purpose, input.page],
+          `INSERT INTO provider_request_logs
+             (provider, saved_search_id, property_id, requested_at, purpose, page, status)
+           VALUES (?, ?, ?, ?, ?, ?, 'started')`,
+          [
+            input.provider,
+            input.savedSearchId ?? null,
+            input.propertyId ?? null,
+            now(),
+            input.purpose,
+            input.page,
+          ],
         );
         return lastInsertId();
       });
@@ -888,6 +898,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         id: Number(row.id),
         provider: String(row.provider),
         savedSearchId: number(row.saved_search_id),
+        propertyId: text(row.property_id),
         requestedAt: String(row.requested_at),
         purpose: String(row.purpose),
         page: Number(row.page),
@@ -895,6 +906,46 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         resultCount: number(row.result_count),
         errorMessage: text(row.error_message),
       }));
+    },
+
+    /** Requests logged at or after `since`. Every logged request counts, whatever its outcome. */
+    countProviderRequestsSince(since: string): number {
+      return Number(
+        one('SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ?', [since])
+          ?.total,
+      );
+    },
+
+    /** Requests the search's most recent refresh used, or null if it has never run. */
+    lastRefreshRequestCount(searchId: number): number | null {
+      const purpose = 'saved-search-refresh';
+      const start = one(
+        `SELECT MAX(id) AS id FROM provider_request_logs
+         WHERE saved_search_id = ? AND purpose = ? AND page = 1`,
+        [searchId, purpose],
+      )?.id;
+      if (start == null) return null;
+      return Number(
+        one(
+          `SELECT COUNT(*) AS total FROM provider_request_logs
+           WHERE saved_search_id = ? AND purpose = ? AND id >= ?`,
+          [searchId, purpose, start],
+        )?.total,
+      );
+    },
+
+    getSetting(key: string): string | null {
+      return text(one('SELECT value FROM app_settings WHERE key = ?', [key])?.value ?? null);
+    },
+
+    setSetting(key: string, value: string) {
+      transaction(() =>
+        run(
+          `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+          [key, value, now()],
+        ),
+      );
     },
 
     updateSavedSearch(searchId: number, input: SavedSearchUpdate): SavedSearch {
