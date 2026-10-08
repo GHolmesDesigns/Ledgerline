@@ -6,7 +6,12 @@ import { MockListingProvider } from './mock-provider.js';
 const database = await openDatabase();
 try {
   const store = createStore(database);
-  const result = await importProviderListings(new MockListingProvider(), store);
+  const distanceMeters = Number(process.env.MATCH_REVIEW_DISTANCE_METERS);
+  const matchOptions =
+    Number.isFinite(distanceMeters) && distanceMeters > 0
+      ? { nearbyMatchDistanceMeters: distanceMeters }
+      : {};
+  const result = await importProviderListings(new MockListingProvider(), store, matchOptions);
   console.log(
     `Imported ${result.listings} sample listings across ${result.properties} new properties.`,
   );

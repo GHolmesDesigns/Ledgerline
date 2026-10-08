@@ -9,11 +9,33 @@ import { createStore, type Store } from '../store.js';
 import { importProviderListings } from './import-listings.js';
 import { normalizeAddress } from './normalize-address.js';
 import { MockListingProvider } from './mock-provider.js';
+import type { ListingProvider, ProviderListing } from './listing-provider.js';
 
 const directories: string[] = [];
 let database: Database;
 let store: Store;
 let tick: number;
+
+function fixedProvider(record: ProviderListing): ListingProvider {
+  return {
+    name: 'fixed',
+    capabilities: {
+      photos: false,
+      sourceUrl: false,
+      waterfront: false,
+      bathSplit: false,
+      history: false,
+      hoaFee: false,
+      rentEstimates: false,
+    },
+    async search(_criteria, page) {
+      return page === 1 ? [record] : [];
+    },
+    async getListing() {
+      return record;
+    },
+  };
+}
 
 beforeEach(async () => {
   const directory = mkdtempSync(join(tmpdir(), 'ledgerline-import-'));
@@ -59,6 +81,137 @@ describe('address normalization', () => {
 });
 
 describe('mock provider import', () => {
+  it('queues a missing-unit address instead of merging or creating a property', async () => {
+    const existing = store.createProperty({
+      street: '1500 Bay Rd',
+      city: 'Miami Beach',
+      zip: '33139',
+      sample: true,
+    });
+    const note = store.addNote(existing.id, 'Check the building documents');
+    await importProviderListings(new MockListingProvider(), store);
+    const [review] = store.listPendingMatchReviews();
+    assert.ok(review);
+    assert.equal(review.reason, 'same street address; unit missing on existing record');
+    assert.equal(review.candidatePropertyId, existing.id);
+    assert.equal(store.listNotes(existing.id)[0]?.id, note.id);
+    assert.equal(store.listListings(existing.id).length, 0);
+    assert.equal(
+      store.findPropertyByAddress({
+        street: '1500 Bay Rd',
+        unit: '1204',
+        city: 'Miami Beach',
+        zip: '33139',
+      }),
+      null,
+    );
+  });
+
+  it('links the incoming listing to the existing property and Undo removes only that listing', async () => {
+    const existing = store.createProperty({
+      street: '1500 Bay Rd',
+      city: 'Miami Beach',
+      zip: '33139',
+      sample: true,
+    });
+    store.addNote(existing.id, 'Keep this note');
+    await importProviderListings(new MockListingProvider(), store);
+    const [review] = store.listPendingMatchReviews();
+    assert.ok(review);
+    store.decideMatchReview(review.id, 'link');
+    assert.equal(store.listListings(existing.id).length, 1);
+    assert.equal(store.listNotes(existing.id)[0]?.body, 'Keep this note');
+    store.undoMatchReview(review.id);
+    assert.equal(store.listListings(existing.id).length, 0);
+    assert.equal(store.listNotes(existing.id)[0]?.body, 'Keep this note');
+    assert.equal(store.listPendingMatchReviews().length, 1);
+  });
+
+  it('keeps the incoming unit separate and Undo removes the property it created', async () => {
+    const existing = store.createProperty({
+      street: '1500 Bay Rd',
+      city: 'Miami Beach',
+      zip: '33139',
+      sample: true,
+    });
+    store.addNote(existing.id, 'Keep this note');
+    await importProviderListings(new MockListingProvider(), store);
+    const [review] = store.listPendingMatchReviews();
+    assert.ok(review);
+    const decided = store.decideMatchReview(review.id, 'keep_separate');
+    assert.ok(decided.createdPropertyId);
+    assert.equal(store.listListings(decided.createdPropertyId!).length, 1);
+    assert.equal(store.listNotes(existing.id)[0]?.body, 'Keep this note');
+    store.undoMatchReview(review.id);
+    assert.equal(store.getProperty(decided.createdPropertyId!), null);
+    assert.equal(store.listNotes(existing.id)[0]?.body, 'Keep this note');
+    assert.equal(store.listPendingMatchReviews().length, 1);
+  });
+
+  it('imports an exact address-and-unit match without adding a review', async () => {
+    const property = store.createProperty({
+      street: '1500 Bay Rd',
+      unit: '1204',
+      city: 'Miami Beach',
+      zip: '33139',
+      sample: true,
+    });
+    await importProviderListings(new MockListingProvider(), store);
+    assert.equal(store.listPendingMatchReviews().length, 0);
+    assert.equal(store.listListings(property.id).length, 1);
+  });
+
+  it('queues a different unit on the same street address', async () => {
+    const candidate = store.createProperty({
+      street: '1500 Bay Rd',
+      unit: '1203',
+      city: 'Miami Beach',
+      zip: '33139',
+    });
+    await importProviderListings(
+      fixedProvider({
+        sourceId: 'different-unit',
+        property: { street: '1500 Bay Road', unit: '1204', city: 'Miami Beach', zip: '33139' },
+        listing: { mode: 'rent', price: 3400, pricePeriod: 'month', status: 'active' },
+        rawPayload: {},
+      }),
+      store,
+    );
+    const [review] = store.listPendingMatchReviews();
+    assert.ok(review);
+    assert.equal(review.reason, 'same street address; unit differs');
+    assert.equal(review.candidatePropertyId, candidate.id);
+    assert.equal(store.listProperties().length, 1);
+  });
+
+  it('queues nearby coordinates only when the configurable distance is enabled', async () => {
+    const candidate = store.createProperty({
+      street: '20 Palm Ave',
+      city: 'Miami Beach',
+      zip: '33139',
+      latitude: 25.78,
+      longitude: -80.13,
+    });
+    const provider = fixedProvider({
+      sourceId: 'nearby-home',
+      property: {
+        street: '22 Palm Ave',
+        city: 'Miami Beach',
+        zip: '33139',
+        latitude: 25.7801,
+        longitude: -80.13,
+      },
+      listing: { mode: 'sale', price: 500000, pricePeriod: 'total', status: 'active' },
+      rawPayload: {},
+    });
+    await importProviderListings(provider, store, { nearbyMatchDistanceMeters: 50 });
+    const [review] = store.listPendingMatchReviews();
+    assert.ok(review);
+    assert.match(review.reason, /^nearby coordinates; \d+ m apart$/);
+    assert.equal(review.candidatePropertyId, candidate.id);
+    assert.equal(store.listProperties().length, 1);
+  });
+
   it('loads the Fort Lauderdale sale and rent listings under one property', async () => {
     await importProviderListings(new MockListingProvider(), store);
     const property = store.findPropertyByAddress({

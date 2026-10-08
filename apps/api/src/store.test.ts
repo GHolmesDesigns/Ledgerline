@@ -374,11 +374,21 @@ describe('saved searches', () => {
 
 describe('match review queue', () => {
   const incoming = {
-    street: '1500 Bay Rd',
-    unit: '1204',
-    city: 'Miami Beach',
-    mode: 'rent',
-    price: 3400,
+    provider: 'mock',
+    sourceId: 'bay-rent',
+    property: {
+      street: '1500 Bay Rd',
+      unit: '1204',
+      city: 'Miami Beach',
+      zip: '33139',
+    },
+    listing: {
+      mode: 'rent' as const,
+      price: 3400,
+      pricePeriod: 'month' as const,
+      status: 'active',
+    },
+    rawPayload: {},
   };
 
   it('holds an ambiguous incoming listing until it is decided, creating nothing', () => {

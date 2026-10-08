@@ -32,12 +32,13 @@ describe('local API bootstrap', () => {
     assert.deepEqual(rows(first, 'SELECT version, name FROM schema_migrations'), [
       { version: 1, name: '001_bootstrap.sql' },
       { version: 2, name: '002_core_schema.sql' },
+      { version: 3, name: '003_match_review_undo.sql' },
     ]);
     closeDatabase(first);
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 2 },
+      { count: 3 },
     ]);
     closeDatabase(second);
   });
