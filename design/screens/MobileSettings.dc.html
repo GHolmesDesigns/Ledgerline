@@ -23,7 +23,7 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 
 <header style="flex: none; background: #101820; color: #FFFFFF; padding: 14px 16px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px">
 <h1 style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 22px">Ranking &amp; data</h1>
-<span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #C9D1D8">17/45 requests</span>
+<span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #C9D1D8">23/45 requests</span>
 </header>
 
 <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px">
@@ -50,7 +50,7 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 </section>
 
 <section style="background: #FFFFFF; border: 1px solid #DDE2E6; border-radius: 12px; overflow: hidden">
-<h2 style="margin: 0"><button type="button" aria-expanded="{{aOpenA}}" onClick="{{toggleA}}" style="width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: none; border: none; padding: 14px; min-height: 52px; text-align: left; font-family: Outfit, sans-serif; font-weight: 600; font-size: 17px; color: #101820"><span>Rent-vs-buy assumptions</span><span style="font-family: 'DM Mono', monospace; font-weight: 500; font-size: 12px; color: #4A5560">{{total}}/mo</span></button></h2>
+<h2 style="margin: 0"><button type="button" aria-expanded="{{aOpenA}}" onClick="{{toggleA}}" style="width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: none; border: none; padding: 14px; min-height: 52px; text-align: left; font-family: Outfit, sans-serif; font-weight: 600; font-size: 17px; color: #101820"><span>Personal assumptions</span><span style="font-family: 'DM Mono', monospace; font-weight: 500; font-size: 12px; color: #4A5560">$7,171 Estimate</span></button></h2>
 <sc-if value="{{aOpen}}" hint-placeholder-val="{{ false }}">
 <div style="padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px">
 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
@@ -62,9 +62,10 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 </sc-for>
 </div>
 <div style="background: #F4F6F7; border-radius: 10px; padding: 10px 12px; font-size: 13px; display: flex; flex-direction: column; gap: 4px">
-<span style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #4A5560">Preview · 2418 Crestline Dr</span>
-<span>Own <strong style="font-family: Outfit, sans-serif; font-size: 17px">{{total}}</strong> vs. rent $2,250 · {{gap}}</span>
+<span style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #4A5560">Preview · Fort Lauderdale 33308 · $849,000</span>
+<span><strong style="font-family: Outfit, sans-serif; font-size: 17px">$7,171/mo · Estimate</strong> vs. $5,200 same home · ≈ +$1,971/mo</span>
 </div>
+<div style="background: #F4F6F7; border-radius: 10px; padding: 10px 12px; font-size: 12px; display: flex; flex-direction: column; gap: 4px"><strong>Local assumptions · sample placeholders</strong><span>Miami-Dade · 20.0 mills · non-ad valorem $650/yr · house $560/mo · HO-6 $120/mo · flood X/AE/VE $50/$180/$420</span><span>Broward · 19.5 mills · non-ad valorem $700/yr · house $520/mo · HO-6 $110/mo · flood X/AE/VE $50/$180/$420</span><span>Palm Beach · not set · Set local rates</span><span>Source: county tax collector · Oct 7 · no statewide defaults</span></div>
 </div>
 </sc-if>
 </section>
@@ -75,17 +76,19 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 <div style="padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px">
 <p style="margin: 0; font-size: 13px; color: #4A5560">Only the refresh job spends requests. Browsing is free.</p>
 <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
-<legend style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560; padding: 0; margin-bottom: 6px">Refresh interval · 4 saved searches</legend>
+<legend style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560; padding: 0; margin-bottom: 6px">Saved searches · Buy/Rent pairs</legend>
+<div style="font-size: 12px; line-height: 1.5; margin-bottom: 8px">Broward · Fort Lauderdale 33308 + radius · Buy 1 + Rent 1<br>Miami-Dade · Miami 33131–33137 · Buy 2 + Rent 1<br>North Miami 33161 · Buy only · no local comps · Add Rent search</div>
 <sc-for list="{{intervals}}" as="iv" hint-placeholder-count="2">
 <label style="{{iv.style}}"><input type="radio" name="m-interval" checked="{{iv.checked}}" onChange="{{iv.pick}}"><span style="display: flex; flex-direction: column; gap: 1px"><span style="font-weight: 600; font-size: 14px">{{iv.label}}</span><span style="font-size: 12px; color: #4A5560">{{iv.note}}</span></span></label>
 </sc-for>
 </fieldset>
-<div style="display: flex; justify-content: space-between; font-size: 13px"><span>Used <strong>17</strong></span><span>Projected <strong>{{projected}}</strong> of 45</span></div>
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span>Used <strong>23</strong></span><span>Projected <strong>{{projected}}</strong> of 45</span></div>
+<span style="font-size: 12px; color: #4A5560">Rent estimates · +1 request each · 1 used this month</span>
 <div role="img" aria-label="Projected {{projected}} of 45 requests" style="height: 8px; background: #EEF1F3; border-radius: 4px; overflow: hidden"><div style="{{meterStyle}}"></div></div>
 <sc-if value="{{over}}" hint-placeholder-val="{{ false }}">
-<div role="status" style="background: #FCE4EF; color: #7A0040; border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.45"><strong>Over the ceiling.</strong> Refreshes past 45 will be blocked. Move to Foundation ($74/mo) or go back to weekly.</div>
+<div role="status" style="background: #FCE4EF; color: #7A0040; border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.45"><strong>Over the ceiling.</strong> Daily projects 168 requests; weekly projects 42. Refreshes past 45 are blocked. Foundation is $74/mo.</div>
 </sc-if>
-<button type="button" style="background: #00A0F0; color: #101820; border: none; border-radius: 8px; min-height: 48px; font-weight: 600; font-size: 14px">Refresh this search · 1 request</button>
+<button type="button" style="background: #00A0F0; color: #101820; border: none; border-radius: 8px; min-height: 48px; font-weight: 600; font-size: 14px">Refresh this search · ~2 requests (measured)</button>
 <span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #4A5560">Last refresh Oct 6, 7:02 PM · RentCast Developer</span>
 </div>
 </sc-if>
@@ -120,6 +123,7 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 </div>
 <span style="font-family: 'DM Mono', monospace; font-size: 11px; color: #4A5560">Last export Sep 28</span>
 </section>
+<p style="margin: 0 4px; font-size: 11px; color: #4A5560">Sample data — not real listings. Local rates are sample placeholders.</p>
 </div>
 
 <nav aria-label="Sections" style="flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #DDE2E6; background: #FFFFFF; padding: 4px 8px 14px">
@@ -133,14 +137,16 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 var FAC = [['price','Price vs. budget'],['cost','Own vs. rent gap'],['flood','Flood zone'],['hoa','HOA & assessments'],['ins','Insurance & roof'],['size','Size']];
 var DEF_W = {price:25, cost:20, flood:20, hoa:15, ins:10, size:10};
 var LIST = [
- {name:'2418 Crestline Dr', sub:{price:80,cost:75,flood:95,hoa:100,ins:85,size:80}},
- {name:'1150 Lake Bradford Rd, 4B', sub:{price:85,cost:72,flood:30,hoa:25,ins:70,size:55}},
- {name:'87 Live Oak Pl', sub:{price:60,cost:70,flood:95,hoa:85,ins:85,size:95}},
- {name:'3305 Magnolia Ridge Rd', sub:{price:95,cost:85,flood:50,hoa:100,ins:40,size:60}},
- {name:'501 W Tennessee St, 12', sub:{price:98,cost:90,flood:95,hoa:55,ins:60,size:70}}
+ {name:'Fort Lauderdale', sub:{price:80,cost:75,flood:70,hoa:100,ins:95,size:100}},
+ {name:'Miramar', sub:{price:85,cost:80,flood:95,hoa:70,ins:70,size:75}},
+ {name:'Brickell', sub:{price:95,cost:70,flood:70,hoa:80,ins:85,size:55}},
+ {name:'Miami 33137 · provisional', sub:{price:100,cost:100,flood:95,hoa:50,ins:25,size:null}},
+ {name:'North Miami · provisional', sub:{price:85,cost:null,flood:95,hoa:90,ins:40,size:80}},
+ {name:'Boca Raton · provisional', sub:{price:80,cost:null,flood:95,hoa:90,ins:null,size:75}},
+ {name:'Hollywood · provisional', sub:{price:100,cost:null,flood:20,hoa:40,ins:90,size:80}}
 ];
-var DEF_A = {down:'20', rate:'6.50', term:'30', mill:'18.5', maint:'1.0', ins:'310'};
-var FIELDS = [['down','Down','%'],['rate','Rate','%'],['term','Term','yrs'],['mill','Millage','mills'],['maint','Upkeep','%/yr'],['ins','Insurance','$/mo']];
+var DEF_A = {down:'20', rate:'6.50', term:'30', maint:'1.0'};
+var FIELDS = [['down','Down payment','%'],['rate','Mortgage rate','%'],['term','Term','yrs'],['maint','Maintenance reserve','%/yr']];
 function money(v) { return '$' + Math.round(v).toLocaleString('en-US'); }
 function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
 var OPT = 'display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:10px 12px;cursor:pointer;';
@@ -172,9 +178,9 @@ class Component extends DCLogic {
     var diff = tot - 2250;
 
     var intv = s.intv || 'weekly';
-    var projected = intv === 'daily' ? 120 : 21;
+    var projected = intv === 'daily' ? 168 : 42;
     var over = projected > 45;
-    var intervals = [['weekly', 'Weekly', '~17/mo · fits the free tier'], ['daily', 'Daily', '~120/mo · needs Foundation, $74/mo']].map(function (p) {
+    var intervals = [['weekly', 'Weekly', '~42 this month · within the 45 request ceiling'], ['daily', 'Daily', '~168 this month · over ceiling; Foundation $74/mo']].map(function (p) {
       var on = intv === p[0];
       return { label: p[1], note: p[2], checked: on, pick: function () { self.setState({ intv: p[0] }); }, style: OPT + (on ? 'border:2px solid #101820;' : 'border:1px solid #DDE2E6;') };
     });

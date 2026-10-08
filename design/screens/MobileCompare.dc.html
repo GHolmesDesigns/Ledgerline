@@ -38,7 +38,8 @@ button{cursor:pointer}
 </select>
 </label>
 </div>
-<div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #C9D1D8">20% down · 6.50% 30-yr · 18.5 mills · 1%/yr upkeep</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #C9D1D8">Personal: 20% down · 6.50% 30-yr · maintenance 1%/yr · Local: Miami-Dade and Broward sample</div>
+<div style="font-size: 12px; color: #C9D1D8">Lowest complete total · Miramar · $4,525 Estimate</div>
 </header>
 
 <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px 12px 16px; display: flex; flex-direction: column; gap: 12px">
@@ -70,7 +71,7 @@ button{cursor:pointer}
 </sc-for>
 </section>
 </sc-for>
-<p style="margin: 0 4px; font-size: 11px; color: #4A5560; line-height: 1.5">Monthly estimates from your inputs, not quotes. Blue marks the lower total. Sample data.</p>
+<p style="margin: 0 4px; font-size: 11px; color: #4A5560; line-height: 1.5">Sample data — not real listings. Each figure carries its Listing, Calc, Quote, Doc, N/A, Est., or Unknown tag. Incomplete totals show an at-least subtotal; no own-vs-rent gap or Lowest badge.</p>
 </div>
 
 <nav aria-label="Sections" style="flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #DDE2E6; background: #FFFFFF; padding: 4px 8px 14px">
@@ -82,13 +83,13 @@ button{cursor:pointer}
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
 var P = {
- a:{short:'Crestline', price:'$389,000', addr:'2418 Crestline Dr', facts:'3 bd · 2 ba · 1,840 sf', score:86, rank:1, seen:'1 day ago', pi:1967, tax:600, ins:310, flood:45, hoa:0, maint:324, rent:2250, down:77800, zone:'X', roof:'2019 · built 1998', condo:'n/a', note:'Quiet street; ask for roof permit.'},
- b:{short:'Lake Bradford 4B', price:'$315,000', addr:'1150 Lake Bradford Rd, 4B', facts:'2 bd · 2 ba · 1,210 sf', score:58, rank:5, seen:'2 days ago', pi:1593, tax:486, ins:140, flood:160, hoa:685, maint:263, rent:2400, down:63000, zone:'AE', roof:'Assoc. · built 1979', condo:'Inspection not filed · assessment pending', note:'Get association minutes first.'},
- c:{short:'Live Oak', price:'$462,000', addr:'87 Live Oak Pl', facts:'4 bd · 2.5 ba · 2,150 sf', score:79, rank:3, seen:'today', pi:2336, tax:712, ins:285, flood:40, hoa:95, maint:385, rent:2900, down:92400, zone:'X', roof:'2006 · built 2006', condo:'HOA only', note:'No note yet'},
- d:{short:'Magnolia Ridge', price:'$298,500', addr:'3305 Magnolia Ridge Rd', facts:'3 bd · 2 ba · 1,520 sf', score:76, rank:4, seen:'9 days ago · stale', pi:1509, tax:460, ins:360, flood:120, hoa:0, maint:249, rent:1950, down:59700, zone:'A', roof:'2009 · built 1987', condo:'n/a', note:'Confirm available; 2 insurance quotes.'}
+ a:{short:'Fort Lauderdale', price:'$849,000', addr:'2207 NE 32nd Ct · Fort Lauderdale', facts:'3 bd · 2 ba · 1,850 sf · #1 · 84', seen:'Last seen Oct 6', pi:'$4,293 Calc', tax:'$1,380 Calc', ins:'$610 Quote', flood:'$180 Est.', hoa:'$0 N/A', cdd:'$0 Doc', assess:'$0 N/A', maint:'$708 Calc', total:'$7,171 · Estimate', rent:'$5,200', rentLabel:'same home · listed Sep 28', gap:'≈ +$1,971/mo', down:'$169,800', zone:'AE', roof:'2020 · built 1964 · impact windows', condo:'No association · confirmed', note:'Tax bill checked; flood quote remains.'},
+ b:{short:'Miramar', price:'$465,000', addr:'3418 SW 129th Ter · Miramar', facts:'3 bd · 2.5 ba · 1,700 sf · #2 · 81', seen:'Last seen Oct 5', pi:'$2,351 Calc', tax:'$756 Calc', ins:'$520 Est.', flood:'$50 Est.', hoa:'$260 Listing', cdd:'$200 Doc', assess:'$0 Est.', maint:'$388 Calc', total:'$4,525 · Estimate', rent:'$3,600', rentLabel:'3 local comps · median · within 0.9 mi', gap:'≈ +$925/mo', down:'$93,000', zone:'X', roof:'2016 · built 2016', condo:'Townhome · association', note:'Verify association assessment status.'},
+ c:{short:'North Miami', price:'$560,000', addr:'1234 NE 123rd St · North Miami', facts:'3 bd · 2 ba · 1,400 sf · #5 · 66 · provisional', seen:'Last seen Oct 5', pi:'$2,835 Calc', tax:'$910 Calc', ins:'$520 Est.', flood:'$50 Est.', hoa:'$0 Est. · not confirmed', cdd:'$58 Est.', assess:'$0 Est.', maint:'$467 Calc', total:'$4,896 · Estimate', rent:'Unavailable', rentLabel:'only 2 local comps', gap:'No own-vs-rent gap · rent unavailable', down:'$112,000', zone:'X', roof:'2006 · built 1955', condo:'Single-family · HOA not confirmed', note:'Comparable rent unavailable until 3 comps.'},
+ d:{short:'Hollywood', price:'$389,000', addr:'401 S Ocean Dr · Hollywood', facts:'2 bd · 2 ba · 1,100 sf · #7 · 52 · provisional', seen:'Last seen Oct 6', pi:'$1,970 Calc', tax:'$632 Calc', ins:'$520 Est.', flood:'$420 Est.', hoa:'$1,150 Listing', cdd:'$58 Est.', assess:'Unknown · amount pending', maint:'$324 Calc', total:'at least $4,661 · Incomplete', rent:'$2,900', rentLabel:'5 local comps · median', gap:'No own-vs-rent gap · total incomplete', down:'$77,800 + assessment unknown', zone:'VE', roof:'1972 · built 1972', condo:'Inspection filed · recertification in progress · reserve study pending', note:'Pending assessment amount unknown.'}
 };
 function m(v) { return '$' + Math.round(v).toLocaleString('en-US'); }
-function tot(p) { return p.pi + p.tax + p.ins + p.flood + p.hoa + p.maint; }
+function tot(p) { return Number(p.total.replace(/[^0-9]/g, '')); }
 var CELL = 'font-size:14px;padding:6px 8px;border-radius:6px;';
 var ZONE_RISK = {AE:true, A:true};
 class Component extends DCLogic {
@@ -113,24 +114,26 @@ class Component extends DCLogic {
     var YEL = 'background:#FFF6B8;color:#4A3F00;';
     var sections = [
       { title: 'Monthly cost to own', rows: [
-        row('Principal & interest', m(L.pi), m(R.pi), {mono:true}),
-        row('Property tax (purchase price)', m(L.tax), m(R.tax), {mono:true}),
-        row('Insurance', m(L.ins), m(R.ins), {mono:true}),
-        row('Flood insurance', m(L.flood), m(R.flood), {mono:true}),
-        row('HOA', m(L.hoa), m(R.hoa), {mono:true}),
-        row('Maintenance reserve', m(L.maint), m(R.maint), {mono:true}),
-        row('Total to own', m(tl), m(tr), {big:true, lHi: tl <= tr ? BLUE : '', rHi: tr <= tl ? BLUE : ''}),
-        row('Comparable rent', m(L.rent), m(R.rent), {mono:true}),
-        row('Owning costs more by', '+' + m(tl - L.rent), '+' + m(tr - R.rent), {mono:true}),
-        row('Down payment (20%)', m(L.down), m(R.down), {mono:true})
+        row('Principal & interest', L.pi, R.pi, {mono:true}),
+        row('Property tax', L.tax, R.tax, {mono:true}),
+        row('Homeowners / HO-6', L.ins, R.ins, {mono:true}),
+        row('Flood insurance', L.flood, R.flood, {mono:true}),
+        row('HOA', L.hoa, R.hoa, {mono:true}),
+        row('Non-ad valorem / CDD', L.cdd, R.cdd, {mono:true}),
+        row('Special assessment', L.assess, R.assess, {mono:true}),
+        row('Maintenance reserve', L.maint, R.maint, {mono:true}),
+        row('Total to own', L.total, R.total, {big:true}),
+        row('Comparable rent · source', L.rent + ' · ' + L.rentLabel, R.rent + ' · ' + R.rentLabel, {mono:true}),
+        row('Own vs. rent', L.gap, R.gap, {mono:true}),
+        row('Upfront cash', L.down, R.down, {mono:true})
       ]},
       { title: 'Florida cost & risk', rows: [
         row('FEMA flood zone · X is lower risk, not none', L.zone, R.zone, {lHi: ZONE_RISK[L.zone] ? PINK : '', rHi: ZONE_RISK[R.zone] ? PINK : ''}),
-        row('Roof · year built', L.roof, R.roof, {lHi: left === 'd' ? YEL : '', rHi: right === 'd' ? YEL : ''}),
-        row('Condo association', L.condo, R.condo, {lHi: left === 'b' ? PINK : '', rHi: right === 'b' ? PINK : ''})
+        row('Roof · year built · wind features', L.roof, R.roof),
+        row('Association status', L.condo, R.condo)
       ]},
       { title: 'Listing & notes', rows: [
-        row('Last seen', L.seen, R.seen, {lHi: left === 'd' ? YEL : '', rHi: right === 'd' ? YEL : ''}),
+        row('Last seen', L.seen, R.seen),
         row('Your note', L.note, R.note)
       ]}
     ];
