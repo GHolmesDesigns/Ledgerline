@@ -8,7 +8,7 @@ import { closeDatabase, openDatabase, persistDatabase } from '../database.js';
 import { createStore, type Store } from '../store.js';
 import { importProviderListings } from './import-listings.js';
 import { normalizeAddress } from './normalize-address.js';
-import { MockListingProvider } from './mock-provider.js';
+import { MockListingProvider, seedMockSavedSearches } from './mock-provider.js';
 import type { ListingProvider, ProviderListing } from './listing-provider.js';
 
 const directories: string[] = [];
@@ -248,6 +248,22 @@ describe('mock provider import', () => {
     const provider = new MockListingProvider();
     assert.equal(provider.capabilities.photos, false);
     assert.equal(provider.capabilities.sourceUrl, false);
+  });
+
+  it('seeds the three fixture search areas as Buy/Rent pairs, with North Miami Buy only', () => {
+    const first = seedMockSavedSearches(store);
+    assert.equal(first.length, 5);
+    const fortLauderdale = first.find((search) => search.name.includes('Fort Lauderdale'));
+    assert.ok(fortLauderdale?.pairedSearchId);
+    const miamiBuy = first.find(
+      (search) => search.name.includes('Miami 33131') && search.mode === 'sale',
+    );
+    assert.ok(miamiBuy?.pairedSearchId);
+    const northMiami = first.find((search) => search.name.includes('North Miami'));
+    assert.ok(northMiami);
+    assert.equal(northMiami.mode, 'sale');
+    assert.equal(northMiami.pairedSearchId, null);
+    assert.equal(seedMockSavedSearches(store).length, 5);
   });
 
   it('keeps the match-review fixture records with the mock Bay Road listing for C7', async () => {

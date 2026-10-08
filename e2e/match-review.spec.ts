@@ -35,9 +35,13 @@ test('match review supports Link, Keep separate, and Undo', async ({ page }) => 
   const first = page.locator('article').filter({ hasText: '1500 Bay Rd' });
   const second = page.locator('article').filter({ hasText: '1600 Bay Rd' });
   await first.getByRole('button', { name: 'Link to existing' }).click();
-  await expect(page.locator('.review-count')).toHaveText('1 pending');
+  await expect(page.locator('[aria-labelledby="match-review-heading"] .review-count')).toHaveText(
+    '1 pending',
+  );
   await second.getByRole('button', { name: 'Keep separate' }).click();
-  await expect(page.locator('.review-count')).toHaveText('0 pending');
+  await expect(page.locator('[aria-labelledby="match-review-heading"] .review-count')).toHaveText(
+    '0 pending',
+  );
   await page.getByRole('button', { name: 'Undo' }).first().click();
   await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(1);
   await page.getByRole('button', { name: 'Undo' }).click();

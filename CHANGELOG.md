@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Add saved search profiles (Issue 10 / C10): save, rename, reopen, update, and delete local Buy/Rent searches with filters, price ranges, and a configurable refresh interval. Buy searches can be paired with a Rent search for the same area, and pair coverage is shown on Search and Ranking & data. Search and profile actions read and write only the local database.
 - Add the C9 synchronized results map (Issue 9): checked-in public-domain Census county boundaries, keyboard pins in result order, card/pin selection sync, local zoom and pan controls, and a mobile List/Map toggle with the selected result card. Listings without coordinates are placed approximately by city and labeled clearly.
 - Add the C8 local search screen (Issue 8): Buy/Rent mode, separate price ranges, local filters and sorting, URL-persisted criteria, active-only default, dismissed-property exclusion, capability-gated filters, and photo-free listing cards. Search reads SQLite only and uses no provider requests.
 - Add the C7 property match review queue to Ranking & data. Import attaches exact normalized address-and-unit matches, queues missing or different unit matches (and optional nearby-coordinate matches), and never creates or links an ambiguous property before a decision. Link, Keep separate, and Undo now apply atomically; the optional nearby threshold is configured with `MATCH_REVIEW_DISTANCE_METERS`.
