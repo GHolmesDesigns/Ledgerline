@@ -17,6 +17,8 @@ Screens from the design canvas "Florida Home Dashboard UI" (claude.ai artifact).
 
 The PDF and the "Ranking & data" HTML export in the project root predate these revisions; treat them as superseded.
 
+**Plan 2.7 (Oct 8, 2026) is newer than every screen.** None shows the Google map, card photos, photo upload, or the "Open Street View" link. Their "No photos" text is out of date, including the Search footer in `Main.dc.html`. Follow `docs/UI_SPEC.md` for these.
+
 ## Reading the files
 
 Each `.dc.html` is one artboard in the canvas's component format: markup inside `<x-dc>`, `{{holes}}` filled by a `renderVals()` method in the `text/x-dc` script at the bottom, `<sc-for>` for loops, `<sc-if>` for conditionals. They need the canvas runtime to render, so open the canvas link to see them live. For building, read them for structure and inline styles; don't port the runtime.

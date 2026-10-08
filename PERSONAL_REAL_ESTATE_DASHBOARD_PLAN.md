@@ -1,6 +1,6 @@
 # Personal Florida Real Estate Dashboard — Planning Document
 
-*Version 2.6 · October 8, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
+*Version 2.7 · October 8, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
 
 ## Goal
 
@@ -30,8 +30,11 @@ These are first-version features. If they don't hold up in use, the fallback is 
 
 ### First usable version (Milestones 1–3)
 
-1. **Search:** clear Buy/Rent switch; compact filters; visible filter chips; saved search profiles. Searching, filtering, and panning the map read the local database only and never spend provider requests.
-2. **Results:** map and list views that stay in sync. Every card shows price, status, address, beds/baths, area, provider, and last-seen time. Cards must read well **without photos**, because the first candidate provider doesn't supply them; show photos only when a provider supplies licensed image URLs.
+1. **Search:** clear Buy/Rent switch; compact filters; visible filter chips; saved search profiles. Searching, filtering, and panning the map read the local database only and never spend provider requests. (Google's map tiles are billed per map load, separately from listing-provider requests; see Security and cost controls.)
+2. **Results:** map and list views that stay in sync. Every card shows price, status, address, beds/baths, area, provider, and last-seen time.
+   - **Map:** Google Maps (Maps JavaScript API), with the county borders drawn from a local boundary file. Without a Google Maps key, the map panel shows a plain map of county borders and pins drawn from local data, with a note to add a key, so the app still works with no outside account.
+   - **Photos:** photos I upload for a property: my own, or ones saved by hand from a listing page whose terms allow it (see Data-source providers and costs). They are stored on this computer. A card shows the property's first uploaded photo, or a provider's licensed image if a provider ever supplies one. Otherwise it uses a layout that reads well **without photos**, because RentCast supplies none.
+   - **Street View link:** each property has a link that opens Google Maps' interactive Street View at the property's coordinates in a new tab. It is a Maps URL (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG`), which needs no API key; the app makes no request, and like the verification links, I click it myself.
 3. **Shortlist:** favorites, dismissed listings, personal notes, and a side-by-side comparison of up to four listings, including estimated monthly cost for purchase listings.
 4. **Personal ranking:** adjustable weights for the factors I care about (see Open decisions); results can be sorted by score, and the score breakdown is visible on each card.
    - **Rank numbers (#1, #2, …) always reflect score order within the current results**, whatever sort is selected. Sorting by price or newest changes the card order, not the rank labels, so a #4 can appear at the top of a price-sorted list.
@@ -115,7 +118,7 @@ These are first-version features. If they don't hold up in use, the fallback is 
    - Label stale results using two timestamps: the provider's last-seen date (stale after 7 days by default) and my last local refresh (stale after the saved search's refresh interval).
    - **Verification links:** the provider's source URL when supplied; otherwise the MLS number and listing agent/office contact when supplied, plus an address search link I can click to check availability manually. The app never fetches those pages itself.
 9. **Observed price and status history:** each refresh stores a snapshot of price and status, plus the provider's own history when supplied (RentCast includes a `history` field). Stored within the provider's retention terms.
-10. **Local storage:** properties, listings, snapshots, rent figures, assumption sets, cost entries, search profiles, favorites, dismissals, and notes in a local SQLite database. Export/import personal data as JSON for backup.
+10. **Local storage:** properties, listings, snapshots, rent figures, assumption sets, cost entries, search profiles, favorites, dismissals, and notes in a local SQLite database. Uploaded photos are files in a local folder kept out of Git; the database stores each one's path, source, and date added. Export/import personal data as JSON for backup.
 11. **Accessibility:** keyboard navigation, clear labels, legible status colors, and a responsive layout.
 
 ### Later, after source validation
@@ -123,6 +126,7 @@ These are first-version features. If they don't hold up in use, the fallback is 
 - Price-change alerts, if the provider permits and supports them.
 - Selected county parcel and tax data integration, beyond links (see County property appraiser below).
 - Travel-time or neighborhood overlays, each with its own data and cost review.
+- Street View link aimed at the house: the refresh job checks shortlisted properties with Google's Street View metadata service (free, with no usage cap, as of Oct 8, 2026), stores the panorama ID (which Google allows), points the view at the house, and hides the link where no imagery exists.
 - A second simultaneous listing feed, with cross-provider de-duplication on top of the property matching that already exists in v1.
 
 ## Architecture and replaceable source layer
@@ -141,13 +145,15 @@ Refresh job ──> ListingProvider interface ──> Mock / RentCast / future p
 
 The refresh job runs each saved search against the provider, maps the results to the normalized model, matches them to properties, and stores a snapshot. Because browsing never calls the provider, request usage depends only on the number of saved searches and how often they refresh. Cached results remain viewable offline.
 
+The map is the one outside service the interface itself uses: when a Google Maps key is set, the browser loads Google's map tiles. They carry no listing data, and offline the map falls back to the plain map of county borders and pins.
+
 The provider interface supports `search(criteria, page)`, `getListing(sourceId)`, an optional `estimateRent(property)`, and a capability declaration listing which optional fields, filters, and methods it supplies (photos, source URL, waterfront, full/half bath split, history, HOA fee, rent estimates). `estimateRent` is called only when I request it for a shortlisted property, and it goes through the same request ceiling as the refresh job. The UI must not use provider-specific field names. Search results already contain full listing records, so `getListing` is used only to refresh a single shortlisted listing on request, never when a card is opened. A mock provider is the default during interface development; a real adapter maps external responses to the same normalized model.
 
 ### Data model: properties vs. listings
 
 The same Florida home is often listed for sale and for rent at the same time, relisted after expiring, or listed by unit within a condo building. Personal data belongs to the **property**; price and status belong to the **listing**.
 
-- **Property:** stable local ID; normalized address (street, unit, city, ZIP); coordinates; property type; beds; baths (total, plus full/half split when known); living area; lot size; year built; parcel ID when known; Florida cost and risk fields. Notes, favorites, dismissals, and ranking inputs are keyed here.
+- **Property:** stable local ID; normalized address (street, unit, city, ZIP); coordinates; property type; beds; baths (total, plus full/half split when known); living area; lot size; year built; parcel ID when known; Florida cost and risk fields; photos I upload (local file path, source, date added). Notes, favorites, dismissals, ranking inputs, and uploaded photos are keyed here, so they survive a relisting.
 - **Listing:** internal ID; property ID; provider and provider ID; MLS name and number when supplied; sale/rent mode; price and price period; status; HOA fee; image URLs where supplied and licensed; source URL when supplied; listing agent and office contact when supplied; provider's listed/removed/last-seen dates; local first-fetched and last-fetched times; per-field quality flags.
 - **Snapshot:** listing ID, fetch time, price, status.
 - **Rent figure:** property ID; source (same home, local comps, or provider estimate); value and range; comp count and maximum distance; IDs of the comps used; calculated or fetched time.
@@ -159,7 +165,9 @@ The same Florida home is often listed for sale and for rent at the same time, re
 
 ### Security and cost controls
 
-- Provider credentials remain on the local server, never in browser code or Git.
+- Listing-provider credentials (RentCast) remain on the local server, never in browser code or Git.
+- **The Google Maps key is the one exception**, because the Maps JavaScript API runs in the browser. It stays out of the code bundle and Git; the local server sends it to the page at runtime; and in Google Cloud it is restricted to this app's localhost address and to the Maps JavaScript API.
+- Google Maps bills each map load (see Data-source providers and costs). Personal use should stay within the free monthly amount; check usage in the Google Cloud console, and cap it there if needed. Map loads are not listing-provider requests and don't count against the request ceiling.
 - A configurable monthly request ceiling is enforced in the app. A refresh that would exceed it is blocked and shown, because the provider may permit unlimited overages.
 - Display request usage, the projected monthly total, and the timestamp of the latest successful refresh.
 - Store results only within the provider's terms.
@@ -177,7 +185,7 @@ The Milestone 0 pull measured these (details in `docs/PROVIDER_EVALUATION.md`). 
 
 ## Data-source providers and costs
 
-Plan prices below are published USD prices checked on **October 6, 2026**; RentCast's field list and billing terms were rechecked on **October 7, 2026**. Prices can change. RentCast's coverage in Miami-Dade and Broward was tested in Milestone 0 (see Decisions made). "Cost" here excludes taxes, mapping services, optional enrichment, and hosting (the first version runs locally).
+Plan prices below are published USD prices checked on **October 6, 2026**; RentCast's field list and billing terms were rechecked on **October 7, 2026**. Prices can change. RentCast's coverage in Miami-Dade and Broward was tested in Milestone 0 (see Decisions made). Google Maps prices were checked on **October 8, 2026**. "Cost" here excludes taxes, optional enrichment, and hosting (the first version runs locally).
 
 | Source | Role and fit | Published cost | Decision |
 |---|---|---:|---|
@@ -186,8 +194,11 @@ Plan prices below are published USD prices checked on **October 6, 2026**; RentC
 | [ATTOM Developer Platform](https://api.developer.attomdata.com/dlpv2docs) | Potential property-record or valuation enrichment, not selected as the live listing feed. | Public self-service price for this exact use was **not verified**; obtain a quote before considering it. | Defer until a specific missing data need is proven. |
 | [FEMA National Flood Hazard Layer](https://www.fema.gov/flood-maps/national-flood-hazard-layer) | Flood zone for a property's coordinates, via FEMA's GIS web services or the Flood Map Service Center address search. Flood zones do not capture all flood risk. | Free. | Use in v1 for shortlisted properties; confirm the web service's usage terms before automating lookups. |
 | Florida county property appraiser, tax collector, and parcel sites (Miami-Dade and Broward first) | Parcel, tax, assessed value, millage rates, and ownership context for shortlisted properties. The tax bill also lists non-ad valorem assessments, such as CDD fees, which a millage calculation misses. These records do not establish live sale/rental availability. Availability and reuse methods vary by county. **Caution:** the current owner's tax bill usually reflects the homestead exemption and the Save Our Homes assessment cap; assessed value resets after a sale, so a buyer's bill can be much higher. Estimate taxes from the purchase price and the local millage rate instead. | Public lookup may be free; bulk/API access and permitted reuse must be checked county by county. | Add as source links first; integrate specific counties only after verifying access terms. |
+| [Google Maps Platform](https://developers.google.com/maps/billing-and-pricing/pricing) | The base map (Maps JavaScript API) and each property's Street View link. The link is a [Maps URL](https://developers.google.com/maps/documentation/urls/get-started), which needs no API key. Google doesn't allow storing Street View images, apart from panorama IDs ([policies](https://developers.google.com/maps/documentation/streetview/policies)), so the app links to Street View instead of showing its images. | Dynamic Maps: **10,000 map loads/month free**, then **$7.00 per 1,000**. Maps URLs: no key; no charge found. Street View metadata: free, no cap. | Use in v1 for the map and the Street View link. |
 
 RentCast's separate consumer "Pro" subscription is **not** its API subscription. The dashboard would use the API plan above. Avoid treating public real-estate websites as an automated feed: [Zillow](https://www.zillow.com/corporate/terms-of-use/) and [Realtor.com](https://www.realtor.com/terms-of-service/) restrict automated extraction and reuse. They remain useful for manual verification through links I click myself.
+
+**Listing photos:** no API that returns MLS listing photos is open to a private individual here. Repliers, the Miami MLS feeds (Bridge and Trestle), Spark, and ATTOM all require MLS membership or an MLS-approved vendor license (checked Oct 8, 2026). Photos therefore come from me. I may save photos by hand from a listing page for a property I'm considering only where that site's terms allow it. [Redfin's](https://www.redfin.com/about/terms-of-use) MLS terms (§2.9.3) allow copying "in connection with your consideration of the purchase or sale of an individual property"; read Zillow's or Realtor.com's terms before saving from them. Saved photos stay on this computer and are never shared.
 
 ## Provider evaluation, before interface development
 
@@ -258,7 +269,7 @@ The data source is the biggest risk, and the free tier makes testing it cost not
 | Milestone | Deliverable | Acceptance check |
 |---|---|---|
 | 0. Data check | Free-tier sample in Miami-Dade and Broward; populated-field inventory; requests per typical search; coverage and still-available checks; photo decision | Every measure scored with the scoring rules; decision taken from the decision table; record sheet and random seeds saved; request budget recalculated; $0 spent |
-| 1. Interface and persistence | Buy/Rent search, map/list, shortlist, notes, comparison, saved searches, property/listing model with matching and review queue, JSON export/import, all on mock data in SQLite | Complete core flow without an external account or API call; restart the app and recover all personal state |
+| 1. Interface and persistence | Buy/Rent search, map/list (Google Maps with the plain-map fallback), shortlist, notes, photo upload, Street View link, comparison, saved searches, property/listing model with matching and review queue, JSON export/import, all on mock data in SQLite | Complete core flow without an external account or API call (the map shows the plain-map fallback with no Google Maps key); restart the app and recover all personal state, including uploaded photos |
 | 2. Refresh job and provider adapter | RentCast adapter behind `ListingProvider`, refresh job, snapshots, credentials stored locally, request ceiling and usage display | Same UI works with mock or live source by configuration; an over-budget refresh is blocked; notes survive switching from mock to live |
 | 3. Florida cost and ranking | Rent-vs-buy estimate with basis labels, comparable rent sources, personal and local assumption sets, FEMA flood zone lookup, tax and CDD lines, insurance and condo fields, personal ranking weights | Every cost line and rent figure shows its state or source; a newly fetched single-family home in a configured county shows an Estimate total, never Incomplete; Incomplete appears only for the four defined triggers, with no own-vs-rent gap; fewer than 3 comps shows Unavailable; a property outside configured markets prompts for local rates; changing a weight reorders results; rank numbers match score order under every sort; unknown factors and flagged listings show provisional scores |
 | 4. 30-day review | Actual requests vs. budget, stale rate, coverage gaps found in use | Decide to keep, upgrade the tier, replace, or supplement the provider |
@@ -271,7 +282,8 @@ The data source is the biggest risk, and the free tier makes testing it cost not
 - **Test market:** Miami and Fort Lauderdale (Miami-Dade and Broward counties).
 - **No statewide cost defaults:** local tax, insurance, and flood figures are set per county or ZIP group.
 - **Milestone 0 result (Oct 8, 2026):** RentCast passes every measure and floor for purchase listings in Miami-Dade and Broward. It fails the still-available measure for rentals (15 of 20 where 17 are required; Broward 7 of 10 where 8 are required). Decision-table row 2: go for purchase listings; Rent-mode data may still feed local comps, but Rent-mode search is not relied on for finding rentals. Counts, seeds, and sampling notes are in `docs/PROVIDER_EVALUATION.md`.
-- **Photos:** a dashboard without photos is not acceptable (Oct 8, 2026), given verification links to public pages. RentCast supplies none, so where photos come from is an open decision. Cards must still read well without photos (Interface scope).
+- **Photos:** a dashboard without photos is not acceptable (Oct 8, 2026), given verification links to public pages. RentCast supplies none, and no listing-photo API is open to a private individual (see Data-source providers and costs). So photos are ones I upload for a property, and each property has a Street View link (Oct 8, 2026). Cards must still read well without photos (Interface scope).
+- **Map:** Google Maps (Maps JavaScript API), with a plain map of county borders and pins when no key is set (Oct 8, 2026). Its key is the one credential allowed in the browser, under the restrictions in Security and cost controls.
 
 ## Open decisions
 
@@ -281,7 +293,7 @@ The data source is the biggest risk, and the free tier makes testing it cost not
 - **Personal assumptions:** down payment, mortgage rate and term, maintenance reserve percentage.
 - **Local assumptions for Miami-Dade and Broward:** millage rate, typical non-ad valorem assessments, and homeowners and flood insurance defaults by zone. Insurance and flood defaults are best taken from one or two real quotes, since South Florida premiums vary widely.
 - **Comparable-rent rules:** the defaults above (same type and bedrooms, area within 20%, within 1 mile, seen in 30 days, at least 3 comps) may need a tighter radius in dense Miami neighborhoods. Milestone 0 did not measure the radius; adjust once real comps are seen.
-- **Photo source:** where photos come from, since RentCast supplies none and a dashboard without photos is not acceptable (for example another provider that supplies licensed image URLs, or photos added by hand). Not decided, and the plan sets no timing.
+- **Photos in backups:** whether the JSON export carries the uploaded photo files or only their details (path, source, date), leaving the photo folder to be backed up separately.
 - **Rent mode in the interface:** the Milestone 0 result means Rent-mode search is not relied on for finding rentals, but the interface scope still has a Buy/Rent switch, Rent-mode saved searches, and Buy/Rent search pairs. What Rent mode shows, and how it is labelled, is not decided. Rent-mode refreshes still supply local comps.
 
 ## Version history
@@ -300,6 +312,7 @@ When the version changes:
 
 Git history holds version 2.3 onward. Numbers before 2.4 were assigned on October 7, 2026 to revisions that had been named by order ("second revision" and so on); the bump rule applies from 2.4 on.
 
+- **2.7** · Oct 8, 2026 · Decides photos and the map, closing the photo-source open decision. No listing-photo API is open to a private individual (each needs MLS membership or an MLS-approved vendor license), so photos are ones I upload for a property, stored locally and keyed to the property, and each property has a Street View link built as a Google Maps URL (no key, no request). The map is Google Maps (Maps JavaScript API); without a key it shows county borders and pins from local data, so Milestone 1 still needs no outside account. The credentials rule now names listing providers, and the Google Maps key is the one browser-side exception: kept out of the bundle and Git, served at runtime, and restricted to localhost and the Maps JavaScript API. Adds Google Maps to the providers table, photo upload and the Street View link to Milestone 1, a later item for aiming the Street View link at the house, and an open decision on photos in backups. Minor bump: no app code exists yet, so nothing built is invalidated.
 - **2.6** · Oct 8, 2026 · Records the Milestone 0 result: RentCast passes every measure for purchase listings and fails the still-available measure for rentals, so decision-table row 2 applies (go for purchase listings; Rent-mode search not relied on for finding rentals). A dashboard without photos is not acceptable. Closes the open decision on photo-less results and opens two: the source of photos, and how the interface treats Rent mode. Marks the refresh interval as ready to decide. No rule or threshold changes; no work built on the earlier text is invalidated, since no app code exists yet.
 - **2.5** · Oct 7, 2026 · Request budget recalculated from the Milestone 0 pull, which measured 5 requests per refresh of the four-search setup (Broward Rent returned 664 listings and took two): weekly is about 22 requests a month (was ~17) and daily about 150 (was ~120). The tiers are unchanged, and the refresh interval stays an open decision. No Milestone 0 result is recorded here yet; those are in `docs/PROVIDER_EVALUATION.md` as a draft.
 - **2.4** · Oct 7, 2026 · Adds this version number and bump rule. Sets the order in which an Estimate label names the lines to verify (Rent vs. buy estimate, Total status).

@@ -1,6 +1,6 @@
 # UI specification — Florida Home Dashboard
 
-*Oct 7, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.6, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
+*Oct 8, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.7, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
 
 Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Ranking & data**. Visual reference: `design/` (see `design/README.md` for which screens are current).
 
@@ -81,10 +81,10 @@ Line-by-line amounts and states are in the fixture file.
 
 ### Search (desktop `Main`, mobile `MobileSearch`)
 - Buy/Rent switch, location field, saved search "Fort Lauderdale 33308 · Buy · $250k–$900k" with "Paired Rent search on · needed for local comps", removable filter chips, Sort: Your score / Newest / Price.
-- Card: price, status, address, city · county, facts line; score block with rank and provisional badge; "Est. monthly to own" with its status chip; "Comparable rent" with its source line; gap row (or the hidden-gap reason); risk chips; implausible-value flag; selected card shows the score breakdown; footer with provider, last seen (stale after 7 days, highlighted), Save, Compare, Dismiss, Details & verify.
+- Card: the property's first uploaded photo when it has one (no image box otherwise); price, status, address, city · county, facts line; score block with rank and provisional badge; "Est. monthly to own" with its status chip; "Comparable rent" with its source line; gap row (or the hidden-gap reason); risk chips; implausible-value flag; selected card shows the score breakdown; footer with provider, last seen (stale after 7 days, highlighted), Save, Compare, Dismiss, Details & verify.
 - Boca Raton card shows the "Set local rates for Palm Beach County" prompt inline.
-- Map and list stay in sync; map shows county borders. Tile service is not chosen yet.
-- Footer text: "Monthly costs use your personal assumptions (20% down, 6.50% 30-yr fixed, maintenance 1%/yr) and each county's local rates. Local rates shown are sample placeholders. No photos: the first candidate provider does not supply them."
+- Map and list stay in sync; map shows county borders. Map: Google Maps (Maps JavaScript API) when a key is set. Without a key: a plain map of county borders and pins from local data, with the note "Add a Google Maps key to show the street map."
+- Footer text: "Monthly costs use your personal assumptions (20% down, 6.50% 30-yr fixed, maintenance 1%/yr) and each county's local rates. Local rates shown are sample placeholders. Photos are ones you upload; the listing provider supplies none."
 - Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Compare, Ranking & data).
 
 ### Compare (desktop `Compare`, mobile `MobileCompare`)
@@ -110,6 +110,8 @@ Line-by-line amounts and states are in the fixture file.
 - **Verification checklist:** Tax bill checked ✓ · HOA confirmed none ✓ · Homeowners quote ✓ · Flood quote ☐ (the remaining item behind "Estimate"), with an "Enter flood quote" action.
 - Rent panel: primary "same home · listed Sep 28"; expandable "Local comps (4)" table (address, beds, sq ft, distance, rent, last seen; median $5,225); button "Get RentCast rent estimate · 1 request · 22 left this month".
 - Insurance card: roof 2020, built 1964, impact windows.
+- **Photos:** "Add photos" (file picker and drag-and-drop) and remove; the first photo is the card photo. With none: "No photos yet · Add photos", not an empty image box.
+- **"Open Street View"** link: opens Google Maps Street View at the property's coordinates in a new tab (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG`; no key, no request from the app).
 - Price history (provider history vs. local snapshots labeled), verification links (MLS #, agent, address search; the app never fetches these pages), notes, data quality.
 
 ### Ranking & data (desktop `Settings`, mobile `MobileSettings`)
@@ -124,7 +126,8 @@ Line-by-line amounts and states are in the fixture file.
 ## 4. Mobile layout
 390 px phone frames; bottom tab bar; 44 px minimum targets; no fake status bar. Compare is two-up with selectors. Property detail has a fixed bottom bar (Save, Compare, Search this address). Ranking & data uses collapsible sections. Same data and rules as desktop.
 
-## 5. Decisions (Oct 7, 2026)
+## 5. Decisions (Oct 7–8, 2026)
 1. **CDD line in a county without local rates:** "Unknown · no [county] rates" unless the tax bill has been checked (then Doc). Adds no new Incomplete trigger; the county trigger already applies. Setting the county's rates turns it into "Est. · CDD not checked".
 2. **Townhome insurance:** uses the county's house homeowners default.
 3. **Status chip wording:** always "+n" for Est. lines beyond the two named; Miramar reads "Estimate · needs insurance quote, assessments not checked +1".
+4. **Map and photos (Oct 8, plan 2.7):** Google Maps with a plain-map fallback when no key is set; photos are ones the user uploads; Street View is a link out to Google Maps, never an image shown in the app.
