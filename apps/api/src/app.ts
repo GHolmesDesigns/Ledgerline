@@ -10,6 +10,8 @@ import {
 import { MockListingProvider, mockProviderCapabilities } from './providers/mock-provider.js';
 import { BackupError, exportBackup, importBackup } from './backup.js';
 import { RefreshJob } from './providers/refresh-job.js';
+import { RequestCeilingError } from './providers/request-budget.js';
+import { RentEstimateUnavailableError, requestRentEstimate } from './providers/rent-estimate.js';
 
 export function createApp(
   database: Database,
@@ -124,6 +126,47 @@ export function createApp(
       return result;
     };
 
+    if (request.url === '/api/request-budget' && request.method === 'GET') {
+      json(200, refreshJob.budget.status());
+      return;
+    }
+    if (request.url === '/api/request-budget' && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        json(
+          200,
+          refreshJob.budget.configure({ ceiling: body.ceiling, billingDay: body.billingDay }),
+        );
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to save the request budget.',
+        });
+      }
+      return;
+    }
+    const rentEstimateAction = request.url?.match(
+      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/rent-estimate$/,
+    );
+    if (rentEstimateAction && request.method === 'POST') {
+      try {
+        const estimate = await requestRentEstimate(
+          store,
+          refreshJob.provider,
+          refreshJob.budget,
+          rentEstimateAction[1],
+        );
+        json(200, { estimate });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Rent estimate failed.';
+        if (error instanceof RequestCeilingError)
+          json(429, { error: message, blocked: error.decision });
+        else if (error instanceof RentEstimateUnavailableError) json(501, { error: message });
+        else if (message === 'Property not found.') json(404, { error: message });
+        else json(502, { error: message });
+      }
+      return;
+    }
+
     const propertyAction = request.url?.match(
       /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal))?$/,
     );
@@ -222,14 +265,15 @@ export function createApp(
       return;
     }
     if (request.method === 'POST' && request.url === '/api/saved-searches/refresh-due') {
-      json(200, { results: await refreshJob.refreshDue() });
+      const results = await refreshJob.refreshDue();
+      json(200, { results });
       return;
     }
     const refreshAction = request.url?.match(/^\/api\/saved-searches\/(\d+)\/refresh$/);
     if (request.method === 'POST' && refreshAction) {
       try {
         const result = await refreshJob.refresh(Number(refreshAction[1]));
-        json(result.error ? 502 : 200, { result });
+        json(result.blocked ? 429 : result.error ? 502 : 200, { result });
       } catch (error) {
         json(404, { error: error instanceof Error ? error.message : 'Unable to refresh search.' });
       }
