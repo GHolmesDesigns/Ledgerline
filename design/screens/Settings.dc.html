@@ -60,7 +60,7 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 <button type="button" onClick="{{resetWeights}}" style="align-self: flex-start; background: #FFFFFF; border: 1px solid #C3CBD2; border-radius: 8px; padding: 8px 14px; min-height: 40px; font-size: 13px; font-weight: 600">Reset to defaults</button>
 </div>
 <div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
-<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Live ranking · Tallahassee · Buy</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Live ranking · Miami–Fort Lauderdale · Buy</div>
 <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
 <sc-for list="{{ranked}}" as="r" hint-placeholder-count="5">
 <li style="display: grid; grid-template-columns: 28px 1fr 44px; gap: 10px; align-items: center; background: #F4F6F7; border-radius: 8px; padding: 9px 12px">
@@ -94,12 +94,25 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 </sc-for>
 </div>
 <div style="background: #F4F6F7; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
-<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Preview · 2418 Crestline Dr · $389,000</div>
-<sc-for list="{{rows}}" as="row" hint-placeholder-count="6">
-<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>{{row.label}}</span><span style="font-family: 'DM Mono', monospace">{{row.val}}</span></div>
-</sc-for>
-<div style="display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid #DDE2E6; padding-top: 8px"><span style="font-weight: 600">Estimated monthly to own</span><span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 20px">{{total}}</span></div>
-<div style="font-size: 13px; color: #4A5560">vs. $2,250 rent for the same home · {{gap}}</div>
+<div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560">Preview · 2207 NE 32nd Ct · Fort Lauderdale · $849,000</div>
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>Principal &amp; interest · Calc</span><span style="font-family: 'DM Mono', monospace">$4,293</span></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>Property tax · Calc · Broward (sample)</span><span style="font-family: 'DM Mono', monospace">$1,380</span></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>Homeowners · Quote · entered Oct 5</span><span style="font-family: 'DM Mono', monospace">$610</span></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>Flood · Est. · zone AE</span><span style="font-family: 'DM Mono', monospace">$180</span></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>HOA and assessment · N/A · confirmed none</span><span style="font-family: 'DM Mono', monospace">$0</span></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>Non-ad valorem / CDD · Doc · tax bill checked</span><span style="font-family: 'DM Mono', monospace">$0</span></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 14px"><span>Maintenance · Calc</span><span style="font-family: 'DM Mono', monospace">$708</span></div>
+<div style="display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid #DDE2E6; padding-top: 8px"><span style="font-weight: 600">Estimate · needs flood quote</span><span style="font-family: Outfit, sans-serif; font-weight: 700; font-size: 20px">$7,171/mo</span></div>
+<div style="font-size: 13px; color: #4A5560">vs. $5,200 · same home · listed Sep 28 · ≈ +$1,971/mo</div>
+</div>
+<div style="border-top: 1px solid #DDE2E6; padding-top: 14px; display: flex; flex-direction: column; gap: 8px">
+<h3 style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 16px">Local assumptions · sample placeholders</h3>
+<div style="overflow-x: auto"><table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left"><thead><tr style="color: #4A5560"><th style="padding: 6px">County</th><th style="padding: 6px">Millage</th><th style="padding: 6px">Non-ad valorem/yr</th><th style="padding: 6px">House/mo</th><th style="padding: 6px">HO-6/mo</th><th style="padding: 6px">Flood X / AE / VE</th></tr></thead><tbody>
+<tr style="border-top: 1px solid #DDE2E6"><th style="padding: 7px">Miami-Dade</th><td style="padding: 7px">20.0 mills · sample</td><td style="padding: 7px">$650 · sample</td><td style="padding: 7px">$560 · sample</td><td style="padding: 7px">$120 · sample</td><td style="padding: 7px">$50 / $180 / $420 · sample</td></tr>
+<tr style="border-top: 1px solid #DDE2E6"><th style="padding: 7px">Broward</th><td style="padding: 7px">19.5 mills · sample</td><td style="padding: 7px">$700 · sample</td><td style="padding: 7px">$520 · sample</td><td style="padding: 7px">$110 · sample</td><td style="padding: 7px">$50 / $180 / $420 · sample</td></tr>
+<tr style="border-top: 1px solid #DDE2E6"><th style="padding: 7px">Palm Beach</th><td colspan="5" style="padding: 7px">Not set · <a href="#local-rates">Set local rates</a></td></tr>
+</tbody></table></div>
+<p style="margin: 0; font-size: 12px; color: #4A5560">Source: county tax collector · set Oct 7 for configured counties. No statewide defaults.</p>
 </div>
 </section>
 
@@ -107,6 +120,7 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 <div style="display: flex; flex-direction: column; gap: 4px">
 <h2 id="h-source" style="margin: 0; font-family: Outfit, sans-serif; font-weight: 600; font-size: 20px">Data source &amp; request budget</h2>
 <p style="margin: 0; font-size: 14px; color: #4A5560">Only the refresh job calls the provider. Searching, filtering, and panning the map never spend requests.</p>
+<div style="background: #F4F6F7; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.5"><strong>Comparable-rent rules</strong><br>Same property type and bedrooms · living area within 20% · within 1 mi · seen in 30 days · at least 3 comps.<br><span style="color: #4A5560">Dense Miami areas may need a smaller radius.</span></div>
 </div>
 <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
 <legend style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560; padding: 0; margin-bottom: 8px">Listing provider</legend>
@@ -118,7 +132,8 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 </sc-for>
 </fieldset>
 <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
-<legend style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560; padding: 0; margin-bottom: 8px">Refresh interval · 4 saved searches</legend>
+<legend style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #4A5560; padding: 0; margin-bottom: 8px">Saved searches · Buy/Rent pairs</legend>
+<div style="display: flex; flex-direction: column; gap: 5px; font-size: 13px"><div>Broward · Fort Lauderdale 33308 + radius · Buy 1 + Rent 1 request</div><div>Miami-Dade · Miami 33131–33137 · Buy 2 + Rent 1 requests</div><div>North Miami 33161 · Buy 1 · <strong>no Rent search · local comps unavailable</strong> · <a href="#saved-searches">Add Rent search</a></div></div>
 <sc-for list="{{intervals}}" as="iv" hint-placeholder-count="2">
 <label style="{{iv.style}}">
 <input type="radio" name="interval" checked="{{iv.checked}}" onChange="{{iv.pick}}">
@@ -138,7 +153,7 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 </div>
 </div>
 <sc-if value="{{overBudget}}" hint-placeholder-val="{{ false }}">
-<div role="status" style="background: #FCE4EF; color: #7A0040; border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.45"><strong>Over the ceiling.</strong> Daily refresh projects about 120 requests. Refreshes past {{ceiling}} will be blocked. Raise the ceiling and move to the Foundation tier ($74/month, 1,000 requests), or switch back to weekly.</div>
+<div role="status" style="background: #FCE4EF; color: #7A0040; border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.45"><strong>Over the ceiling.</strong> Daily refresh projects about 168 requests. Refreshes past {{ceiling}} will be blocked. Foundation is $74/month; weekly projects about 42.</div>
 </sc-if>
 </section>
 
@@ -182,7 +197,7 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 </div>
 </section>
 </div>
-<p style="margin: 0; font-size: 12px; color: #4A5560">Sample data for layout only.</p>
+<p style="margin: 0; font-size: 12px; color: #4A5560">Sample data — not real listings. Local rates are sample placeholders.</p>
 </main>
 </div>
 </x-dc>
@@ -190,14 +205,16 @@ input[type=radio]{accent-color:#101820;width:18px;height:18px}
 var FAC = [['price','Price vs. budget'],['cost','Own vs. rent gap'],['flood','Flood zone'],['hoa','HOA & assessments'],['ins','Insurance & roof'],['size','Size']];
 var DEF_W = {price:25, cost:20, flood:20, hoa:15, ins:10, size:10};
 var LIST = [
- {id:'a', name:'2418 Crestline Dr', sub:{price:80,cost:75,flood:95,hoa:100,ins:85,size:80}},
- {id:'b', name:'1150 Lake Bradford Rd, 4B', sub:{price:85,cost:72,flood:30,hoa:25,ins:70,size:55}},
- {id:'c', name:'87 Live Oak Pl', sub:{price:60,cost:70,flood:95,hoa:85,ins:85,size:95}},
- {id:'d', name:'3305 Magnolia Ridge Rd', sub:{price:95,cost:85,flood:50,hoa:100,ins:40,size:60}},
- {id:'e', name:'501 W Tennessee St, 12', sub:{price:98,cost:90,flood:95,hoa:55,ins:60,size:70}}
+ {id:'a', name:'Fort Lauderdale', sub:{price:80,cost:75,flood:70,hoa:100,ins:95,size:100}},
+ {id:'b', name:'Miramar', sub:{price:85,cost:80,flood:95,hoa:70,ins:70,size:75}},
+ {id:'c', name:'Brickell', sub:{price:95,cost:70,flood:70,hoa:80,ins:85,size:55}},
+ {id:'d', name:'Miami 33137 · provisional', sub:{price:100,cost:100,flood:95,hoa:50,ins:25,size:null}},
+ {id:'e', name:'North Miami · provisional', sub:{price:85,cost:null,flood:95,hoa:90,ins:40,size:80}},
+ {id:'f', name:'Boca Raton · provisional', sub:{price:80,cost:null,flood:95,hoa:90,ins:null,size:75}},
+ {id:'g', name:'Hollywood · provisional', sub:{price:100,cost:null,flood:20,hoa:40,ins:90,size:80}}
 ];
-var DEF_A = {down:'20', rate:'6.50', term:'30', mill:'18.5', maint:'1.0', ins:'310', flood:'45'};
-var FIELDS = [['down','Down payment','%'],['rate','Mortgage rate','%'],['term','Term','years'],['mill','Millage','mills'],['maint','Maintenance','%/yr'],['ins','Insurance','$/mo'],['flood','Flood ins.','$/mo']];
+var DEF_A = {down:'20', rate:'6.50', term:'30', maint:'1.0'};
+var FIELDS = [['down','Down payment','%'],['rate','Mortgage rate','%'],['term','Term','years'],['maint','Maintenance reserve','%/yr']];
 function money(v) { return '$' + Math.round(v).toLocaleString('en-US'); }
 function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
 var OPT = 'display:flex;gap:12px;align-items:flex-start;border-radius:10px;padding:12px 14px;cursor:pointer;';
@@ -237,8 +254,8 @@ class Component extends DCLogic {
     var prov = s.prov || 'rentcast';
     var intv = s.intv || 'weekly';
     var ceiling = s.ceiling != null ? s.ceiling : '45';
-    var used = prov === 'mock' ? 0 : 17;
-    var projected = prov === 'mock' ? 0 : (intv === 'daily' ? 120 : 21);
+    var used = prov === 'mock' ? 0 : 23;
+    var projected = prov === 'mock' ? 0 : (intv === 'daily' ? 168 : 42);
     var ceil = num(ceiling) || 1;
     var over = projected > ceil;
     var mk = function (on) { return OPT + (on ? 'border:2px solid #101820;background:#FFFFFF;' : 'border:1px solid #DDE2E6;background:#FFFFFF;'); };
@@ -247,8 +264,8 @@ class Component extends DCLogic {
       ['rentcast', 'RentCast API · Developer tier', '50 requests included, then $0.20 each · no photos or source URLs']
     ].map(function (p) { var on = prov === p[0]; return { label: p[1], note: p[2], checked: on, style: mk(on), pick: function () { self.setState({ prov: p[0] }); } }; });
     var intervals = [
-      ['weekly', 'Weekly', '~17 requests/month · fits the free tier'],
-      ['daily', 'Daily', '~120 requests/month · needs Foundation, $74/month']
+      ['weekly', 'Weekly', '~42 requests this month · within the 45 request ceiling'],
+      ['daily', 'Daily', '~168 requests this month · over ceiling; Foundation is $74/month']
     ].map(function (p) { var on = intv === p[0]; return { label: p[1], note: p[2], checked: on, style: mk(on), pick: function () { self.setState({ intv: p[0] }); } }; });
     var pct = Math.min(100, Math.round(projected / ceil * 100));
 
