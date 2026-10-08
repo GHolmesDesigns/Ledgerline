@@ -1,6 +1,6 @@
 {
   "_readme": "FICTIONAL SAMPLE DATA — not real listings. Addresses and street numbers are invented. Local rates are layout placeholders, not real county rates. Source of truth for rules: PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md, at the version in planVersion. Run `node fixtures/check-fixtures.mjs` after any edit.",
-  "planVersion": "2.6",
+  "planVersion": "2.7",
   "asOf": "2026-10-07",
   "lineStates": {
     "listing": {

@@ -4,7 +4,7 @@ A personal, local-only web app to find, rank, and compare Florida homes to rent 
 
 ## Source of truth (in priority order)
 
-1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.6, Oct 8, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
+1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.7, Oct 8, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
 2. `docs/UI_SPEC.md` — screen-by-screen UI requirements and labels.
 3. `docs/ACCEPTANCE_CHECKS.md` — testable checks for Milestones 1–3.
 4. `fixtures/sample-data.json` — fictional sample data with every expected number. `node fixtures/check-fixtures.mjs` must pass.
@@ -40,7 +40,9 @@ design/screens/*.dc.html  screen sources from the design canvas (reference only)
 - Providers sit behind a `ListingProvider` interface: `search(criteria, page)`, `getListing(sourceId)`, optional `estimateRent(property)`, plus a capability declaration. Ship a mock provider first; RentCast is the candidate real adapter.
 - The UI never uses provider-specific field names. Map provider responses to the normalized model.
 - **Properties and listings are separate records.** Notes, saves, dismissals, ranking inputs, and cost entries belong to the property; price and status belong to the listing. Ambiguous address/unit matches go to a review queue, never a silent merge.
-- Provider credentials stay on the local server; never in browser code or Git.
+- Listing-provider credentials stay on the local server; never in browser code or Git. **The one exception is the Google Maps key**, because the Maps JavaScript API runs in the browser. Keep it out of the bundle and Git, have the local server send it to the page at runtime, and keep it restricted to localhost and the Maps JavaScript API.
+- **Map:** Google Maps (Maps JavaScript API) when a key is set. With no key, show a plain map of county borders and pins from local data, so Milestone 1 needs no outside account.
+- **Photos:** photos the user uploads for a property, stored as local files (outside Git) and keyed to the property. Each property has a Street View link built as a Google Maps URL (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG`): no key, no request from the app. Never show Street View images in the app; Google doesn't allow storing them.
 - Enforce a configurable monthly request ceiling in the app. Block and show any refresh or rent estimate that would exceed it.
 
 ## Cost and ranking rules that are easy to get wrong
@@ -63,7 +65,7 @@ These come from the plan, section 5; the fixtures exercise every one.
 
 Follow the plan's milestones. Milestone 0 (provider data check) is done (plan, "Decisions made"; `docs/PROVIDER_EVALUATION.md`): RentCast is a go for purchase listings, and Rent-mode search is not relied on for finding rentals. Don't call RentCast unless asked. Start at Milestone 1 on mock data built from `fixtures/sample-data.json`.
 
-Two Milestone 0 consequences are still open decisions, so leave both configurable and say so: where photos come from (a dashboard without photos is not acceptable, but cards must still read well without them), and how the interface treats Rent mode.
+Photos are decided (plan 2.7; see Architecture rules), but cards must still read well without them. How the interface treats Rent mode is still an open decision, so leave it configurable and say so.
 
 ## Sample data
 

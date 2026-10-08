@@ -43,7 +43,7 @@ Unit tests for the Milestone 0 sample-pull script. They use a fake network and i
 
 ## Planned architecture
 
-React frontend, a small local API, and SQLite, all running on this computer. The UI reads only the local database; only the refresh job calls a listing provider, behind a swappable `ListingProvider` interface. A mock provider comes first; RentCast is the candidate real source. Provider credentials stay on the local server and never enter Git.
+React frontend, a small local API, and SQLite, all running on this computer. The UI reads only the local database; only the refresh job calls a listing provider, behind a swappable `ListingProvider` interface. A mock provider comes first; RentCast is the candidate real source. Provider credentials stay on the local server and never enter Git. The map is Google Maps; its browser key is the one exception, restricted to localhost. Photos are ones I upload, plus a Street View link on each property.
 
 ## Sample data
 

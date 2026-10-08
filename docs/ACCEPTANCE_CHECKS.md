@@ -1,6 +1,6 @@
 # Acceptance checks — Milestones 1–3
 
-*Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.6.*
+*Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.7.*
 
 Run against the mock provider loaded from `fixtures/sample-data.json`. Each check names its expected result. A milestone is done when all of its checks pass and `node fixtures/check-fixtures.mjs` exits 0.
 
@@ -8,14 +8,16 @@ Run against the mock provider loaded from `fixtures/sample-data.json`. Each chec
 
 | # | Check | Expected |
 |---|---|---|
-| 1.1 | Load the app with no provider credentials | Full Search, Compare, Property, and Ranking & data flow works; no network call to a provider |
-| 1.2 | Search, filter, sort, pan the map | Zero provider requests logged |
+| 1.1 | Load the app with no provider credentials and no Google Maps key | Full Search, Compare, Property, and Ranking & data flow works; the map shows county borders and pins from local data with "Add a Google Maps key to show the street map."; no network call to a provider or to Google |
+| 1.2 | Search, filter, sort, pan the map | Zero listing-provider requests logged |
 | 1.3 | Save, dismiss, add a note; restart the app | All personal state returns |
 | 1.4 | Fort Lauderdale sale and rent listings | Shown as one property with two listings; notes attach to the property |
 | 1.5 | Import "1500 Bay Rd, Unit 1204" with "1500 Bay Rd (no unit)" on file | Goes to the review queue; not merged or duplicated silently |
 | 1.6 | Export personal data, wipe, import | Notes, saves, dismissals, saved searches, weights, and assumptions restored |
 | 1.7 | Cards with no photo data | Read completely; no empty image boxes |
 | 1.8 | Keyboard only | Every control reachable and operable; visible focus |
+| 1.9 | Upload two photos to a property; restart the app | Both return on the property page; the first is the card photo; the files are in the local photo folder and not tracked by Git |
+| 1.10 | Open Street View on a property | Opens `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG` with the property's coordinates in a new tab; the link has no API key, and the app makes no request |
 
 ## Milestone 2 — refresh job and provider adapter
 
@@ -26,7 +28,7 @@ Run against the mock provider loaded from `fixtures/sample-data.json`. Each chec
 | 2.3 | Refresh that would pass the ceiling (set ceiling below used + projected) | Refresh blocked and the reason shown |
 | 2.4 | Rent estimate request | Counts 1 against the same ceiling; blocked when over |
 | 2.5 | Header | Shows used / ceiling, projected monthly total, last successful refresh |
-| 2.6 | Credentials | Only on the local server; absent from browser bundle and Git |
+| 2.6 | Credentials | RentCast key only on the local server; absent from browser bundle and Git. Google Maps key absent from browser bundle and Git, sent to the page by the local server at runtime, and restricted in Google Cloud to the app's localhost address and the Maps JavaScript API |
 
 ## Milestone 3 — Florida cost and ranking
 
