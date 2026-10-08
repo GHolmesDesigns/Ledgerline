@@ -159,12 +159,16 @@ describe('listings', () => {
         providerListedDate: '2026-08-20',
         providerLastSeenDate: '2026-10-06',
         fieldQuality: { hoaFee: 'missing' },
+        providerHistory: [{ date: '2026-10-01', price: 860000, status: 'active' }],
       },
     ]);
     assert.match(listing.id, /^lst_/);
     assert.equal(listing.hoaFee, 0);
     assert.deepEqual(listing.imageUrls, ['https://example.test/1.jpg']);
     assert.deepEqual(listing.fieldQuality, { hoaFee: 'missing' });
+    assert.deepEqual(listing.providerHistory, [
+      { date: '2026-10-01', price: 860000, status: 'active' },
+    ]);
     assert.equal(listing.firstFetchedAt, listing.lastFetchedAt);
     assert.equal(listing.sample, true);
   });

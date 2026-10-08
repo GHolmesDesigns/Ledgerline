@@ -115,8 +115,9 @@ test('property save, dismissal, and notes persist across a restart', async ({ pa
 
   await page.goto('/property/prop_1');
   await expect(page.getByRole('heading', { name: '2207 NE 32nd Ct' })).toBeVisible();
-  await expect(page.getByText('Buy', { exact: true })).toBeVisible();
-  await expect(page.getByText('Rent', { exact: true })).toBeVisible();
+  await expect(page.locator('.property-listing-list li')).toHaveCount(2);
+  await expect(page.locator('.property-listing-list')).toContainText('Buy');
+  await expect(page.locator('.property-listing-list')).toContainText('Rent');
   await page.getByLabel('Add a note').fill('Ask about the roof');
   await page.getByRole('button', { name: 'Add note' }).click();
   await expect(page.getByText('Ask about the roof')).toBeVisible();
