@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type PointerEvent } from 'react';
 
 type Route = { title: string; eyebrow: string; path: string };
 
@@ -211,6 +211,8 @@ type SearchListing = {
     bathsTotal: number | null;
     livingAreaSqft: number | null;
     yearBuilt: number | null;
+    latitude: number | null;
+    longitude: number | null;
   };
   listing: {
     id: string;
@@ -222,6 +224,16 @@ type SearchListing = {
     providerLastSeenDate: string | null;
   };
 };
+
+type CountyFeature = {
+  type: 'Feature';
+  properties: { GEOID: string; NAME: string };
+  geometry:
+    | { type: 'Polygon'; coordinates: number[][][] }
+    | { type: 'MultiPolygon'; coordinates: number[][][][] };
+};
+
+type CountyFeatureCollection = { type: 'FeatureCollection'; features: CountyFeature[] };
 
 type SearchFilters = {
   mode: 'sale' | 'rent';
@@ -267,6 +279,241 @@ function searchFromUrl(): SearchFilters {
   };
 }
 
+const cityCenters: Record<string, [number, number]> = {
+  'fort lauderdale': [-80.137, 26.122],
+  miramar: [-80.232, 25.987],
+  miami: [-80.192, 25.762],
+  'north miami': [-80.186, 25.891],
+  'boca raton': [-80.128, 26.368],
+  hollywood: [-80.149, 26.011],
+};
+
+function CountyMap({
+  boundaries,
+  items,
+  selectedId,
+  onSelect,
+}: {
+  boundaries: CountyFeatureCollection;
+  items: SearchListing[];
+  selectedId: string | null;
+  onSelect: (listingId: string) => void;
+}) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState<{
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
+  const width = 600;
+  const height = 520;
+  const coordinates = boundaries.features.flatMap((feature) =>
+    feature.geometry.type === 'Polygon'
+      ? feature.geometry.coordinates.flat()
+      : feature.geometry.coordinates.flat(2),
+  );
+  const longitudes = coordinates.map(([longitude]) => longitude);
+  const latitudes = coordinates.map(([, latitude]) => latitude);
+  const bounds = {
+    minLon: Math.min(...longitudes),
+    maxLon: Math.max(...longitudes),
+    minLat: Math.min(...latitudes),
+    maxLat: Math.max(...latitudes),
+  };
+  const padding = 34;
+  const longitudeScale = Math.cos(((bounds.minLat + bounds.maxLat) / 2) * (Math.PI / 180));
+  const adjustedMinLon = bounds.minLon * longitudeScale;
+  const adjustedMaxLon = bounds.maxLon * longitudeScale;
+  const mapScale = Math.min(
+    (width - padding * 2) / (adjustedMaxLon - adjustedMinLon),
+    (height - padding * 2) / (bounds.maxLat - bounds.minLat),
+  );
+  const mapWidth = (adjustedMaxLon - adjustedMinLon) * mapScale;
+  const mapHeight = (bounds.maxLat - bounds.minLat) * mapScale;
+  const project = (longitude: number, latitude: number) => ({
+    x: (width - mapWidth) / 2 + (longitude * longitudeScale - adjustedMinLon) * mapScale,
+    y: (height - mapHeight) / 2 + (bounds.maxLat - latitude) * mapScale,
+  });
+  const pathFor = (rings: number[][][][]) =>
+    rings
+      .flatMap((polygon) =>
+        polygon.map(
+          (ring) =>
+            ring
+              .map(([longitude, latitude], index) => {
+                const point = project(longitude, latitude);
+                return `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)},${point.y.toFixed(1)}`;
+              })
+              .join(' ') + ' Z',
+        ),
+      )
+      .join(' ');
+  const centroid = (feature: CountyFeature) => {
+    const ring =
+      feature.geometry.type === 'Polygon'
+        ? feature.geometry.coordinates[0]
+        : (feature.geometry.coordinates[0]?.[0] ?? []);
+    const points = ring.slice(0, -1);
+    const longitude = points.reduce((sum, point) => sum + point[0], 0) / points.length;
+    const latitude = points.reduce((sum, point) => sum + point[1], 0) / points.length;
+    return project(longitude, latitude);
+  };
+  const mapPin = (item: SearchListing, index: number) => {
+    const city = item.property.city.trim().toLocaleLowerCase('en-US');
+    const exact = item.property.latitude !== null && item.property.longitude !== null;
+    const [longitude, latitude] = exact
+      ? [item.property.longitude!, item.property.latitude!]
+      : (cityCenters[city] ??
+        (() => {
+          const county = boundaries.features.find(
+            (feature) =>
+              feature.properties.NAME.replace(/ County$/i, '').toLocaleLowerCase('en-US') ===
+              (item.property.county ?? '').toLocaleLowerCase('en-US'),
+          );
+          if (!county) return [-80.2, 26.1];
+          const center = centroid(county);
+          const lon =
+            (adjustedMinLon + (center.x - (width - mapWidth) / 2) / mapScale) / longitudeScale;
+          const lat = bounds.maxLat - (center.y - (height - mapHeight) / 2) / mapScale;
+          return [lon, lat];
+        })());
+    const jitter = exact ? 0 : ((index % 5) - 2) * 0.009;
+    return { ...project(longitude + jitter, latitude + jitter * 0.45), approximate: !exact };
+  };
+  const selected = items.find((item) => item.listing.id === selectedId);
+  const priceFor = (item: SearchListing) =>
+    item.listing.price == null
+      ? 'Price unavailable'
+      : item.listing.mode === 'rent'
+        ? `$${item.listing.price.toLocaleString('en-US')}/mo`
+        : `$${item.listing.price.toLocaleString('en-US')}`;
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!dragStart) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPan({
+      x: dragStart.panX + (event.clientX - dragStart.x) * (width / rect.width),
+      y: dragStart.panY + (event.clientY - dragStart.y) * (height / rect.height),
+    });
+  };
+
+  return (
+    <section aria-label="Results map" className="map-panel">
+      <div className="map-panel-heading">
+        <div>
+          <p className="screen-eyebrow">Local map</p>
+          <h2>Results near South Florida</h2>
+        </div>
+        <span>{items.length} pins</span>
+      </div>
+      <div
+        className="county-map-canvas"
+        onPointerDown={(event) =>
+          setDragStart({ x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y })
+        }
+        onPointerMove={onPointerMove}
+        onPointerUp={() => setDragStart(null)}
+        onPointerCancel={() => setDragStart(null)}
+      >
+        <svg
+          aria-label="Map of Miami-Dade, Broward, and Palm Beach county boundaries"
+          className="county-map"
+          role="group"
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <g
+            transform={`translate(${pan.x} ${pan.y}) translate(${width / 2} ${height / 2}) scale(${zoom}) translate(${-width / 2} ${-height / 2})`}
+          >
+            {boundaries.features.map((feature) => {
+              const polygonRings =
+                feature.geometry.type === 'Polygon'
+                  ? [feature.geometry.coordinates]
+                  : feature.geometry.coordinates;
+              const center = centroid(feature);
+              return (
+                <g key={feature.properties.GEOID}>
+                  <path
+                    aria-label={feature.properties.NAME}
+                    className="county-shape"
+                    d={pathFor(polygonRings)}
+                  />
+                  <text className="county-label" x={center.x} y={center.y}>
+                    {feature.properties.NAME.replace(/ County$/i, '')}
+                  </text>
+                </g>
+              );
+            })}
+            {items.map((item, index) => {
+              const pin = mapPin(item, index);
+              const isSelected = item.listing.id === selectedId;
+              return (
+                <g
+                  aria-label={`Select ${priceFor(item)}, ${item.property.street}, ${item.property.city}${pin.approximate ? ', approximate city location' : ''}; map pin ${index + 1} of ${items.length}`}
+                  aria-pressed={isSelected}
+                  className={`map-pin${isSelected ? ' selected' : ''}`}
+                  key={item.listing.id}
+                  onClick={() => onSelect(item.listing.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelect(item.listing.id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <circle cx={pin.x} cy={pin.y} r={isSelected ? 15 : 12} />
+                  <text x={pin.x} y={pin.y + 4}>
+                    {index + 1}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+        <div
+          className="map-zoom-controls"
+          aria-label="Map zoom controls"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button
+            aria-label="Zoom in"
+            onClick={() => setZoom((current) => Math.min(2.5, current + 0.25))}
+            type="button"
+          >
+            +
+          </button>
+          <button
+            aria-label="Zoom out"
+            onClick={() => setZoom((current) => Math.max(0.75, current - 0.25))}
+            type="button"
+          >
+            −
+          </button>
+        </div>
+      </div>
+      <p className="map-attribution">
+        County boundaries: U.S. Census Bureau TIGERweb, 2026. Pins without listing coordinates show
+        approximate city locations.
+      </p>
+      {selected && (
+        <div aria-live="polite" className="map-selected-card">
+          <div>
+            <strong>{priceFor(selected)}</strong>
+            <span>
+              {selected.property.street}
+              {selected.property.unit ? `, Unit ${selected.property.unit}` : ''} ·{' '}
+              {selected.property.city}
+            </span>
+          </div>
+          <a href={`/property/${selected.property.id}`}>View details</a>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SearchScreen() {
   const [filters, setFilters] = useState<SearchFilters>(searchFromUrl);
   const [ranges, setRanges] = useState({ sale: { min: '', max: '' }, rent: { min: '', max: '' } });
@@ -274,6 +521,26 @@ function SearchScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
+  const [boundaries, setBoundaries] = useState<CountyFeatureCollection | null>(null);
+  const [boundaryError, setBoundaryError] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/geo/florida-counties.geojson')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Local county data unavailable.');
+        const data = (await response.json()) as CountyFeatureCollection;
+        if (!cancelled) setBoundaries(data);
+      })
+      .catch(() => {
+        if (!cancelled) setBoundaryError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setRanges((current) => ({
@@ -326,6 +593,24 @@ function SearchScreen() {
     window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
   }, []);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !items.some((item) => item.listing.id === selectedId)) {
+      setSelectedId(items[0].listing.id);
+    }
+  }, [items, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || (window.matchMedia('(max-width: 700px)').matches && mobileView === 'map'))
+      return;
+    document
+      .getElementById(`listing-${selectedId}`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedId, mobileView]);
 
   const update = (key: keyof SearchFilters, value: string) =>
     setFilters((current) => {
@@ -557,40 +842,100 @@ function SearchScreen() {
           <p className="result-count" aria-live="polite">
             {items.length} {filters.mode === 'sale' ? 'homes to buy' : 'homes to rent'}
           </p>
-          <div className="listing-grid">
-            {items.map(({ property, listing }) => (
-              <article className="listing-card" key={listing.id}>
-                <div className="listing-card-heading">
-                  <div>
-                    <p className="listing-price">
-                      {formatPrice(listing.price, listing.mode, listing.pricePeriod)}
-                    </p>
-                    <p className="listing-status">{listing.status.replaceAll('_', ' ')}</p>
+          <div className="mobile-map-toggle" aria-label="Results view">
+            <button
+              aria-pressed={mobileView === 'list'}
+              onClick={() => setMobileView('list')}
+              type="button"
+            >
+              List
+            </button>
+            <button
+              aria-pressed={mobileView === 'map'}
+              onClick={() => setMobileView('map')}
+              type="button"
+            >
+              Map
+            </button>
+          </div>
+          <div
+            className={`search-results-layout ${mobileView === 'map' ? 'mobile-map-active' : ''}`}
+          >
+            <div className="listing-grid" aria-label="Search results">
+              {items.map(({ property, listing }, index) => (
+                <article
+                  className={`listing-card${selectedId === listing.id ? ' is-selected' : ''}`}
+                  id={`listing-${listing.id}`}
+                  key={listing.id}
+                  onClick={() => setSelectedId(listing.id)}
+                >
+                  <div className="listing-card-heading">
+                    <div>
+                      <p className="listing-price">
+                        {formatPrice(listing.price, listing.mode, listing.pricePeriod)}
+                      </p>
+                      <p className="listing-status">{listing.status.replaceAll('_', ' ')}</p>
+                    </div>
+                    <div className="listing-card-tools">
+                      <span className="listing-mode-label">
+                        {listing.mode === 'sale' ? 'BUY' : 'RENT'}
+                      </span>
+                      <button
+                        aria-pressed={selectedId === listing.id}
+                        className="select-listing"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedId(listing.id);
+                        }}
+                        type="button"
+                        aria-label={`Select ${property.street} on map`}
+                      >
+                        Pin {index + 1}
+                      </button>
+                    </div>
                   </div>
-                  <span className="listing-mode-label">
-                    {listing.mode === 'sale' ? 'BUY' : 'RENT'}
-                  </span>
-                </div>
-                <h2>
-                  {property.street}
-                  {property.unit ? `, Unit ${property.unit}` : ''}
-                </h2>
-                <p className="listing-location">
-                  {property.city} · {property.county ?? 'Florida'} County, {property.zip}
-                </p>
-                <p className="listing-facts">
-                  {property.beds ?? '—'} bd <span>·</span> {property.bathsTotal ?? '—'} ba{' '}
-                  <span>·</span> {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft{' '}
-                  <span>·</span> {property.yearBuilt ?? 'Year unknown'}
-                </p>
-                <div className="listing-card-footer">
-                  <span>
-                    {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
-                  </span>
-                  {stale(listing.providerLastSeenDate) && <span className="stale-tag">Stale</span>}
-                </div>
-              </article>
-            ))}
+                  <h2>
+                    {property.street}
+                    {property.unit ? `, Unit ${property.unit}` : ''}
+                  </h2>
+                  <p className="listing-location">
+                    {property.city} · {property.county ?? 'Florida'} County, {property.zip}
+                  </p>
+                  <p className="listing-facts">
+                    {property.beds ?? '—'} bd <span>·</span> {property.bathsTotal ?? '—'} ba{' '}
+                    <span>·</span> {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft{' '}
+                    <span>·</span> {property.yearBuilt ?? 'Year unknown'}
+                  </p>
+                  <div className="listing-card-footer">
+                    <span>
+                      {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
+                    </span>
+                    {stale(listing.providerLastSeenDate) && (
+                      <span className="stale-tag">Stale</span>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="results-map-column">
+              {boundaries ? (
+                <CountyMap
+                  boundaries={boundaries}
+                  items={items}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                />
+              ) : (
+                <section aria-label="Results map" className="map-panel">
+                  <h2>Results map</h2>
+                  <p role={boundaryError ? 'alert' : undefined}>
+                    {boundaryError
+                      ? 'Local county boundaries could not be loaded.'
+                      : 'Loading local county boundaries…'}
+                  </p>
+                </section>
+              )}
+            </div>
           </div>
         </>
       )}

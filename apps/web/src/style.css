@@ -433,6 +433,183 @@ h1 {
   white-space: nowrap;
   border: 0;
 }
+.search-results-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  align-items: start;
+  gap: 16px;
+}
+.search-results-layout .listing-grid {
+  grid-template-columns: 1fr;
+}
+.listing-card.is-selected {
+  border-color: var(--color-link);
+  box-shadow: 0 0 0 2px #00699e26;
+}
+.listing-card-tools {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+.select-listing {
+  min-height: 36px;
+  padding: 5px 9px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  background: white;
+  color: var(--color-link);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.select-listing[aria-pressed='true'] {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: white;
+}
+.mobile-map-toggle {
+  display: none;
+}
+.results-map-column {
+  position: sticky;
+  top: 16px;
+  min-width: 0;
+}
+.map-panel {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: white;
+}
+.map-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.map-panel-heading h2,
+.map-panel > h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+.map-panel-heading > span {
+  color: var(--color-muted);
+  font-family: var(--font-label);
+  font-size: 11px;
+}
+.county-map-canvas {
+  position: relative;
+  height: clamp(360px, 48vw, 560px);
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: #eff4f5;
+  touch-action: pan-y;
+  cursor: grab;
+}
+.county-map-canvas:active {
+  cursor: grabbing;
+}
+.county-map {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+.county-shape {
+  fill: #e1ebee;
+  stroke: #72858e;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.county-label {
+  fill: #52646c;
+  font-family: var(--font-label);
+  font-size: 12px;
+  pointer-events: none;
+  text-anchor: middle;
+}
+.map-pin {
+  cursor: pointer;
+  outline: none;
+}
+.map-pin circle {
+  fill: var(--color-ink);
+  stroke: white;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+.map-pin text {
+  fill: white;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+  text-anchor: middle;
+}
+.map-pin.selected circle {
+  fill: var(--color-magenta);
+  stroke: var(--color-ink);
+  stroke-width: 3;
+}
+.map-pin:focus-visible circle {
+  stroke: var(--color-cyan);
+  stroke-width: 5;
+}
+.map-zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  gap: 5px;
+}
+.map-zoom-controls button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 7px;
+  background: white;
+  color: var(--color-ink);
+  font-size: 24px;
+  cursor: pointer;
+}
+.map-attribution {
+  margin: 10px 0 0;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.map-selected-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--color-ground);
+}
+.map-selected-card > div {
+  display: grid;
+  gap: 4px;
+}
+.map-selected-card strong {
+  font-family: var(--font-label);
+}
+.map-selected-card span {
+  font-size: 12px;
+}
+.map-selected-card a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-link);
+  font-size: 12px;
+  font-weight: 600;
+}
 
 .match-review-panel {
   width: min(100%, 1040px);
@@ -560,6 +737,10 @@ h1 {
 }
 
 @media (max-width: 900px) {
+  .search-results-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.8fr);
+    gap: 12px;
+  }
   .listing-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -662,6 +843,51 @@ h1 {
   }
   .listing-card {
     padding: 18px;
+  }
+  .mobile-map-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 4px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 9px;
+    background: white;
+  }
+  .mobile-map-toggle button {
+    min-height: 44px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-muted);
+    font: inherit;
+    font-weight: 600;
+  }
+  .mobile-map-toggle button[aria-pressed='true'] {
+    background: var(--color-ink);
+    color: white;
+  }
+  .search-results-layout {
+    display: block;
+  }
+  .search-results-layout .listing-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .results-map-column {
+    display: none;
+    position: static;
+  }
+  .search-results-layout.mobile-map-active .listing-grid {
+    display: none;
+  }
+  .search-results-layout.mobile-map-active .results-map-column {
+    display: block;
+  }
+  .county-map-canvas {
+    height: min(58vh, 520px);
+  }
+  .map-selected-card {
+    position: sticky;
+    bottom: 8px;
   }
 
   .empty-panel {
