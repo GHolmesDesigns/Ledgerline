@@ -94,6 +94,19 @@ export interface SavedSearchInput {
   refreshIntervalDays?: number | null;
 }
 
+export interface ListingSearchCriteria {
+  mode: ListingMode;
+  location?: string;
+  priceMin?: number;
+  priceMax?: number;
+  beds?: number;
+  baths?: number;
+  propertyType?: string;
+  minSqft?: number;
+  statuses?: string[];
+  sort?: 'newest' | 'price';
+}
+
 export interface SavedSearch extends Required<SavedSearchInput> {
   id: number;
   pairedSearchId: number | null;
@@ -412,6 +425,61 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       return all(`SELECT ${listingColumns} FROM listings WHERE property_id = ? ORDER BY mode, id`, [
         propertyId,
       ]).map(toListing);
+    },
+
+    searchListings(criteria: ListingSearchCriteria) {
+      const clauses = ['l.mode = ?', 'd.property_id IS NULL'];
+      const params: SqlValue[] = [criteria.mode];
+      const add = (condition: string, value: SqlValue) => {
+        clauses.push(condition);
+        params.push(value);
+      };
+      if (criteria.location?.trim()) {
+        add(
+          "LOWER(p.city || ' ' || p.zip || ' ' || p.street) LIKE ?",
+          `%${criteria.location.trim().toLocaleLowerCase('en-US')}%`,
+        );
+      }
+      if (criteria.priceMin !== undefined) add('l.price >= ?', criteria.priceMin);
+      if (criteria.priceMax !== undefined) add('l.price <= ?', criteria.priceMax);
+      if (criteria.beds !== undefined) add('p.beds >= ?', criteria.beds);
+      if (criteria.baths !== undefined) add('p.baths_total >= ?', criteria.baths);
+      if (criteria.propertyType) add('p.property_type = ?', criteria.propertyType);
+      if (criteria.minSqft !== undefined) add('p.living_area_sqft >= ?', criteria.minSqft);
+      const statuses = criteria.statuses?.length ? criteria.statuses : ['active'];
+      clauses.push(`LOWER(l.status) IN (${statuses.map(() => '?').join(', ')})`);
+      params.push(...statuses.map((status) => status.toLocaleLowerCase('en-US')));
+      const order =
+        criteria.sort === 'price'
+          ? 'l.price ASC, p.city COLLATE NOCASE, p.street COLLATE NOCASE'
+          : 'COALESCE(l.provider_last_seen_date, l.last_fetched_at) DESC, l.last_fetched_at DESC, l.id';
+      const propertySelect = propertyColumns
+        .split(',')
+        .map((column) => `p.${column.trim()} AS p_${column.trim()}`)
+        .join(', ');
+      const listingSelect = listingColumns
+        .split(',')
+        .map((column) => `l.${column.trim()} AS l_${column.trim()}`)
+        .join(', ');
+      return all(
+        `SELECT ${propertySelect}, ${listingSelect}
+         FROM listings l JOIN properties p ON p.id = l.property_id
+         LEFT JOIN property_dismissals d ON d.property_id = p.id
+         WHERE ${clauses.join(' AND ')} ORDER BY ${order}`,
+        params,
+      ).map((row) => {
+        const property = toProperty(
+          Object.fromEntries(
+            Object.entries(row).map(([key, value]) => [key.replace(/^p_/, ''), value]),
+          ),
+        );
+        const listing = toListing(
+          Object.fromEntries(
+            Object.entries(row).map(([key, value]) => [key.replace(/^l_/, ''), value]),
+          ),
+        );
+        return { property, listing };
+      });
     },
 
     getListingByProviderId(provider: string, providerId: string): Listing | null {

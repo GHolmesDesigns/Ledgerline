@@ -202,6 +202,84 @@ describe('listings', () => {
   });
 });
 
+describe('local listing search', () => {
+  it('filters mode, location, price, facts and type; defaults to active and hides dismissed', () => {
+    const house = store.createProperty({
+      ...address,
+      county: 'Broward',
+      beds: 3,
+      bathsTotal: 2,
+      livingAreaSqft: 1850,
+      propertyType: 'single_family',
+    });
+    store.replaceListings(house.id, [{ ...saleListing, providerLastSeenDate: '2026-10-06' }]);
+    const rent = store.createProperty({
+      ...address,
+      street: '2208 NE 32nd Ct',
+      beds: 2,
+      bathsTotal: 1,
+      livingAreaSqft: 900,
+      propertyType: 'condo',
+    });
+    store.replaceListings(rent.id, [
+      { ...rentListing, providerId: 'rent-two', price: 2800, providerLastSeenDate: '2026-10-07' },
+    ]);
+    const pending = store.createProperty({
+      ...address,
+      street: '2209 NE 32nd Ct',
+      beds: 3,
+      bathsTotal: 2,
+      livingAreaSqft: 1600,
+      propertyType: 'single_family',
+    });
+    store.replaceListings(pending.id, [
+      { ...saleListing, providerId: 'pending-one', status: 'pending', price: 650000 },
+    ]);
+    const dismissed = store.createProperty({
+      ...address,
+      street: '2210 NE 32nd Ct',
+      beds: 3,
+      bathsTotal: 2,
+      livingAreaSqft: 1800,
+      propertyType: 'single_family',
+    });
+    store.replaceListings(dismissed.id, [
+      { ...saleListing, providerId: 'dismissed-one', price: 600000 },
+    ]);
+    store.setDismissed(dismissed.id, true);
+
+    assert.deepEqual(
+      store.searchListings({ mode: 'sale' }).map(({ listing }) => listing.providerId),
+      ['sale-1'],
+    );
+    assert.deepEqual(
+      store.searchListings({ mode: 'rent' }).map(({ listing }) => listing.providerId),
+      ['rent-two'],
+    );
+    assert.deepEqual(
+      store
+        .searchListings({
+          mode: 'sale',
+          location: '33308',
+          priceMin: 500000,
+          priceMax: 900000,
+          beds: 3,
+          baths: 2,
+          propertyType: 'single_family',
+          minSqft: 1800,
+        })
+        .map(({ listing }) => listing.providerId),
+      ['sale-1'],
+    );
+    assert.deepEqual(
+      store
+        .searchListings({ mode: 'sale', statuses: ['active', 'pending'], sort: 'price' })
+        .map(({ listing }) => listing.providerId),
+      ['pending-one', 'sale-1'],
+    );
+  });
+});
+
 describe('snapshots and raw payloads', () => {
   it('records price and status per fetch, oldest first', () => {
     const house = store.createProperty(address);
