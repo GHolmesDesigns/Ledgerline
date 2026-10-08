@@ -223,6 +223,8 @@ type SearchListing = {
     provider: string;
     providerLastSeenDate: string | null;
   };
+  saved?: boolean;
+  dismissed?: boolean;
 };
 
 type CountyFeature = {
@@ -246,7 +248,10 @@ type SearchFilters = {
   minSqft: string;
   status: string;
   sort: 'newest' | 'price';
+  savedOnly: boolean;
+  showDismissed: boolean;
 };
+type SearchTextFilter = Exclude<keyof SearchFilters, 'savedOnly' | 'showDismissed'>;
 
 type SavedSearch = {
   id: number;
@@ -271,12 +276,14 @@ const profileFromSearch = (search: SavedSearch): SearchFilters => ({
   minSqft: String(search.filters.minSqft ?? ''),
   status: String(search.filters.status ?? 'active'),
   sort: search.filters.sort === 'price' ? 'price' : 'newest',
+  savedOnly: search.filters.savedOnly === true,
+  showDismissed: search.filters.showDismissed === true,
 });
 
 const searchUrl = (search: SavedSearch) => {
   const filters = profileFromSearch(search);
   const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) if (value) query.set(key, value);
+  for (const [key, value] of Object.entries(filters)) if (value) query.set(key, String(value));
   return `/?${query.toString()}`;
 };
 
@@ -509,6 +516,8 @@ const emptyFilters = (mode: 'sale' | 'rent'): SearchFilters => ({
   minSqft: '',
   status: 'active',
   sort: 'newest',
+  savedOnly: false,
+  showDismissed: false,
 });
 
 function searchFromUrl(): SearchFilters {
@@ -526,6 +535,8 @@ function searchFromUrl(): SearchFilters {
     minSqft: params.get('minSqft') ?? '',
     status: params.get('status') ?? 'active',
     sort: params.get('sort') === 'price' ? 'price' : 'newest',
+    savedOnly: params.get('savedOnly') === 'true',
+    showDismissed: params.get('showDismissed') === 'true',
   };
 }
 
@@ -764,6 +775,242 @@ function CountyMap({
   );
 }
 
+type PropertyNote = {
+  id: number;
+  propertyId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+};
+type PropertyDetailData = {
+  property: SearchListing['property'];
+  listings: SearchListing['listing'][];
+  notes: PropertyNote[];
+  saved: boolean;
+  dismissed: boolean;
+};
+
+function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
+  const [data, setData] = useState<PropertyDetailData | null>(null);
+  const [noteBody, setNoteBody] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingBody, setEditingBody] = useState('');
+  const [error, setError] = useState('');
+
+  const refresh = async () => {
+    try {
+      const response = await fetch(`/api/properties/${propertyId}`);
+      const result = (await response.json()) as PropertyDetailData & { error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'Property details are unavailable.');
+      setData(result);
+      setError('');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Property details are unavailable.');
+    }
+  };
+  useEffect(() => {
+    void refresh();
+  }, [propertyId]);
+
+  const toggle = async (field: 'favorite' | 'dismissal') => {
+    if (!data) return;
+    const key = field === 'favorite' ? 'saved' : 'dismissed';
+    const value = !data[key];
+    const response = await fetch(`/api/properties/${propertyId}/${field}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ [key]: value }),
+    });
+    if (!response.ok) {
+      setError('Could not update this property.');
+      return;
+    }
+    setData({ ...data, [key]: value });
+  };
+
+  const addNote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const response = await fetch(`/api/properties/${propertyId}/notes`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ body: noteBody }),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(result.error ?? 'Could not add note.');
+      return;
+    }
+    setNoteBody('');
+    await refresh();
+  };
+
+  const saveEdit = async (noteId: number) => {
+    const response = await fetch(`/api/notes/${noteId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ body: editingBody }),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(result.error ?? 'Could not update note.');
+      return;
+    }
+    setEditingId(null);
+    setEditingBody('');
+    await refresh();
+  };
+
+  const deleteNote = async (noteId: number) => {
+    const response = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+    if (!response.ok) {
+      setError('Could not delete note.');
+      return;
+    }
+    await refresh();
+  };
+
+  if (!data)
+    return (
+      <section className="property-detail-panel" aria-label="Property details">
+        {error ? <p role="alert">{error}</p> : <p>Loading property details…</p>}
+      </section>
+    );
+  const { property, listings, notes } = data;
+  return (
+    <section className="property-detail-panel" aria-label="Property details">
+      <div className="property-detail-heading">
+        <div>
+          <p className="screen-eyebrow">
+            {property.city} · {property.county ?? 'Florida'} County, {property.zip}
+          </p>
+          <h2>
+            {property.street}
+            {property.unit ? `, Unit ${property.unit}` : ''}
+          </h2>
+          <p>
+            {property.beds ?? '—'} bd · {property.bathsTotal ?? '—'} ba ·{' '}
+            {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft
+          </p>
+        </div>
+        <div className="property-actions">
+          <button aria-pressed={data.saved} onClick={() => void toggle('favorite')} type="button">
+            {data.saved ? 'Saved' : 'Save property'}
+          </button>
+          <button
+            aria-pressed={data.dismissed}
+            className="secondary-button"
+            onClick={() => void toggle('dismissal')}
+            type="button"
+          >
+            {data.dismissed ? 'Undo dismissal' : 'Dismiss property'}
+          </button>
+        </div>
+      </div>
+      {error && (
+        <p role="alert" className="search-error">
+          {error}
+        </p>
+      )}
+      <section aria-labelledby="property-listings-heading" className="property-detail-section">
+        <h3 id="property-listings-heading">Listings</h3>
+        <ul className="property-listing-list">
+          {listings.map((listing) => (
+            <li key={listing.id}>
+              <strong>{listing.mode === 'sale' ? 'Buy' : 'Rent'}</strong>
+              <span>
+                {listing.price == null
+                  ? 'Price unavailable'
+                  : `$${listing.price.toLocaleString()}${listing.mode === 'rent' ? '/mo' : ''}`}
+              </span>
+              <span>{listing.status}</span>
+              <span>{listing.provider}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section aria-labelledby="property-notes-heading" className="property-detail-section">
+        <h3 id="property-notes-heading">Notes</h3>
+        {notes.length === 0 ? (
+          <p className="review-empty">No notes yet.</p>
+        ) : (
+          <ul className="property-notes-list">
+            {notes.map((note) => (
+              <li key={note.id}>
+                {editingId === note.id ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void saveEdit(note.id);
+                    }}
+                  >
+                    <label>
+                      Edit note
+                      <textarea
+                        aria-label={`Edit note ${note.id}`}
+                        value={editingBody}
+                        onChange={(event) => setEditingBody(event.target.value)}
+                        required
+                      />
+                    </label>
+                    <div className="property-actions">
+                      <button type="submit">Save note</button>
+                      <button
+                        className="text-button"
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <p>{note.body}</p>
+                    <time dateTime={note.updatedAt}>
+                      {note.updatedAt === note.createdAt ? 'Added' : 'Updated'}{' '}
+                      {new Date(note.updatedAt).toLocaleString()}
+                    </time>
+                    <div className="property-actions">
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setEditingId(note.id);
+                          setEditingBody(note.body);
+                        }}
+                        type="button"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="text-button"
+                        onClick={() => void deleteNote(note.id)}
+                        type="button"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <form className="property-note-form" onSubmit={(event) => void addNote(event)}>
+          <label htmlFor="new-property-note">Add a note</label>
+          <textarea
+            id="new-property-note"
+            value={noteBody}
+            onChange={(event) => setNoteBody(event.target.value)}
+            required
+            rows={3}
+          />
+          <button type="submit">Add note</button>
+        </form>
+      </section>
+    </section>
+  );
+}
+
 function SearchScreen() {
   const [filters, setFilters] = useState<SearchFilters>(searchFromUrl);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
@@ -806,6 +1053,8 @@ function SearchScreen() {
       minSqft: filters.minSqft,
       status: filters.status,
       sort: filters.sort,
+      savedOnly: filters.savedOnly,
+      showDismissed: filters.showDismissed,
     },
     priceMin: filters.priceMin ? Number(filters.priceMin) : null,
     priceMax: filters.priceMax ? Number(filters.priceMax) : null,
@@ -872,7 +1121,7 @@ function SearchScreen() {
       [filters.mode]: { min: filters.priceMin, max: filters.priceMax },
     }));
     const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(filters)) if (value) query.set(key, value);
+    for (const [key, value] of Object.entries(filters)) if (value) query.set(key, String(value));
     const search = query.toString();
     if (window.location.search !== (search ? `?${search}` : '')) {
       window.history.replaceState(
@@ -936,7 +1185,7 @@ function SearchScreen() {
       ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [selectedId, mobileView]);
 
-  const update = (key: keyof SearchFilters, value: string) =>
+  const update = (key: SearchTextFilter, value: string) =>
     setFilters((current) => {
       const next = { ...current, [key]: value };
       if (key === 'priceMin' || key === 'priceMax') {
@@ -949,6 +1198,48 @@ function SearchScreen() {
       return next;
     });
 
+  const mutateProperty = async (
+    propertyId: string,
+    field: 'favorite' | 'dismissal',
+    value: boolean,
+  ) => {
+    const key = field === 'favorite' ? 'saved' : 'dismissed';
+    try {
+      const response = await fetch(`/api/properties/${propertyId}/${field}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? 'Could not update this property.');
+      setItems((current) =>
+        current
+          .map((entry) => (entry.property.id === propertyId ? { ...entry, [key]: value } : entry))
+          .filter(
+            (entry) =>
+              !(
+                entry.property.id === propertyId &&
+                value &&
+                field === 'dismissal' &&
+                !filters.showDismissed
+              ),
+          )
+          .filter(
+            (entry) =>
+              !(
+                entry.property.id === propertyId &&
+                field === 'favorite' &&
+                !value &&
+                filters.savedOnly
+              ),
+          ),
+      );
+      setError('');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update this property.');
+    }
+  };
+
   const switchMode = (mode: 'sale' | 'rent') =>
     setFilters((current) => ({
       ...current,
@@ -956,8 +1247,13 @@ function SearchScreen() {
       priceMin: ranges[mode].min,
       priceMax: ranges[mode].max,
     }));
-  const clear = (key: keyof SearchFilters) =>
+  const clear = (key: keyof SearchFilters) => {
+    if (key === 'savedOnly' || key === 'showDismissed') {
+      setFilters((current) => ({ ...current, [key]: false }));
+      return;
+    }
     update(key, key === 'status' ? 'active' : key === 'sort' ? 'newest' : '');
+  };
   const formatPrice = (price: number | null, mode: string, period: string) => {
     if (price === null) return 'Price unavailable';
     const amount = `$${price.toLocaleString('en-US')}`;
@@ -977,6 +1273,8 @@ function SearchScreen() {
       ['propertyType', filters.propertyType],
       ['minSqft', filters.minSqft ? `${filters.minSqft}+ sq ft` : ''],
       ['status', filters.status !== 'active' ? filters.status : ''],
+      ['savedOnly', filters.savedOnly ? 'Saved only' : ''],
+      ['showDismissed', filters.showDismissed ? 'Show dismissed' : ''],
     ] as Array<[keyof SearchFilters, string]>
   ).filter((chip) => chip[1]);
 
@@ -1208,6 +1506,28 @@ function SearchScreen() {
             </option>
           </select>
         </label>
+        <label className="filter-field filter-toggle">
+          <input
+            aria-label="Saved only"
+            checked={filters.savedOnly}
+            onChange={(event) =>
+              setFilters((current) => ({ ...current, savedOnly: event.target.checked }))
+            }
+            type="checkbox"
+          />
+          Saved only
+        </label>
+        <label className="filter-field filter-toggle">
+          <input
+            aria-label="Show dismissed"
+            checked={filters.showDismissed}
+            onChange={(event) =>
+              setFilters((current) => ({ ...current, showDismissed: event.target.checked }))
+            }
+            type="checkbox"
+          />
+          Show dismissed
+        </label>
         {capabilities.waterfront && (
           <label className="filter-field">
             <input type="checkbox" /> Waterfront
@@ -1286,7 +1606,7 @@ function SearchScreen() {
             className={`search-results-layout ${mobileView === 'map' ? 'mobile-map-active' : ''}`}
           >
             <div className="listing-grid" aria-label="Search results">
-              {items.map(({ property, listing }, index) => (
+              {items.map(({ property, listing, saved = false, dismissed = false }, index) => (
                 <article
                   className={`listing-card${selectedId === listing.id ? ' is-selected' : ''}`}
                   id={`listing-${listing.id}`}
@@ -1319,8 +1639,10 @@ function SearchScreen() {
                     </div>
                   </div>
                   <h2>
-                    {property.street}
-                    {property.unit ? `, Unit ${property.unit}` : ''}
+                    <a href={`/property/${property.id}`}>
+                      {property.street}
+                      {property.unit ? `, Unit ${property.unit}` : ''}
+                    </a>
                   </h2>
                   <p className="listing-location">
                     {property.city} · {property.county ?? 'Florida'} County, {property.zip}
@@ -1330,6 +1652,30 @@ function SearchScreen() {
                     <span>·</span> {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft{' '}
                     <span>·</span> {property.yearBuilt ?? 'Year unknown'}
                   </p>
+                  <div className="property-actions">
+                    <button
+                      aria-label={`${saved ? 'Remove' : 'Save'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''} ${saved ? 'from saved homes' : 'to saved homes'}`}
+                      aria-pressed={saved}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void mutateProperty(property.id, 'favorite', !saved);
+                      }}
+                      type="button"
+                    >
+                      {saved ? 'Saved' : 'Save'}
+                    </button>
+                    <button
+                      aria-label={`${dismissed ? 'Undo dismissal for' : 'Dismiss'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}`}
+                      className="secondary-button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void mutateProperty(property.id, 'dismissal', !dismissed);
+                      }}
+                      type="button"
+                    >
+                      {dismissed ? 'Undo dismissal' : 'Dismiss'}
+                    </button>
+                  </div>
                   <div className="listing-card-footer">
                     <span>
                       {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
@@ -1414,6 +1760,8 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
           </div>
         ) : page.path === '/' ? (
           <SearchScreen />
+        ) : page.path.startsWith('/property/') ? (
+          <PropertyDetailScreen propertyId={page.path.slice('/property/'.length)} />
         ) : (
           <section aria-label={`${page.title} placeholder`} className="empty-panel">
             <span aria-hidden="true" className="empty-panel-mark">

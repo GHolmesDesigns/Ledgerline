@@ -91,6 +91,84 @@ export function createApp(database: Database, store: Store = createStore(databas
       return result;
     };
 
+    const propertyAction = request.url?.match(
+      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal))?$/,
+    );
+    if (propertyAction && request.method === 'GET' && !propertyAction[2]) {
+      const propertyId = propertyAction[1];
+      const property = store.getProperty(propertyId);
+      if (!property) {
+        json(404, { error: 'Property not found.' });
+        return;
+      }
+      json(200, {
+        property,
+        listings: store.listListings(propertyId),
+        notes: store.listNotes(propertyId),
+        saved: store.isFavorite(propertyId),
+        dismissed: store.isDismissed(propertyId),
+      });
+      return;
+    }
+    if (propertyAction && propertyAction[2] === 'notes' && request.method === 'POST') {
+      try {
+        const body = await readBody();
+        if (typeof body.body !== 'string' || body.body.trim().length === 0) {
+          throw new Error('Note cannot be empty.');
+        }
+        const note = store.addNote(propertyAction[1], body.body.trim());
+        json(201, { note });
+      } catch (error) {
+        json(400, { error: error instanceof Error ? error.message : 'Unable to add note.' });
+      }
+      return;
+    }
+    if (
+      propertyAction &&
+      (propertyAction[2] === 'favorite' || propertyAction[2] === 'dismissal') &&
+      request.method === 'PUT'
+    ) {
+      try {
+        const body = await readBody();
+        const key = propertyAction[2] === 'favorite' ? 'saved' : 'dismissed';
+        if (typeof body[key] !== 'boolean') throw new Error(`${key} must be true or false.`);
+        if (propertyAction[2] === 'favorite')
+          store.setFavorite(propertyAction[1], body.saved as boolean);
+        else store.setDismissed(propertyAction[1], body.dismissed as boolean);
+        json(200, {
+          saved: store.isFavorite(propertyAction[1]),
+          dismissed: store.isDismissed(propertyAction[1]),
+        });
+      } catch (error) {
+        json(400, { error: error instanceof Error ? error.message : 'Unable to update property.' });
+      }
+      return;
+    }
+    const noteAction = request.url?.match(/^\/api\/notes\/(\d+)$/);
+    if (noteAction && request.method === 'PATCH') {
+      try {
+        const body = await readBody();
+        if (typeof body.body !== 'string' || body.body.trim().length === 0) {
+          throw new Error('Note cannot be empty.');
+        }
+        store.updateNote(Number(noteAction[1]), body.body.trim());
+        json(200, { updated: true });
+      } catch (error) {
+        json(400, { error: error instanceof Error ? error.message : 'Unable to update note.' });
+      }
+      return;
+    }
+    if (noteAction && request.method === 'DELETE') {
+      try {
+        store.deleteNote(Number(noteAction[1]));
+        response.writeHead(204);
+        response.end();
+      } catch (error) {
+        json(404, { error: error instanceof Error ? error.message : 'Unable to delete note.' });
+      }
+      return;
+    }
+
     if (request.method === 'GET' && request.url === '/api/saved-searches') {
       json(200, { items: store.listSavedSearches() });
       return;
@@ -181,6 +259,8 @@ export function createApp(database: Database, store: Store = createStore(databas
           minSqft: numberParam('minSqft'),
           statuses: statuses.length ? statuses : ['active'],
           sort: url.searchParams.get('sort') === 'price' ? 'price' : 'newest',
+          showDismissed: url.searchParams.get('showDismissed') === 'true',
+          savedOnly: url.searchParams.get('savedOnly') === 'true',
         };
         if (
           criteria.priceMin !== undefined &&

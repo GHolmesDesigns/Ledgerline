@@ -107,6 +107,8 @@ export interface ListingSearchCriteria {
   minSqft?: number;
   statuses?: string[];
   sort?: 'newest' | 'price';
+  showDismissed?: boolean;
+  savedOnly?: boolean;
 }
 
 export interface SavedSearch extends Required<SavedSearchInput> {
@@ -430,12 +432,14 @@ export function createStore(database: Database, options: StoreOptions = {}) {
     },
 
     searchListings(criteria: ListingSearchCriteria) {
-      const clauses = ['l.mode = ?', 'd.property_id IS NULL'];
+      const clauses = ['l.mode = ?'];
       const params: SqlValue[] = [criteria.mode];
       const add = (condition: string, value: SqlValue) => {
         clauses.push(condition);
         params.push(value);
       };
+      if (!criteria.showDismissed) clauses.push('d.property_id IS NULL');
+      if (criteria.savedOnly) clauses.push('f.property_id IS NOT NULL');
       if (criteria.location?.trim()) {
         add(
           "LOWER(p.city || ' ' || p.zip || ' ' || p.street) LIKE ?",
@@ -464,9 +468,11 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         .map((column) => `l.${column.trim()} AS l_${column.trim()}`)
         .join(', ');
       return all(
-        `SELECT ${propertySelect}, ${listingSelect}
+        `SELECT ${propertySelect}, ${listingSelect},
+           (f.property_id IS NOT NULL) AS is_saved, (d.property_id IS NOT NULL) AS is_dismissed
          FROM listings l JOIN properties p ON p.id = l.property_id
          LEFT JOIN property_dismissals d ON d.property_id = p.id
+         LEFT JOIN property_favorites f ON f.property_id = p.id
          WHERE ${clauses.join(' AND ')} ORDER BY ${order}`,
         params,
       ).map((row) => {
@@ -480,7 +486,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             Object.entries(row).map(([key, value]) => [key.replace(/^l_/, ''), value]),
           ),
         );
-        return { property, listing };
+        return { property, listing, saved: row.is_saved === 1, dismissed: row.is_dismissed === 1 };
       });
     },
 
@@ -640,6 +646,9 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
     updateNote(noteId: number, body: string) {
       transaction(() => {
+        if (!one('SELECT 1 FROM property_notes WHERE id = ?', [noteId])) {
+          throw new Error('Note not found.');
+        }
         run('UPDATE property_notes SET body = ?, updated_at = ? WHERE id = ?', [
           body,
           now(),
@@ -649,7 +658,12 @@ export function createStore(database: Database, options: StoreOptions = {}) {
     },
 
     deleteNote(noteId: number) {
-      transaction(() => run('DELETE FROM property_notes WHERE id = ?', [noteId]));
+      transaction(() => {
+        if (!one('SELECT 1 FROM property_notes WHERE id = ?', [noteId])) {
+          throw new Error('Note not found.');
+        }
+        run('DELETE FROM property_notes WHERE id = ?', [noteId]);
+      });
     },
 
     listNotes(propertyId: string): Note[] {
