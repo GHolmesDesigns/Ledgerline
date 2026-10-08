@@ -68,7 +68,7 @@ test('Buy and Rent switch preserve separate price ranges and the URL', async ({ 
   await page.getByRole('button', { name: 'Rent', exact: true }).click();
   await expect(page.getByLabel('Rent minimum')).toHaveValue('');
   await page.getByLabel('Rent minimum').fill('3000');
-  await expect(page.getByText('$5,200/mo')).toBeVisible();
+  await expect(page.locator('.listing-card .listing-price')).toHaveText('$5,200/mo');
   await page.getByRole('button', { name: 'Buy', exact: true }).click();
   await expect(page.getByLabel('Price minimum')).toHaveValue('250000');
   await expect(page).toHaveURL(/mode=sale.*priceMin=250000/);
