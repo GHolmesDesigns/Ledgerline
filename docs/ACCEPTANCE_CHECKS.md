@@ -1,6 +1,6 @@
 # Acceptance checks — Milestones 1–3
 
-*Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.5.*
+*Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.6.*
 
 Run against the mock provider loaded from `fixtures/sample-data.json`. Each check names its expected result. A milestone is done when all of its checks pass and `node fixtures/check-fixtures.mjs` exits 0.
 

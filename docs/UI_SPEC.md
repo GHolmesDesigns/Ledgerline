@@ -1,6 +1,6 @@
 # UI specification — Florida Home Dashboard
 
-*Oct 7, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.5, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
+*Oct 7, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.6, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
 
 Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Ranking & data**. Visual reference: `design/` (see `design/README.md` for which screens are current).
 

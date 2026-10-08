@@ -1,6 +1,6 @@
 # Personal Florida Real Estate Dashboard — Planning Document
 
-*Version 2.5 · October 7, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
+*Version 2.6 · October 8, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
 
 ## Goal
 
@@ -177,11 +177,11 @@ The Milestone 0 pull measured these (details in `docs/PROVIDER_EVALUATION.md`). 
 
 ## Data-source providers and costs
 
-Plan prices below are published USD prices checked on **October 6, 2026**; RentCast's field list and billing terms were rechecked on **October 7, 2026**. Prices can change, and provider coverage in Florida has **not yet been tested**. "Cost" here excludes taxes, mapping services, optional enrichment, and hosting (the first version runs locally).
+Plan prices below are published USD prices checked on **October 6, 2026**; RentCast's field list and billing terms were rechecked on **October 7, 2026**. Prices can change. RentCast's coverage in Miami-Dade and Broward was tested in Milestone 0 (see Decisions made). "Cost" here excludes taxes, mapping services, optional enrichment, and hosting (the first version runs locally).
 
 | Source | Role and fit | Published cost | Decision |
 |---|---|---:|---|
-| [RentCast API](https://www.rentcast.io/api) | Candidate primary feed. Separate sale and long-term rental listing searches with address, coordinates, property fields, HOA fee, status, listed/removed/last-seen dates, MLS name and number, listing agent and office contacts, and listing history; up to 500 listings per request. **Not included:** photos, a source listing URL, or a waterfront field; bathrooms come as a single decimal (for example 2.5), not a full/half split. Its [listing documentation](https://developers.rentcast.io/reference/property-listings) says data is not retrieved directly from MLS. Also offers a [long-term rent estimate](https://developers.rentcast.io/reference/rent-estimate-long-term) that returns an estimate, a range, and 5–25 comparable rentals with distance and last-seen date; each call is a request. | Developer: **$0/month, 50 requests**, then **$0.20/request**. Foundation: **$74/month, 1,000 requests**, then **$0.06/request**. Growth: **$199/month, 5,000 requests**, then **$0.03/request**. Scale: **$449/month, 25,000 requests**, then **$0.015/request**. | Test first on the free tier in Milestone 0. Its documentation says there are no hard usage caps, so enforce one locally. [Pricing/billing](https://developers.rentcast.io/reference/billing-and-pricing). |
+| [RentCast API](https://www.rentcast.io/api) | Candidate primary feed. Separate sale and long-term rental listing searches with address, coordinates, property fields, HOA fee, status, listed/removed/last-seen dates, MLS name and number, listing agent and office contacts, and listing history; up to 500 listings per request. **Not included:** photos, a source listing URL, or a waterfront field; bathrooms come as a single decimal (for example 2.5), not a full/half split. Its [listing documentation](https://developers.rentcast.io/reference/property-listings) says data is not retrieved directly from MLS. Also offers a [long-term rent estimate](https://developers.rentcast.io/reference/rent-estimate-long-term) that returns an estimate, a range, and 5–25 comparable rentals with distance and last-seen date; each call is a request. | Developer: **$0/month, 50 requests**, then **$0.20/request**. Foundation: **$74/month, 1,000 requests**, then **$0.06/request**. Growth: **$199/month, 5,000 requests**, then **$0.03/request**. Scale: **$449/month, 25,000 requests**, then **$0.015/request**. | Milestone 0 passed it for purchase listings and failed it for finding rentals (see Decisions made). Its documentation says there are no hard usage caps, so enforce one locally. [Pricing/billing](https://developers.rentcast.io/reference/billing-and-pricing). |
 | [Repliers](https://repliers.com/) | MLS-centered search API and UI tooling; useful comparison of capability, but its own FAQ says users need to be licensed real estate agents. | Preview with sample data **$0/month**; Standard **$199/month**, Professional **$299/month**, Advanced **$399/month** on monthly billing. MLS agreements may also be required. | Not a primary route for this personal, broker-independent project unless eligibility changes. |
 | [ATTOM Developer Platform](https://api.developer.attomdata.com/dlpv2docs) | Potential property-record or valuation enrichment, not selected as the live listing feed. | Public self-service price for this exact use was **not verified**; obtain a quote before considering it. | Defer until a specific missing data need is proven. |
 | [FEMA National Flood Hazard Layer](https://www.fema.gov/flood-maps/national-flood-hazard-layer) | Flood zone for a property's coordinates, via FEMA's GIS web services or the Flood Map Service Center address search. Flood zones do not capture all flood risk. | Free. | Use in v1 for shortlisted properties; confirm the web service's usage terms before automating lookups. |
@@ -270,23 +270,26 @@ The data source is the biggest risk, and the free tier makes testing it cost not
 - **Provider evaluation comes first** (Milestone 0), with thresholds, scoring rules, and decision rules fixed above.
 - **Test market:** Miami and Fort Lauderdale (Miami-Dade and Broward counties).
 - **No statewide cost defaults:** local tax, insurance, and flood figures are set per county or ZIP group.
+- **Milestone 0 result (Oct 8, 2026):** RentCast passes every measure and floor for purchase listings in Miami-Dade and Broward. It fails the still-available measure for rentals (15 of 20 where 17 are required; Broward 7 of 10 where 8 are required). Decision-table row 2: go for purchase listings; Rent-mode data may still feed local comps, but Rent-mode search is not relied on for finding rentals. Counts, seeds, and sampling notes are in `docs/PROVIDER_EVALUATION.md`.
+- **Photos:** a dashboard without photos is not acceptable (Oct 8, 2026), given verification links to public pages. RentCast supplies none, so where photos come from is an open decision. Cards must still read well without photos (Interface scope).
 
 ## Open decisions
 
-- **Search areas within the test market:** which ZIPs, radius, or neighborhoods in Miami-Dade and Broward, and the Buy price range and Rent budget for each. Needed before Milestone 0.
-- **Refresh interval:** weekly fits the free tier (about 22 requests a month, measured in Milestone 0); daily needs the $74/month Foundation tier (about 150). Decide after the Milestone 0 provider decision is taken.
+- **Search areas within the test market:** which ZIPs, radius, or neighborhoods in Miami-Dade and Broward, and the Buy price range and Rent budget for each. The Milestone 0 sample used ZIP 33009 (Broward) and ZIP 33138 (Miami-Dade); the areas the product will search are still to choose.
+- **Refresh interval:** weekly fits the free tier (about 22 requests a month, measured in Milestone 0); daily needs the $74/month Foundation tier (about 150). The Milestone 0 provider decision is now taken, so this can be decided. Rent-mode refreshes still supply local comps, so the Buy/Rent search pairs and this budget stand.
 - **Ranking factors and weights:** which matter most beyond price and location (for example HOA fee, flood zone, insurance estimate, waterfront, parking, pets, lease term).
 - **Personal assumptions:** down payment, mortgage rate and term, maintenance reserve percentage.
 - **Local assumptions for Miami-Dade and Broward:** millage rate, typical non-ad valorem assessments, and homeowners and flood insurance defaults by zone. Insurance and flood defaults are best taken from one or two real quotes, since South Florida premiums vary widely.
-- **Comparable-rent rules:** the defaults above (same type and bedrooms, area within 20%, within 1 mile, seen in 30 days, at least 3 comps) may need a tighter radius in dense Miami neighborhoods; adjust after Milestone 0.
-- **Photo-less results:** decided at the end of Milestone 0.
+- **Comparable-rent rules:** the defaults above (same type and bedrooms, area within 20%, within 1 mile, seen in 30 days, at least 3 comps) may need a tighter radius in dense Miami neighborhoods. Milestone 0 did not measure the radius; adjust once real comps are seen.
+- **Photo source:** where photos come from, since RentCast supplies none and a dashboard without photos is not acceptable (for example another provider that supplies licensed image URLs, or photos added by hand). Not decided, and the plan sets no timing.
+- **Rent mode in the interface:** the Milestone 0 result means Rent-mode search is not relied on for finding rentals, but the interface scope still has a Buy/Rent switch, Rent-mode saved searches, and Buy/Rent search pairs. What Rent mode shows, and how it is labelled, is not decided. Rent-mode refreshes still supply local comps.
 
 ## Version history
 
 The version line at the top is `MAJOR.MINOR`. Decide the bump for every change to this document:
 
-- **Major** (2.5 → 3.0): product scope, architecture rules, the data model, or the milestone list changes in a way that can invalidate work already built.
-- **Minor** (2.5 → 2.6): a rule, threshold, label, default, or decision is added or changed.
+- **Major** (2.6 → 3.0): product scope, architecture rules, the data model, or the milestone list changes in a way that can invalidate work already built.
+- **Minor** (2.6 → 2.7): a rule, threshold, label, default, or decision is added or changed.
 - **No bump:** wording, typo, formatting, or link fixes that don't change what any rule means.
 
 When the version changes:
@@ -297,6 +300,7 @@ When the version changes:
 
 Git history holds version 2.3 onward. Numbers before 2.4 were assigned on October 7, 2026 to revisions that had been named by order ("second revision" and so on); the bump rule applies from 2.4 on.
 
+- **2.6** · Oct 8, 2026 · Records the Milestone 0 result: RentCast passes every measure for purchase listings and fails the still-available measure for rentals, so decision-table row 2 applies (go for purchase listings; Rent-mode search not relied on for finding rentals). A dashboard without photos is not acceptable. Closes the open decision on photo-less results and opens two: the source of photos, and how the interface treats Rent mode. Marks the refresh interval as ready to decide. No rule or threshold changes; no work built on the earlier text is invalidated, since no app code exists yet.
 - **2.5** · Oct 7, 2026 · Request budget recalculated from the Milestone 0 pull, which measured 5 requests per refresh of the four-search setup (Broward Rent returned 664 listings and took two): weekly is about 22 requests a month (was ~17) and daily about 150 (was ~120). The tiers are unchanged, and the refresh interval stays an open decision. No Milestone 0 result is recorded here yet; those are in `docs/PROVIDER_EVALUATION.md` as a draft.
 - **2.4** · Oct 7, 2026 · Adds this version number and bump rule. Sets the order in which an Estimate label names the lines to verify (Rent vs. buy estimate, Total status).
 - **2.3** · Oct 7, 2026 · *Was "fourth revision."* Non-ad valorem lines in a county without local rates are Unknown unless the tax bill has been checked; a property's own Quote or Document always outranks county rates; townhomes use the house insurance default; Estimate labels count unnamed lines as "+n".

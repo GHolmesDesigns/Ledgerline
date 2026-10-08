@@ -4,7 +4,7 @@ A personal, local-only web app to find, rank, and compare Florida homes to rent 
 
 ## Source of truth (in priority order)
 
-1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.5, Oct 7, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
+1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.6, Oct 8, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
 2. `docs/UI_SPEC.md` — screen-by-screen UI requirements and labels.
 3. `docs/ACCEPTANCE_CHECKS.md` — testable checks for Milestones 1–3.
 4. `fixtures/sample-data.json` — fictional sample data with every expected number. `node fixtures/check-fixtures.mjs` must pass.
@@ -61,7 +61,9 @@ These come from the plan, section 5; the fixtures exercise every one.
 
 ## Build order
 
-Follow the plan's milestones. Milestone 0 (provider data check) is manual and done by Garnie; don't call RentCast unless asked. Start at Milestone 1 on mock data built from `fixtures/sample-data.json`.
+Follow the plan's milestones. Milestone 0 (provider data check) is done (plan, "Decisions made"; `docs/PROVIDER_EVALUATION.md`): RentCast is a go for purchase listings, and Rent-mode search is not relied on for finding rentals. Don't call RentCast unless asked. Start at Milestone 1 on mock data built from `fixtures/sample-data.json`.
+
+Two Milestone 0 consequences are still open decisions, so leave both configurable and say so: where photos come from (a dashboard without photos is not acceptable, but cards must still read well without them), and how the interface treats Rent mode.
 
 ## Sample data
 
