@@ -8,8 +8,26 @@ test('saves and reopens a search profile with its filters', async ({ page }) => 
     const url = new URL(request.url());
     if (request.method() === 'GET') return route.fulfill({ json: { items: saved } });
     if (request.method() === 'POST') {
+      if (url.pathname.endsWith('/refresh-due')) return route.fulfill({ json: { results: [] } });
+      if (url.pathname.endsWith('/refresh')) {
+        const id = Number(url.pathname.split('/').at(-2));
+        const item = saved.find((search) => search.id === id);
+        if (item) {
+          item.lastSuccessfulRefreshAt = '2026-10-08T12:00:00.000Z';
+          item.lastRefreshAttemptAt = item.lastSuccessfulRefreshAt;
+          item.lastRefreshError = null;
+        }
+        return route.fulfill({ json: { result: { searchId: id, imported: { listings: 1 } } } });
+      }
       const body = request.postDataJSON() as Record<string, unknown>;
-      const item = { ...body, id: nextId++, pairedSearchId: null };
+      const item = {
+        ...body,
+        id: nextId++,
+        pairedSearchId: null,
+        lastSuccessfulRefreshAt: null,
+        lastRefreshAttemptAt: null,
+        lastRefreshError: null,
+      };
       saved.push(item);
       return route.fulfill({ status: 201, json: { item } });
     }
@@ -59,4 +77,9 @@ test('saves and reopens a search profile with its filters', async ({ page }) => 
   await page.goto('/');
   await page.getByLabel('Open saved search').selectOption('1');
   await expect(page.getByText(/Paired Rent search on · needed for local comps/)).toBeVisible();
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Refresh now' }).first().click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Last refreshed' }).first(),
+  ).toBeVisible();
 });

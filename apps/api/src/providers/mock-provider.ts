@@ -173,11 +173,15 @@ function records(): ProviderListing[] {
 
 export class MockListingProvider implements ListingProvider {
   readonly name = 'mock';
+  readonly pageSize = 500;
   readonly capabilities = mockProviderCapabilities;
-  private readonly listings = records();
+  private readonly listings: ProviderListing[];
+
+  constructor(listings = records()) {
+    this.listings = listings;
+  }
 
   async search(criteria: SearchCriteria, page: number) {
-    const pageSize = 100;
     const filtered = this.listings.filter((record) => {
       if (criteria.mode && record.listing.mode !== criteria.mode) return false;
       if (criteria.location) {
@@ -187,9 +191,22 @@ export class MockListingProvider implements ListingProvider {
         );
         if (!haystack.includes(needle)) return false;
       }
+      const price = record.listing.price;
+      if (criteria.priceMin != null && price != null && price < criteria.priceMin) return false;
+      if (criteria.priceMax != null && price != null && price > criteria.priceMax) return false;
+      if (criteria.beds != null && (record.property.beds ?? 0) < criteria.beds) return false;
+      if (criteria.baths != null && (record.property.bathsTotal ?? 0) < criteria.baths)
+        return false;
+      if (criteria.propertyType && record.property.propertyType !== criteria.propertyType)
+        return false;
+      if (criteria.minSqft != null && (record.property.livingAreaSqft ?? 0) < criteria.minSqft)
+        return false;
+      if (criteria.statuses?.length && !criteria.statuses.includes(record.listing.status))
+        return false;
       return true;
     });
     if (!Number.isInteger(page) || page < 1) throw new Error('Page must be a positive integer');
+    const pageSize = 500;
     return filtered.slice((page - 1) * pageSize, page * pageSize);
   }
 

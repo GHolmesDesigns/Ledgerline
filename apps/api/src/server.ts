@@ -1,4 +1,6 @@
 import { createApp } from './app.js';
+import { MockListingProvider } from './providers/mock-provider.js';
+import { RefreshJob, startRefreshScheduler } from './providers/refresh-job.js';
 import { closeDatabase, openDatabase, persistDatabase } from './database.js';
 import { createStore } from './store.js';
 
@@ -6,13 +8,17 @@ const host = '127.0.0.1';
 const port = Number(process.env.API_PORT ?? 4174);
 const database = await openDatabase();
 const store = createStore(database, { afterWrite: () => persistDatabase(database) });
-const server = createApp(database, store);
+const provider = new MockListingProvider();
+const refreshJob = new RefreshJob(store, provider);
+const stopRefreshScheduler = startRefreshScheduler(refreshJob);
+const server = createApp(database, store, refreshJob);
 
 server.listen(port, host, () => {
   console.log(`Ledgerline API listening at http://${host}:${port}`);
 });
 
 function shutdown() {
+  stopRefreshScheduler();
   server.close(() => {
     closeDatabase(database);
     process.exit(0);

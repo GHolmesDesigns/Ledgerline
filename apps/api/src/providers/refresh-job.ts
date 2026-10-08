@@ -1,0 +1,113 @@
+import type { SavedSearch, Store } from '../store.js';
+import { importProviderRecords, type ImportResult } from './import-listings.js';
+import type { ListingProvider, ProviderListing, SearchCriteria } from './listing-provider.js';
+
+export interface RefreshResult {
+  searchId: number;
+  imported?: ImportResult;
+  error?: string;
+}
+
+function criteriaFor(search: SavedSearch): SearchCriteria {
+  const filters = search.filters;
+  const statuses = filters.statuses ?? filters.status;
+  const numberFilter = (value: unknown) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)))
+      return Number(value);
+    return undefined;
+  };
+  return {
+    mode: search.mode,
+    location: search.location,
+    priceMin: search.priceMin,
+    priceMax: search.priceMax,
+    beds: numberFilter(filters.beds),
+    baths: numberFilter(filters.baths),
+    propertyType: typeof filters.propertyType === 'string' ? filters.propertyType : undefined,
+    minSqft: numberFilter(filters.minSqft),
+    statuses: Array.isArray(statuses)
+      ? statuses.filter((value): value is string => typeof value === 'string')
+      : typeof statuses === 'string' && statuses.length > 0
+        ? statuses
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+        : undefined,
+  };
+}
+
+export class RefreshJob {
+  private readonly running = new Set<number>();
+
+  constructor(
+    private readonly store: Store,
+    private readonly provider: ListingProvider,
+  ) {}
+
+  async refresh(searchId: number): Promise<RefreshResult> {
+    if (this.running.has(searchId)) throw new Error('This saved search is already refreshing.');
+    const search = this.store.getSavedSearch(searchId);
+    if (!search) throw new Error('Saved search not found.');
+    this.running.add(searchId);
+    const records: ProviderListing[] = [];
+    try {
+      this.store.markRefreshStarted(searchId);
+      for (let page = 1; ; page += 1) {
+        const logId = this.store.beginProviderRequest({
+          provider: this.provider.name,
+          savedSearchId: search.id,
+          purpose: 'saved-search-refresh',
+          page,
+        });
+        try {
+          const batch = await this.provider.search(criteriaFor(search), page);
+          this.store.finishProviderRequest(logId, {
+            status: 'succeeded',
+            resultCount: batch.length,
+          });
+          if (batch.length === 0) break;
+          records.push(...batch);
+          if (this.provider.pageSize != null && batch.length < this.provider.pageSize) break;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Provider request failed.';
+          this.store.finishProviderRequest(logId, { status: 'failed', errorMessage: message });
+          throw error;
+        }
+      }
+      const imported = this.store.transaction(() => {
+        const result = importProviderRecords(this.provider, this.store, records);
+        this.store.markRefreshSucceeded(search.id);
+        return result;
+      });
+      return { searchId, imported };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Refresh failed.';
+      this.store.markRefreshFailed(search.id, message);
+      return { searchId, error: message };
+    } finally {
+      this.running.delete(searchId);
+    }
+  }
+
+  async refreshDue(): Promise<RefreshResult[]> {
+    const results: RefreshResult[] = [];
+    for (const search of this.store.listDueSavedSearches()) {
+      try {
+        results.push(await this.refresh(search.id));
+      } catch (error) {
+        results.push({
+          searchId: search.id,
+          error: error instanceof Error ? error.message : 'Refresh failed.',
+        });
+      }
+    }
+    return results;
+  }
+}
+
+export function startRefreshScheduler(job: RefreshJob, intervalMs = 60_000) {
+  const timer = setInterval(() => void job.refreshDue().catch(() => undefined), intervalMs);
+  timer.unref();
+  return () => clearInterval(timer);
+}

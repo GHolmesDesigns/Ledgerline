@@ -121,8 +121,23 @@ export interface ListingSearchCriteria {
 export interface SavedSearch extends Required<SavedSearchInput> {
   id: number;
   pairedSearchId: number | null;
+  lastSuccessfulRefreshAt: string | null;
+  lastRefreshAttemptAt: string | null;
+  lastRefreshError: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProviderRequestLog {
+  id: number;
+  provider: string;
+  savedSearchId: number | null;
+  requestedAt: string;
+  purpose: string;
+  page: number;
+  status: 'started' | 'succeeded' | 'failed';
+  resultCount: number | null;
+  errorMessage: string | null;
 }
 
 export type ReviewDecision = 'link' | 'keep_separate';
@@ -173,7 +188,8 @@ const listingColumns = `id, property_id, provider, provider_id, mls_name, mls_nu
   provider_last_seen_date, first_fetched_at, last_fetched_at, field_quality, provider_history, sample`;
 
 const searchColumns = `id, name, mode, location, filters, price_min, price_max, paired_search_id,
-  refresh_interval_days, created_at, updated_at`;
+  refresh_interval_days, last_successful_refresh_at, last_refresh_attempt_at, last_refresh_error,
+  created_at, updated_at`;
 
 export function createStore(database: Database, options: StoreOptions = {}) {
   const now = () => (options.clock ?? (() => new Date()))().toISOString();
@@ -310,6 +326,9 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       priceMax: number(row.price_max),
       pairedSearchId: number(row.paired_search_id),
       refreshIntervalDays: number(row.refresh_interval_days),
+      lastSuccessfulRefreshAt: text(row.last_successful_refresh_at),
+      lastRefreshAttemptAt: text(row.last_refresh_attempt_at),
+      lastRefreshError: text(row.last_refresh_error),
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),
     };
@@ -789,6 +808,93 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
     listSavedSearches(): SavedSearch[] {
       return all(`SELECT ${searchColumns} FROM saved_searches ORDER BY id`).map(toSearch);
+    },
+
+    listDueSavedSearches(at = now()): SavedSearch[] {
+      return store.listSavedSearches().filter((search) => {
+        if (search.refreshIntervalDays == null) return false;
+        if (search.lastSuccessfulRefreshAt == null) return true;
+        return (
+          Date.parse(at) - Date.parse(search.lastSuccessfulRefreshAt) >=
+          search.refreshIntervalDays * 24 * 60 * 60 * 1000
+        );
+      });
+    },
+
+    markRefreshStarted(searchId: number) {
+      transaction(() => {
+        if (!store.getSavedSearch(searchId)) throw new Error('Saved search not found.');
+        run(
+          'UPDATE saved_searches SET last_refresh_attempt_at = ?, last_refresh_error = NULL WHERE id = ?',
+          [now(), searchId],
+        );
+      });
+    },
+
+    markRefreshSucceeded(searchId: number, at = now()) {
+      transaction(() =>
+        run(
+          'UPDATE saved_searches SET last_successful_refresh_at = ?, last_refresh_attempt_at = ?, last_refresh_error = NULL WHERE id = ?',
+          [at, at, searchId],
+        ),
+      );
+    },
+
+    markRefreshFailed(searchId: number, error: string, at = now()) {
+      transaction(() =>
+        run(
+          'UPDATE saved_searches SET last_refresh_attempt_at = ?, last_refresh_error = ? WHERE id = ?',
+          [at, error, searchId],
+        ),
+      );
+    },
+
+    beginProviderRequest(input: {
+      provider: string;
+      savedSearchId: number;
+      purpose: string;
+      page: number;
+    }) {
+      return transaction(() => {
+        run(
+          `INSERT INTO provider_request_logs (provider, saved_search_id, requested_at, purpose, page, status)
+           VALUES (?, ?, ?, ?, ?, 'started')`,
+          [input.provider, input.savedSearchId, now(), input.purpose, input.page],
+        );
+        return lastInsertId();
+      });
+    },
+
+    finishProviderRequest(
+      id: number,
+      result: { status: 'succeeded' | 'failed'; resultCount?: number; errorMessage?: string },
+    ) {
+      transaction(() =>
+        run(
+          'UPDATE provider_request_logs SET status = ?, result_count = ?, error_message = ? WHERE id = ?',
+          [result.status, result.resultCount ?? null, result.errorMessage ?? null, id],
+        ),
+      );
+    },
+
+    listProviderRequestLogs(savedSearchId?: number): ProviderRequestLog[] {
+      const rows =
+        savedSearchId == null
+          ? all('SELECT * FROM provider_request_logs ORDER BY id')
+          : all('SELECT * FROM provider_request_logs WHERE saved_search_id = ? ORDER BY id', [
+              savedSearchId,
+            ]);
+      return rows.map((row) => ({
+        id: Number(row.id),
+        provider: String(row.provider),
+        savedSearchId: number(row.saved_search_id),
+        requestedAt: String(row.requested_at),
+        purpose: String(row.purpose),
+        page: Number(row.page),
+        status: row.status as ProviderRequestLog['status'],
+        resultCount: number(row.result_count),
+        errorMessage: text(row.error_message),
+      }));
     },
 
     updateSavedSearch(searchId: number, input: SavedSearchUpdate): SavedSearch {
