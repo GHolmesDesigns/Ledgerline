@@ -860,11 +860,7 @@ function CountyMap({
               const center = centroid(feature);
               return (
                 <g key={feature.properties.GEOID}>
-                  <path
-                    aria-label={feature.properties.NAME}
-                    className="county-shape"
-                    d={pathFor(polygonRings)}
-                  />
+                  <path aria-hidden="true" className="county-shape" d={pathFor(polygonRings)} />
                   <text className="county-label" x={center.x} y={center.y}>
                     {feature.properties.NAME.replace(/ County$/i, '')}
                   </text>
@@ -902,6 +898,7 @@ function CountyMap({
         <div
           className="map-zoom-controls"
           aria-label="Map zoom controls"
+          role="group"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <button
@@ -2003,7 +2000,7 @@ function SearchScreen() {
   return (
     <section aria-label="Search listings" className="search-screen">
       <div className="search-topline">
-        <div className="mode-switch" aria-label="Listing mode">
+        <div className="mode-switch" aria-label="Listing mode" role="group">
           <button
             aria-pressed={filters.mode === 'sale'}
             onClick={() => switchMode('sale')}
@@ -2121,7 +2118,7 @@ function SearchScreen() {
           </button>
         </form>
       )}
-      <div className="filter-panel" aria-label="Search filters">
+      <div className="filter-panel" aria-label="Search filters" role="group">
         <label className="filter-field location-field">
           Location
           <input
@@ -2269,7 +2266,7 @@ function SearchScreen() {
         )}
       </div>
       <div className="search-toolbar">
-        <div className="filter-chips" aria-label="Active filters">
+        <div className="filter-chips" aria-label="Active filters" role="group">
           {chips.map(([key, label]) => (
             <button className="filter-chip" key={key} onClick={() => clear(key)} type="button">
               {label}
@@ -2319,7 +2316,7 @@ function SearchScreen() {
             </a>
           </div>
           {compareMessage && <p role="status">{compareMessage}</p>}
-          <div className="mobile-map-toggle" aria-label="Results view">
+          <div className="mobile-map-toggle" aria-label="Results view" role="group">
             <button
               aria-pressed={mobileView === 'list'}
               onClick={() => setMobileView('list')}
@@ -2338,7 +2335,7 @@ function SearchScreen() {
           <div
             className={`search-results-layout ${mobileView === 'map' ? 'mobile-map-active' : ''}`}
           >
-            <div className="listing-grid" aria-label="Search results">
+            <div className="listing-grid" aria-label="Search results" role="group">
               {items.map(({ property, listing, saved = false, dismissed = false }, index) => (
                 <article
                   className={`listing-card${selectedId === listing.id ? ' is-selected' : ''}`}

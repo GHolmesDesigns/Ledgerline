@@ -22,9 +22,10 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.35.0",
-    "@vitejs/plugin-react": "^4.7.0",
     "@playwright/test": "^1.55.0",
+    "@vitejs/plugin-react": "^4.7.0",
     "concurrently": "^9.2.1",
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",

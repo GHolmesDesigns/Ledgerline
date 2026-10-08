@@ -820,7 +820,7 @@ h1 {
   width: 20px;
   height: 20px;
   margin: 0;
-  accent-color: var(--color-cyan);
+  accent-color: var(--color-link);
 }
 .listing-card-heading {
   align-items: flex-start;
@@ -920,7 +920,8 @@ h1 {
   gap: 8px;
 }
 .select-listing {
-  min-height: 36px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 5px 9px;
   border: 1px solid var(--color-border-strong);
   border-radius: 6px;
@@ -1024,7 +1025,7 @@ h1 {
   stroke-width: 3;
 }
 .map-pin:focus-visible circle {
-  stroke: var(--color-cyan);
+  stroke: var(--color-link);
   stroke-width: 5;
 }
 .map-zoom-controls {
@@ -1169,7 +1170,7 @@ h1 {
 }
 .review-actions button:focus-visible,
 .review-undo-row button:focus-visible {
-  outline: 3px solid var(--color-cyan);
+  outline: 3px solid var(--color-link);
   outline-offset: 2px;
 }
 .review-error {
@@ -1209,7 +1210,7 @@ h1 {
 .backup-actions button:focus-visible,
 .backup-import button:focus-visible,
 .backup-file input:focus-visible {
-  outline: 3px solid var(--color-cyan);
+  outline: 3px solid var(--color-link);
   outline-offset: 2px;
 }
 .backup-file {
@@ -1310,6 +1311,19 @@ h1 {
 
 .mobile-nav {
   display: none;
+}
+
+/* Links that stand alone are at least 44 px tall; links inside a sentence are exempt. */
+.compare-shortcut a,
+.compare-heading-row a,
+.compare-empty a,
+.compare-property-heading > a,
+.compare-verification a,
+.map-selected-card a,
+.listing-card h2 a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 :focus-visible {
