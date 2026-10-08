@@ -1,0 +1,152 @@
+:root {
+  font-family: 'Work Sans', 'Segoe UI', sans-serif;
+  color: #101820;
+  background: #f4f6f7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+.page {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  padding: 34px clamp(20px, 7vw, 108px) 26px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.mark {
+  position: relative;
+  width: 34px;
+  height: 30px;
+}
+.mark i {
+  position: absolute;
+  display: block;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  mix-blend-mode: multiply;
+}
+.mark i:nth-child(1) {
+  top: 0;
+  left: 7px;
+  background: #00a0f0;
+}
+.mark i:nth-child(2) {
+  bottom: 0;
+  left: 0;
+  background: #e80078;
+}
+.mark i:nth-child(3) {
+  right: 0;
+  bottom: 0;
+  background: #f8e000;
+}
+.eyebrow,
+.sample-label,
+.status {
+  font-family: 'DM Mono', Consolas, monospace;
+  letter-spacing: 0.07em;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+}
+.welcome {
+  width: min(100%, 620px);
+  margin: auto 0;
+  padding: 75px 0 95px;
+}
+.sample-label {
+  display: inline-block;
+  margin: 0 0 23px;
+  padding: 9px 12px;
+  border: 1px solid #c3cbd2;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+h1 {
+  margin: 0;
+  font-family: Outfit, 'Segoe UI', sans-serif;
+  font-size: clamp(50px, 8vw, 88px);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 0.99;
+}
+h1 span {
+  color: #00699e;
+}
+.copy {
+  max-width: 475px;
+  margin: 28px 0;
+  color: #4a5560;
+  font-size: 17px;
+  line-height: 1.65;
+}
+.status {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid #dde2e6;
+  border-radius: 8px;
+  background: #fff;
+  color: #2a333c;
+  font-size: 11px;
+  letter-spacing: 0.035em;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #008b71;
+}
+.status-divider {
+  color: #89939c;
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid #dde2e6;
+  padding-top: 18px;
+  color: #2a333c;
+  font-size: 12px;
+}
+footer span {
+  color: #4a5560;
+}
+@media (max-width: 520px) {
+  .page {
+    padding: 24px 20px;
+  }
+  .welcome {
+    padding: 68px 0;
+  }
+  .copy {
+    font-size: 15px;
+  }
+  footer {
+    flex-direction: column;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

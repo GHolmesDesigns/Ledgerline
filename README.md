@@ -2,7 +2,7 @@
 
 A personal, local-only web app for finding, ranking, and comparing Florida homes to rent or buy. It ranks listings by my own weighted criteria, sets the monthly cost of owning beside comparable rent, and shows flood, insurance, HOA, and CDD exposure. Every figure shows where it came from and how firm it is.
 
-**Status:** planning complete; building Milestone 1 (interface and persistence on mock data). No app code yet.
+**Status:** Milestone 1 scaffold in progress. The current app is a placeholder; the later Wave 1 cards add the dashboard screens and persistence features.
 
 ## What's here
 
@@ -39,7 +39,24 @@ Run it after any change to cost, score, or rank logic. It exits 0 when every che
 npm test
 ```
 
-Unit tests for the Milestone 0 sample-pull script. They use a fake network and invented listings, so they never call RentCast.
+This runs lint, formatting checks, unit tests for the web and API, the Playwright browser check, and the fixture checker. `npm install` installs the Chromium browser used by Playwright.
+
+## Run it
+
+Requires Node.js 18 or later and npm. From the repository root on Windows, macOS, or Linux:
+
+```bash
+npm install
+npm run dev
+```
+
+Vite serves the placeholder web client at <http://127.0.0.1:5173> and proxies `/api` requests to the local API at <http://127.0.0.1:4174>. Both services bind to `127.0.0.1`; they are reachable only from this computer. Stop them with Ctrl+C.
+
+On first API start, a SQLite database and migration ledger are created under `apps/api/data/`. That folder is ignored by Git. Remove it to reset the local database; the API recreates it on the next start. `LEDGERLINE_DATA_PATH` can point the API at a different SQLite file.
+
+The API health endpoint is <http://127.0.0.1:4174/api/health>. The current screen is only the Wave 1 scaffold placeholder; later cards add the dashboard behavior.
+
+The root npm workspace contains `apps/web` (React, TypeScript, Vite) and `apps/api` (Node, TypeScript, SQLite). Numbered SQL migrations live in `apps/api/migrations/`.
 
 ## Planned architecture
 
