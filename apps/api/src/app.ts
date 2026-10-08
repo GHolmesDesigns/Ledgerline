@@ -7,10 +7,15 @@ import {
   type ReviewListingInput,
   type Store,
 } from './store.js';
-import { mockProviderCapabilities } from './providers/mock-provider.js';
+import { MockListingProvider, mockProviderCapabilities } from './providers/mock-provider.js';
 import { BackupError, exportBackup, importBackup } from './backup.js';
+import { RefreshJob } from './providers/refresh-job.js';
 
-export function createApp(database: Database, store: Store = createStore(database)) {
+export function createApp(
+  database: Database,
+  store: Store = createStore(database),
+  refreshJob: RefreshJob = new RefreshJob(store, new MockListingProvider()),
+) {
   return createServer(async (request: IncomingMessage, response: ServerResponse) => {
     const json = (status: number, body: unknown) => {
       response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -213,6 +218,20 @@ export function createApp(database: Database, store: Store = createStore(databas
         json(201, { item: store.createSavedSearch(input) });
       } catch (error) {
         json(400, { error: error instanceof Error ? error.message : 'Unable to save search.' });
+      }
+      return;
+    }
+    if (request.method === 'POST' && request.url === '/api/saved-searches/refresh-due') {
+      json(200, { results: await refreshJob.refreshDue() });
+      return;
+    }
+    const refreshAction = request.url?.match(/^\/api\/saved-searches\/(\d+)\/refresh$/);
+    if (request.method === 'POST' && refreshAction) {
+      try {
+        const result = await refreshJob.refresh(Number(refreshAction[1]));
+        json(result.error ? 502 : 200, { result });
+      } catch (error) {
+        json(404, { error: error instanceof Error ? error.message : 'Unable to refresh search.' });
       }
       return;
     }

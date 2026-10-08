@@ -52,6 +52,15 @@ export async function importProviderListings(
     records.push(...batch);
   }
 
+  return importProviderRecords(provider, store, records, options);
+}
+
+export function importProviderRecords(
+  provider: ListingProvider,
+  store: Store,
+  records: ProviderListing[],
+  options: { nearbyMatchDistanceMeters?: number } = {},
+): ImportResult {
   const imported = store.transaction(() => {
     const knownProperties = new Map<string, Property>();
     for (const property of store.listProperties())
@@ -70,7 +79,6 @@ export async function importProviderListings(
           ...record.listing,
           provider: provider.name,
           providerId: record.sourceId,
-          sample: true,
         });
         store.addSnapshot(listing.id, { price: listing.price, status: listing.status });
         store.addRawPayload(listing.id, record.rawPayload);
@@ -109,8 +117,8 @@ export async function importProviderListings(
           const incoming: ReviewListingInput & { provider: string } = {
             provider: provider.name,
             sourceId: record.sourceId,
-            property: { ...record.property, sample: true },
-            listing: { ...record.listing, sample: true },
+            property: record.property,
+            listing: record.listing,
             rawPayload: record.rawPayload,
           };
           store.enqueueMatchReview({
@@ -120,7 +128,7 @@ export async function importProviderListings(
           });
           continue;
         }
-        property = store.createProperty({ ...record.property, sample: true });
+        property = store.createProperty(record.property);
         knownProperties.set(key, property);
         createdProperties += 1;
       }
@@ -129,7 +137,6 @@ export async function importProviderListings(
         ...record.listing,
         provider: provider.name,
         providerId: record.sourceId,
-        sample: true,
       });
       store.addSnapshot(listing.id, { price: listing.price, status: listing.status });
       store.addRawPayload(listing.id, record.rawPayload);

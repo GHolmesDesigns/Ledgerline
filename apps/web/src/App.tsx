@@ -429,6 +429,9 @@ type SavedSearch = {
   priceMax: number | null;
   pairedSearchId: number | null;
   refreshIntervalDays: number | null;
+  lastSuccessfulRefreshAt: string | null;
+  lastRefreshAttemptAt: string | null;
+  lastRefreshError: string | null;
 };
 
 const profileFromSearch = (search: SavedSearch): SearchFilters => ({
@@ -460,6 +463,7 @@ function SavedSearchPanel() {
   const [items, setItems] = useState<SavedSearch[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [refreshingId, setRefreshingId] = useState<number | null>(null);
   const refresh = async () => {
     try {
       const response = await fetch('/api/saved-searches');
@@ -540,6 +544,53 @@ function SavedSearchPanel() {
     await refresh();
   };
 
+  const refreshOne = async (search: SavedSearch) => {
+    setRefreshingId(search.id);
+    try {
+      const response = await fetch(`/api/saved-searches/${search.id}/refresh`, { method: 'POST' });
+      const data = (await response.json()) as { result?: { error?: string }; error?: string };
+      if (!response.ok) throw new Error(data.result?.error ?? data.error ?? 'Refresh failed.');
+      await refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Refresh failed.');
+      await refresh();
+    } finally {
+      setRefreshingId(null);
+    }
+  };
+
+  const refreshDue = async () => {
+    setBusy(true);
+    try {
+      const response = await fetch('/api/saved-searches/refresh-due', { method: 'POST' });
+      if (!response.ok) throw new Error('Could not refresh due searches.');
+      const data = (await response.json()) as { results: Array<{ error?: string }> };
+      const failed = data.results.filter((result) => result.error).length;
+      if (failed) setError(`${failed} saved search${failed === 1 ? '' : 'es'} failed to refresh.`);
+      await refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not refresh due searches.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const refreshStatus = (search: SavedSearch) => {
+    if (search.lastRefreshError) {
+      const at = search.lastRefreshAttemptAt
+        ? new Date(search.lastRefreshAttemptAt).toLocaleString()
+        : 'time unavailable';
+      return `Refresh failed · ${at}: ${search.lastRefreshError}`;
+    }
+    if (!search.lastSuccessfulRefreshAt) return 'Never refreshed';
+    const at = new Date(search.lastSuccessfulRefreshAt).toLocaleString();
+    const stale =
+      search.refreshIntervalDays != null &&
+      Date.now() - Date.parse(search.lastSuccessfulRefreshAt) >
+        search.refreshIntervalDays * 86_400_000;
+    return `${stale ? 'Stale · ' : 'Last refreshed · '}${at}`;
+  };
+
   const groups = new Map<string, SavedSearch[]>();
   for (const item of items) {
     const key = item.location.trim().toLocaleLowerCase('en-US');
@@ -566,6 +617,16 @@ function SavedSearchPanel() {
         <p role="alert" className="search-error">
           {error}
         </p>
+      )}
+      {items.length > 0 && (
+        <button
+          className="text-button"
+          disabled={busy || refreshingId !== null}
+          onClick={() => void refreshDue()}
+          type="button"
+        >
+          Refresh due searches
+        </button>
       )}
       {items.length === 0 ? (
         <p className="review-empty">No saved searches yet. Save one from Search.</p>
@@ -612,6 +673,7 @@ function SavedSearchPanel() {
                             : 'No Rent search · local comps unavailable'}
                         </span>
                       )}
+                      <span role="status">{refreshStatus(search)}</span>
                     </div>
                     <label className="saved-search-edit">
                       Name
@@ -641,6 +703,14 @@ function SavedSearchPanel() {
                       </a>
                       <button className="text-button" type="submit">
                         Save changes
+                      </button>
+                      <button
+                        className="text-button"
+                        disabled={busy || refreshingId !== null}
+                        onClick={() => void refreshOne(search)}
+                        type="button"
+                      >
+                        {refreshingId === search.id ? 'Refreshing…' : 'Refresh now'}
                       </button>
                       {search.mode === 'sale' && !paired && (
                         <button

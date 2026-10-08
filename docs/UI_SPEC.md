@@ -121,6 +121,7 @@ Line-by-line amounts and states are in the fixture file.
 - **Comparable-rent rules** (editable): same property type; same bedrooms; living area ±20%; radius 1 mi; seen within 30 days; minimum 3 comps. Note: "Dense Miami areas may need a smaller radius."
 - **Data source & request budget:** saved searches as Buy/Rent pairs per area with measured requests per refresh (Broward 1+1, Miami 33131–33137 2+1); flagged Buy-only area "North Miami 33161 · No Rent search · local comps unavailable · Add Rent search"; "Rent estimates: +1 request each · 1 used this month"; weekly vs. daily projections against the 45 ceiling (weekly ≈ 42, daily ≈ 168 → over, needs Foundation $74/mo); over-ceiling warning.
 - **Property match review:** "1500 Bay Rd, Unit 1204" (new rent listing) vs. "1500 Bay Rd (no unit)" (existing property with 1 note): Link / Keep separate / Undo.
+- **Saved-search refresh:** each profile shows its last successful refresh, "Stale" after its configured interval, or a failed refresh with the attempt time and error. "Refresh now" runs one profile; "Refresh due searches" runs every profile whose interval has elapsed.
 - Nearby-coordinate matching can be enabled by setting `MATCH_REVIEW_DISTANCE_METERS`; without a threshold, address-based ambiguity rules still apply.
 - Backup: export/import personal data as JSON.
 
