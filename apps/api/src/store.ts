@@ -111,6 +111,16 @@ export interface ReviewItem {
   decision: ReviewDecision | null;
   decidedAt: string | null;
   createdAt: string;
+  createdListingId: string | null;
+  createdPropertyId: string | null;
+}
+
+export interface ReviewListingInput {
+  provider: string;
+  sourceId: string;
+  property: PropertyInput;
+  listing: Omit<ListingInput, 'provider' | 'providerId'>;
+  rawPayload: unknown;
 }
 
 export interface StoreOptions {
@@ -281,6 +291,8 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       decision: row.decision === null ? null : (row.decision as ReviewDecision),
       decidedAt: text(row.decided_at),
       createdAt: String(row.created_at),
+      createdListingId: text(row.created_listing_id),
+      createdPropertyId: text(row.created_property_id),
     };
   }
 
@@ -400,6 +412,22 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       return all(`SELECT ${listingColumns} FROM listings WHERE property_id = ? ORDER BY mode, id`, [
         propertyId,
       ]).map(toListing);
+    },
+
+    getListingByProviderId(provider: string, providerId: string): Listing | null {
+      const row = one(
+        `SELECT ${listingColumns} FROM listings WHERE provider = ? AND provider_id = ?`,
+        [provider, providerId],
+      );
+      return row ? toListing(row) : null;
+    },
+
+    deleteListing(listingId: string) {
+      transaction(() => run('DELETE FROM listings WHERE id = ?', [listingId]));
+    },
+
+    deleteProperty(propertyId: string) {
+      transaction(() => run('DELETE FROM properties WHERE id = ?', [propertyId]));
     },
 
     /**
@@ -683,6 +711,16 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       });
     },
 
+    findMatchReview(provider: string, sourceId: string): ReviewItem | null {
+      const row = all('SELECT * FROM match_review_queue ORDER BY id DESC').find((entry) => {
+        const incoming = JSON.parse(String(entry.incoming_listing)) as ReviewListingInput & {
+          provider?: string;
+        };
+        return incoming.provider === provider && incoming.sourceId === sourceId;
+      });
+      return row ? toReview(row) : null;
+    },
+
     getMatchReview(reviewId: number): ReviewItem | null {
       const row = one('SELECT * FROM match_review_queue WHERE id = ?', [reviewId]);
       return row ? toReview(row) : null;
@@ -699,11 +737,43 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         const current = store.getMatchReview(reviewId);
         if (!current) throw new Error(`Unknown review item: ${reviewId}`);
         if (current.decision) throw new Error(`Review item ${reviewId} is already decided`);
-        run('UPDATE match_review_queue SET decision = ?, decided_at = ? WHERE id = ?', [
-          decision,
-          now(),
-          reviewId,
-        ]);
+        const incoming = current.incomingListing as ReviewListingInput;
+        const existingListing = store.getListingByProviderId(incoming.provider, incoming.sourceId);
+        if (existingListing)
+          throw new Error('Incoming listing is already stored; review cannot create a duplicate');
+        let createdPropertyId: string | null = null;
+        let propertyId = current.candidatePropertyId;
+        if (decision === 'keep_separate') {
+          const property = store.createProperty(incoming.property);
+          propertyId = property.id;
+          createdPropertyId = property.id;
+        }
+        const listing = store.upsertListing(propertyId, {
+          ...incoming.listing,
+          provider: incoming.provider,
+          providerId: incoming.sourceId,
+        });
+        store.addSnapshot(listing.id, { price: listing.price, status: listing.status });
+        store.addRawPayload(listing.id, incoming.rawPayload);
+        run(
+          'UPDATE match_review_queue SET decision = ?, decided_at = ?, created_listing_id = ?, created_property_id = ? WHERE id = ?',
+          [decision, now(), listing.id, createdPropertyId, reviewId],
+        );
+        return store.getMatchReview(reviewId)!;
+      });
+    },
+
+    undoMatchReview(reviewId: number): ReviewItem {
+      return transaction(() => {
+        const current = store.getMatchReview(reviewId);
+        if (!current) throw new Error(`Unknown review item: ${reviewId}`);
+        if (!current.decision) throw new Error(`Review item ${reviewId} has no decision to undo`);
+        if (current.createdListingId) store.deleteListing(current.createdListingId);
+        if (current.createdPropertyId) store.deleteProperty(current.createdPropertyId);
+        run(
+          'UPDATE match_review_queue SET decision = NULL, decided_at = NULL, created_listing_id = NULL, created_property_id = NULL WHERE id = ?',
+          [reviewId],
+        );
         return store.getMatchReview(reviewId)!;
       });
     },

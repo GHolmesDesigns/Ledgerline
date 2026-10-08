@@ -231,6 +231,131 @@ h1 {
   font-size: 14px;
 }
 
+.match-review-panel {
+  width: min(100%, 1040px);
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.panel-heading,
+.review-undo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panel-heading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+}
+.panel-intro,
+.review-empty {
+  color: var(--color-muted);
+}
+.review-count {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #e9f7fc;
+  font-family: var(--font-label);
+}
+.review-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+.review-card {
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+.review-reason {
+  margin: 0 0 16px;
+  color: #7a0040;
+  font-weight: 600;
+}
+.review-records {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.review-records > div {
+  padding: 16px;
+  background: var(--color-ground);
+  border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
+}
+.review-records h3,
+.review-undo-list h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.review-records p {
+  margin: 8px 0 0;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+.review-actions button,
+.review-undo-row button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background: var(--color-ink);
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.review-actions .secondary-button {
+  background: white;
+  color: var(--color-ink);
+}
+.review-actions button:focus-visible,
+.review-undo-row button:focus-visible {
+  outline: 3px solid var(--color-cyan);
+  outline-offset: 2px;
+}
+.review-error {
+  color: #8a0049;
+}
+.review-undo-list {
+  margin-top: 24px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 18px;
+}
+.review-undo-row {
+  min-height: 56px;
+  border-top: 1px solid var(--color-border);
+}
+.review-undo-row .text-button {
+  border: 0;
+  background: transparent;
+  color: var(--color-link);
+}
+
+@media (max-width: 640px) {
+  .match-review-panel {
+    padding: 18px;
+  }
+  .review-records {
+    grid-template-columns: 1fr;
+  }
+  .review-actions {
+    flex-direction: column;
+  }
+  .review-actions button {
+    width: 100%;
+  }
+}
+
 .empty-panel p {
   margin: 0;
 }
