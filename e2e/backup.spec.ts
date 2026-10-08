@@ -1,73 +1,8 @@
 import { expect, test } from '@playwright/test';
-import initSqlJs from 'sql.js';
-import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-
-// Runs the real API as its own process on a temporary data folder (never the dev
-// database), so the test can delete the data folder and restart, as acceptance check
-// 1.6 describes.
-const repoRoot = resolve(__dirname, '..');
-const tsx = ['--import', 'tsx'];
-
-const freePort = () =>
-  new Promise<number>((resolvePort, reject) => {
-    const probe = createServer();
-    probe.on('error', reject);
-    probe.listen(0, '127.0.0.1', () => {
-      const { port } = probe.address() as AddressInfo;
-      probe.close(() => resolvePort(port));
-    });
-  });
-
-async function startApi(databasePath: string) {
-  const port = await freePort();
-  const child: ChildProcess = spawn(process.execPath, [...tsx, 'apps/api/src/server.ts'], {
-    cwd: repoRoot,
-    env: { ...process.env, API_PORT: String(port), LEDGERLINE_DATA_PATH: databasePath },
-    stdio: 'ignore',
-  });
-  await expect
-    .poll(
-      async () => {
-        try {
-          return (await fetch(`http://127.0.0.1:${port}/api/health`)).ok;
-        } catch {
-          return false;
-        }
-      },
-      { timeout: 30_000 },
-    )
-    .toBe(true);
-  return {
-    port,
-    url: (path: string) => `http://127.0.0.1:${port}${path}`,
-    async stop() {
-      if (child.exitCode !== null) return;
-      const exited = new Promise((done) => child.once('exit', done));
-      child.kill();
-      await exited;
-    },
-  };
-}
-
-type Api = Awaited<ReturnType<typeof startApi>>;
-
-// Reads the saved SQLite file, which the API rewrites after every change.
-async function readDatabase(databasePath: string) {
-  const SQL = await initSqlJs();
-  const database = new SQL.Database(new Uint8Array(readFileSync(databasePath)));
-  const rows = (sql: string) => {
-    const statement = database.prepare(sql);
-    const result: Record<string, unknown>[] = [];
-    while (statement.step()) result.push(statement.getAsObject());
-    statement.free();
-    return result;
-  };
-  return { rows, close: () => database.close() };
-}
+import { join } from 'node:path';
+import { readDatabase, routeApiTo, seedDatabase, startApi, type Api } from './support/api';
 
 const send = (api: Api, path: string, method: string, body?: unknown) =>
   fetch(api.url(path), { method, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -80,12 +15,8 @@ test('export, delete the data folder, restart, and import restores personal data
   const databasePath = join(dataDirectory, 'ledgerline.sqlite');
   let api: Api | undefined;
   try {
-    // A database with sample listings and sample saved searches, as after `npm run import:mock`.
-    execFileSync(process.execPath, [...tsx, 'apps/api/src/providers/import-cli.ts'], {
-      cwd: repoRoot,
-      env: { ...process.env, LEDGERLINE_DATA_PATH: databasePath },
-      stdio: 'ignore',
-    });
+    // The sample listings and saved searches, as after `npm run import:mock`.
+    seedDatabase(databasePath);
     api = await startApi(databasePath);
 
     const found = (await (await fetch(api.url('/api/listings?mode=sale'))).json()) as {
@@ -118,11 +49,7 @@ test('export, delete the data folder, restart, and import restores personal data
     expect(searchNames).toContain('My Fort Lauderdale search');
 
     // The page talks to whichever API is running now.
-    await page.route('**/api/**', async (route) => {
-      const url = new URL(route.request().url());
-      const response = await route.fetch({ url: api!.url(`${url.pathname}${url.search}`) });
-      await route.fulfill({ response });
-    });
+    await routeApiTo(page, () => api!);
     await page.goto('/settings');
     const backup = page.getByRole('region', { name: 'Backup and restore' });
     await expect(page.getByRole('heading', { name: 'Backup and restore' })).toBeVisible();
