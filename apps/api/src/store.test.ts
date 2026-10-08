@@ -247,6 +247,7 @@ describe('local listing search', () => {
       { ...saleListing, providerId: 'dismissed-one', price: 600000 },
     ]);
     store.setDismissed(dismissed.id, true);
+    store.setFavorite(house.id, true);
 
     assert.deepEqual(
       store.searchListings({ mode: 'sale' }).map(({ listing }) => listing.providerId),
@@ -255,6 +256,17 @@ describe('local listing search', () => {
     assert.deepEqual(
       store.searchListings({ mode: 'rent' }).map(({ listing }) => listing.providerId),
       ['rent-two'],
+    );
+    assert.deepEqual(
+      store.searchListings({ mode: 'sale', savedOnly: true }).map(({ property }) => property.id),
+      [house.id],
+    );
+    assert.deepEqual(
+      store
+        .searchListings({ mode: 'sale', showDismissed: true })
+        .map(({ property }) => property.id)
+        .sort(),
+      [house.id, dismissed.id].sort(),
     );
     assert.deepEqual(
       store
@@ -531,6 +543,7 @@ describe('persistence', () => {
     const house = store.createProperty(address);
     store.addNote(house.id, 'Saved to disk');
     store.setFavorite(house.id, true);
+    store.setDismissed(house.id, true);
     closeDatabase(database);
 
     database = await openDatabase(path);
@@ -540,6 +553,7 @@ describe('persistence', () => {
       ['Saved to disk'],
     );
     assert.equal(store.isFavorite(house.id), true);
+    assert.equal(store.isDismissed(house.id), true);
   });
 
   it('rolls a failed change back completely', () => {

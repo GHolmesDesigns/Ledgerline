@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { closeDatabase, openDatabase } from './database.js';
 import { createApp } from './app.js';
+import { createStore } from './store.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -178,6 +179,134 @@ describe('saved-search API', () => {
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
       );
+      closeDatabase(database);
+    }
+  });
+});
+
+describe('property shortlist API', () => {
+  it('saves and dismisses a property, manages notes, and keeps them after an API restart', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ledgerline-property-api-'));
+    temporaryDirectories.push(directory);
+    const databasePath = join(directory, 'ledgerline.sqlite');
+    let database = await openDatabase(databasePath);
+    let store = createStore(database);
+    const property = store.createProperty({
+      street: '2207 NE 32nd Ct',
+      city: 'Fort Lauderdale',
+      zip: '33308',
+    });
+    store.replaceListings(property.id, [
+      {
+        provider: 'mock',
+        providerId: 'sale-home',
+        mode: 'sale',
+        price: 849000,
+        pricePeriod: 'total',
+        status: 'active',
+      },
+      {
+        provider: 'mock',
+        providerId: 'rent-home',
+        mode: 'rent',
+        price: 5200,
+        pricePeriod: 'month',
+        status: 'active',
+      },
+    ]);
+
+    const start = async (
+      activeDatabase: typeof database,
+      activeStore: ReturnType<typeof createStore>,
+    ) => {
+      const server = createApp(activeDatabase, activeStore);
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+      return { server, root: `http://127.0.0.1:${address.port}/api` };
+    };
+    const stop = async (server: ReturnType<typeof createApp>) =>
+      new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    let { server, root } = await start(database, store);
+    try {
+      const getProperty = async () =>
+        (await fetch(`${root}/properties/${property.id}`)).json() as Promise<{
+          listings: Array<{ mode: string }>;
+          notes: Array<{ id: number; body: string; createdAt: string; updatedAt: string }>;
+          saved: boolean;
+          dismissed: boolean;
+        }>;
+      let detail = await getProperty();
+      assert.deepEqual(detail.listings.map((listing) => listing.mode).sort(), ['rent', 'sale']);
+
+      assert.equal(
+        (
+          await fetch(`${root}/properties/${property.id}/favorite`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ saved: true }),
+          })
+        ).status,
+        200,
+      );
+      assert.equal(
+        (
+          await fetch(`${root}/properties/${property.id}/dismissal`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ dismissed: true }),
+          })
+        ).status,
+        200,
+      );
+      const hidden = (await (await fetch(`${root}/listings?mode=sale`)).json()) as {
+        items: unknown[];
+      };
+      assert.equal(hidden.items.length, 0);
+      const shown = (await (
+        await fetch(`${root}/listings?mode=sale&showDismissed=true&savedOnly=true`)
+      ).json()) as { items: Array<{ saved: boolean; dismissed: boolean }> };
+      assert.deepEqual(
+        shown.items.map(({ saved, dismissed }) => [saved, dismissed]),
+        [[true, true]],
+      );
+
+      const added = await fetch(`${root}/properties/${property.id}/notes`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ body: 'Check the roof' }),
+      });
+      assert.equal(added.status, 201);
+      const note = (
+        (await added.json()) as { note: { id: number; createdAt: string; updatedAt: string } }
+      ).note;
+      assert.ok(note.createdAt);
+      const edited = await fetch(`${root}/notes/${note.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ body: 'Roof is 2020' }),
+      });
+      assert.equal(edited.status, 200);
+      detail = await getProperty();
+      assert.equal(detail.notes[0].body, 'Roof is 2020');
+      assert.ok(detail.notes[0].updatedAt >= note.updatedAt);
+
+      await stop(server);
+      closeDatabase(database);
+      database = await openDatabase(databasePath);
+      store = createStore(database);
+      ({ server, root } = await start(database, store));
+      detail = await getProperty();
+      assert.equal(detail.saved, true);
+      assert.equal(detail.dismissed, true);
+      assert.equal(detail.notes[0].body, 'Roof is 2020');
+      const deleted = await fetch(`${root}/notes/${note.id}`, { method: 'DELETE' });
+      assert.equal(deleted.status, 204);
+      assert.equal((await getProperty()).notes.length, 0);
+    } finally {
+      await stop(server);
       closeDatabase(database);
     }
   });
