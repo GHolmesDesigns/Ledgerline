@@ -147,6 +147,14 @@ export interface ReviewListingInput {
   rawPayload: unknown;
 }
 
+/** What a decision restored from a backup keeps of the incoming listing. */
+export interface RestoredReviewListing {
+  provider: string;
+  sourceId: string;
+  restored: true;
+  property: PropertyInput | null;
+}
+
 export interface StoreOptions {
   /** Called after every write, so the caller can save the database file. */
   afterWrite?: () => void;
@@ -642,15 +650,21 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
     // Personal data, keyed to a property
 
-    addNote(propertyId: string, body: string): Note {
+    /** Timestamps are only passed when restoring a backup; otherwise the note is stamped now. */
+    addNote(
+      propertyId: string,
+      body: string,
+      timestamps: { createdAt?: string; updatedAt?: string } = {},
+    ): Note {
       return transaction(() => {
         requireProperty(propertyId);
-        const at = now();
+        const createdAt = timestamps.createdAt ?? now();
+        const updatedAt = timestamps.updatedAt ?? createdAt;
         run(
           'INSERT INTO property_notes (property_id, body, created_at, updated_at) VALUES (?, ?, ?, ?)',
-          [propertyId, body, at, at],
+          [propertyId, body, createdAt, updatedAt],
         );
-        return { id: lastInsertId(), propertyId, body, createdAt: at, updatedAt: at };
+        return { id: lastInsertId(), propertyId, body, createdAt, updatedAt };
       });
     },
 
@@ -689,13 +703,13 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       }));
     },
 
-    setFavorite(propertyId: string, favorite: boolean) {
+    setFavorite(propertyId: string, favorite: boolean, at?: string) {
       transaction(() => {
         requireProperty(propertyId);
         if (favorite) {
           run('INSERT OR IGNORE INTO property_favorites (property_id, created_at) VALUES (?, ?)', [
             propertyId,
-            now(),
+            at ?? now(),
           ]);
         } else {
           run('DELETE FROM property_favorites WHERE property_id = ?', [propertyId]);
@@ -707,13 +721,13 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       return !!one('SELECT 1 FROM property_favorites WHERE property_id = ?', [propertyId]);
     },
 
-    setDismissed(propertyId: string, dismissed: boolean) {
+    setDismissed(propertyId: string, dismissed: boolean, at?: string) {
       transaction(() => {
         requireProperty(propertyId);
         if (dismissed) {
           run(
             'INSERT OR IGNORE INTO property_dismissals (property_id, dismissed_at) VALUES (?, ?)',
-            [propertyId, now()],
+            [propertyId, at ?? now()],
           );
         } else {
           run('DELETE FROM property_dismissals WHERE property_id = ?', [propertyId]);
@@ -725,9 +739,28 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       return !!one('SELECT 1 FROM property_dismissals WHERE property_id = ?', [propertyId]);
     },
 
+    listFavorites(): Array<{ propertyId: string; createdAt: string }> {
+      return all('SELECT property_id, created_at FROM property_favorites ORDER BY property_id').map(
+        (row) => ({ propertyId: String(row.property_id), createdAt: String(row.created_at) }),
+      );
+    },
+
+    listDismissals(): Array<{ propertyId: string; dismissedAt: string }> {
+      return all(
+        'SELECT property_id, dismissed_at FROM property_dismissals ORDER BY property_id',
+      ).map((row) => ({
+        propertyId: String(row.property_id),
+        dismissedAt: String(row.dismissed_at),
+      }));
+    },
+
     // Saved searches
 
-    createSavedSearch(input: SavedSearchInput): SavedSearch {
+    /** Timestamps are only passed when restoring a backup; otherwise the search is stamped now. */
+    createSavedSearch(
+      input: SavedSearchInput,
+      timestamps: { createdAt?: string; updatedAt?: string } = {},
+    ): SavedSearch {
       return transaction(() => {
         const at = now();
         run(
@@ -741,8 +774,8 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             input.priceMin ?? null,
             input.priceMax ?? null,
             input.refreshIntervalDays ?? null,
-            at,
-            at,
+            timestamps.createdAt ?? at,
+            timestamps.updatedAt ?? timestamps.createdAt ?? at,
           ],
         );
         return store.getSavedSearch(lastInsertId())!;
@@ -809,7 +842,11 @@ export function createStore(database: Database, options: StoreOptions = {}) {
     },
 
     /** Pairs a Buy search with a Rent search for the same area, in both directions. */
-    pairSavedSearches(firstId: number, secondId: number) {
+    pairSavedSearches(
+      firstId: number,
+      secondId: number,
+      options: { keepTimestamps?: boolean } = {},
+    ) {
       transaction(() => {
         const first = store.getSavedSearch(firstId);
         const second = store.getSavedSearch(secondId);
@@ -827,16 +864,14 @@ export function createStore(database: Database, options: StoreOptions = {}) {
           firstId,
           secondId,
         ]);
-        run('UPDATE saved_searches SET paired_search_id = ?, updated_at = ? WHERE id = ?', [
-          secondId,
-          now(),
-          firstId,
-        ]);
-        run('UPDATE saved_searches SET paired_search_id = ?, updated_at = ? WHERE id = ?', [
-          firstId,
-          now(),
-          secondId,
-        ]);
+        // A restored backup keeps each search's own updated time.
+        const pairSql = options.keepTimestamps
+          ? 'UPDATE saved_searches SET paired_search_id = ?, updated_at = updated_at WHERE id = ?'
+          : 'UPDATE saved_searches SET paired_search_id = ?, updated_at = ? WHERE id = ?';
+        const stamp = (partnerId: number, searchId: number): SqlValue[] =>
+          options.keepTimestamps ? [partnerId, searchId] : [partnerId, now(), searchId];
+        run(pairSql, stamp(secondId, firstId));
+        run(pairSql, stamp(firstId, secondId));
       });
     },
 
@@ -900,6 +935,52 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       ).map(toReview);
     },
 
+    listDecidedMatchReviews(): ReviewItem[] {
+      return all(
+        'SELECT * FROM match_review_queue WHERE decision IS NOT NULL ORDER BY decided_at, id',
+      ).map(toReview);
+    },
+
+    /**
+     * Records a decision restored from a backup. The incoming listing's price and raw
+     * payload are not in a backup, so only its provider, source ID, and address are kept;
+     * the next refresh applies the decision to the listing it fetches again.
+     */
+    restoreMatchDecision(item: {
+      provider: string;
+      sourceId: string;
+      incomingProperty: PropertyInput | null;
+      candidatePropertyId: string;
+      createdPropertyId: string | null;
+      decision: ReviewDecision;
+      decidedAt: string;
+    }): ReviewItem {
+      return transaction(() => {
+        requireProperty(item.candidatePropertyId);
+        if (item.createdPropertyId) requireProperty(item.createdPropertyId);
+        const incoming: RestoredReviewListing = {
+          provider: item.provider,
+          sourceId: item.sourceId,
+          restored: true,
+          property: item.incomingProperty,
+        };
+        run(
+          `INSERT INTO match_review_queue (incoming_listing, candidate_property_id, reason, decision,
+             decided_at, created_property_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            JSON.stringify(incoming),
+            item.candidatePropertyId,
+            'restored from backup',
+            item.decision,
+            item.decidedAt,
+            item.createdPropertyId,
+            now(),
+          ],
+        );
+        return store.getMatchReview(lastInsertId())!;
+      });
+    },
+
     decideMatchReview(reviewId: number, decision: ReviewDecision): ReviewItem {
       return transaction(() => {
         const current = store.getMatchReview(reviewId);
@@ -936,6 +1017,9 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         const current = store.getMatchReview(reviewId);
         if (!current) throw new Error(`Unknown review item: ${reviewId}`);
         if (!current.decision) throw new Error(`Review item ${reviewId} has no decision to undo`);
+        if ((current.incomingListing as Partial<RestoredReviewListing>).restored) {
+          throw new Error('A decision restored from a backup cannot be undone.');
+        }
         if (current.createdListingId) store.deleteListing(current.createdListingId);
         if (current.createdPropertyId) store.deleteProperty(current.createdPropertyId);
         run(

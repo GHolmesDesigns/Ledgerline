@@ -18,7 +18,9 @@ for (const viewport of [
       test(`loads ${route.path} directly and after reload`, async ({ page }) => {
         await page.goto(route.path);
         await expect(page.getByRole('heading', { level: 1, name: route.title })).toBeVisible();
-        await expect(page.getByRole('status')).toHaveText('Sample data — not real listings');
+        await expect(page.getByRole('status').filter({ hasText: 'Sample data' })).toHaveText(
+          'Sample data — not real listings',
+        );
         await expect(page.getByRole('link', { name: 'Skip to content' })).toHaveAttribute(
           'href',
           '#main-content',
@@ -32,7 +34,9 @@ for (const viewport of [
 
         await page.reload();
         await expect(page.getByRole('heading', { level: 1, name: route.title })).toBeVisible();
-        await expect(page.getByRole('status')).toHaveText('Sample data — not real listings');
+        await expect(page.getByRole('status').filter({ hasText: 'Sample data' })).toHaveText(
+          'Sample data — not real listings',
+        );
       });
     }
   });

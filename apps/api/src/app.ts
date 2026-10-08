@@ -8,6 +8,7 @@ import {
   type Store,
 } from './store.js';
 import { mockProviderCapabilities } from './providers/mock-provider.js';
+import { BackupError, exportBackup, importBackup } from './backup.js';
 
 export function createApp(database: Database, store: Store = createStore(database)) {
   return createServer(async (request: IncomingMessage, response: ServerResponse) => {
@@ -23,6 +24,33 @@ export function createApp(database: Database, store: Store = createStore(databas
         databaseReady = false;
       }
       json(databaseReady ? 200 : 503, { status: databaseReady ? 'ok' : 'unavailable' });
+      return;
+    }
+
+    if (request.method === 'GET' && request.url === '/api/backup/export') {
+      const backup = exportBackup(store);
+      response.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'content-disposition': `attachment; filename="ledgerline-backup-${backup.exportedAt.slice(0, 10)}.json"`,
+      });
+      response.end(JSON.stringify(backup, null, 2));
+      return;
+    }
+    if (request.method === 'POST' && request.url === '/api/backup/import') {
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of request) chunks.push(Buffer.from(chunk));
+        let backup: unknown;
+        try {
+          backup = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        } catch {
+          throw new BackupError('This file is not valid JSON. Nothing was changed.');
+        }
+        json(200, { report: importBackup(store, backup) });
+      } catch (error) {
+        if (error instanceof BackupError) json(400, { error: error.message });
+        else json(500, { error: 'The import failed and nothing was changed.' });
+      }
       return;
     }
 

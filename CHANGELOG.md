@@ -20,6 +20,8 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Fix the API unit-test glob so Linux CI also runs the top-level API tests (store, database, backup); an unquoted `**` only matched `src/providers/` under `sh`.
+- Add JSON export and import of personal data on Ranking & data (Issue 14 / C14): one file holds notes, saves, dismissals, saved searches (with Buy/Rent pairs), and property match decisions, keyed by normalized address and unit with the address, unit, and coordinates needed to recreate each property. The file carries a format version and export date; import merges into an empty or existing database without duplicating anything, reports what was added, already there, or skipped, upgrades older versions through migration steps, and refuses a newer version before changing anything. Listings, prices, snapshots, raw payloads, and provider credentials are never exported. A restored match decision is applied when the listing is next fetched.
 - Add URL-backed comparison of up to four properties with a side-by-side desktop table, mobile Left/Right selectors, and ordered removal (Issue 13 / C13).
 - Add property detail panels for complete property facts, provider history and local snapshots, manual verification links, and listing freshness/data-quality cues (Issue 12 / C12).
 - Add the property shortlist and notes workflow (Issue 11 / C11): save or dismiss properties from result cards and property detail, filter saved or dismissed homes, and add, edit, or delete timestamped property notes. These actions use SQLite and remain attached to the property across its sale and rental listings.
