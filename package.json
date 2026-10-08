@@ -7,6 +7,7 @@
     "postinstall": "playwright install chromium",
     "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev --workspace @ledgerline/api\" \"npm:dev --workspace @ledgerline/web\"",
     "build": "npm run build --workspace @ledgerline/api && npm run build --workspace @ledgerline/web",
+    "import:mock": "tsx apps/api/src/providers/import-cli.ts",
     "lint": "eslint .",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,json,html}\" \"*.{json,js,mjs,ts}\" \"e2e/**/*.ts\"",
     "test:unit": "npm run test --workspaces --if-present",
