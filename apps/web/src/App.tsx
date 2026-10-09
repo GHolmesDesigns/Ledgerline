@@ -133,6 +133,36 @@ async function fetchRequestUsage() {
   return (await response.json()) as RequestUsage;
 }
 
+export function shouldShowSampleNotice(provider: string | null | undefined) {
+  return provider == null || provider === 'mock';
+}
+
+function SampleDataNotice() {
+  const [provider, setProvider] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    const refresh = () =>
+      void fetchRequestUsage()
+        .then((usage) => active && setProvider(usage.provider))
+        .catch(() => active && setProvider(null));
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
+    window.addEventListener('provider-usage-updated', refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('provider-usage-updated', refresh);
+    };
+  }, []);
+  if (!shouldShowSampleNotice(provider)) return null;
+  return (
+    <div className="sample-notice" role="status">
+      <span className="sample-notice-dot" aria-hidden="true" />
+      Sample data — not real listings
+    </div>
+  );
+}
+
 export function RequestUsageHeader({ initialData }: { initialData?: RequestUsage }) {
   const [usage, setUsage] = useState<RequestUsage | null>(initialData ?? null);
   useEffect(() => {
@@ -1449,6 +1479,10 @@ type SearchListing = {
   comparableRent?: ComparableRent | null;
   costEstimate?: CostEstimate | null;
 };
+
+function isSampleListing(provider: string) {
+  return provider === 'mock';
+}
 
 function PropertyRankingBreakdowns({ data }: { data: PropertyDetailData }) {
   const modes = [...new Set(data.listings.map((listing) => listing.mode))];
@@ -2946,6 +2980,9 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               <span>{priceText(listing.price, listing.mode)}</span>
               <span>{listing.status}</span>
               <span>{listing.provider}</span>
+              {isSampleListing(listing.provider) && (
+                <span className="sample-listing-tag">Sample data</span>
+              )}
               <span>Last seen {listing.providerLastSeenDate ?? 'unknown'}</span>
             </li>
           ))}
@@ -3860,6 +3897,21 @@ function CompareScreen() {
       specialAssessment: null,
     };
   const rows: Array<[string, (item: PropertyDetailData) => ReactNode]> = [
+    [
+      'Provider',
+      (item) => (
+        <span className="compare-provider-list">
+          {item.listings.map((listing) => (
+            <span key={listing.id}>
+              {listing.mode === 'sale' ? 'Buy' : 'Rent'} · {listing.provider}
+              {isSampleListing(listing.provider) && (
+                <span className="sample-listing-tag">Sample data</span>
+              )}
+            </span>
+          ))}
+        </span>
+      ),
+    ],
     ['Price', listingPrice],
     ['Status', listingStatus],
     ['Type', (item) => item.property.propertyType?.replaceAll('_', ' ') ?? 'Unknown'],
@@ -4858,6 +4910,9 @@ function SearchScreen() {
                         <span>
                           {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
                         </span>
+                        {isSampleListing(listing.provider) && (
+                          <span className="sample-listing-tag">Sample data</span>
+                        )}
                         {stale(listing.providerLastSeenDate) && (
                           <span className="stale-tag">Stale</span>
                         )}
@@ -4928,10 +4983,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
         <RequestUsageHeader />
       </header>
 
-      <div className="sample-notice" role="status">
-        <span className="sample-notice-dot" aria-hidden="true" />
-        Sample data — not real listings
-      </div>
+      <SampleDataNotice />
 
       <main className="screen-content" id="main-content" tabIndex={-1}>
         <div className="screen-heading">

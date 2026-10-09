@@ -67,7 +67,10 @@ Always shows its source, using the first that applies:
 "RentCast · Developer · 23 / 45 requests" with a usage bar, last refresh time, and "browsing uses no requests". Refresh button: "Refresh this search · ~2 requests (measured)".
 
 ### Sample-data note
-Keep "Sample data — not real listings" visible on every screen.
+Show "Sample data — not real listings" on every screen while the active provider is mock. Keep it
+visible until the provider is known, including when usage cannot be loaded. Independently label
+each mock-provider listing with a "Sample data" tag on its Search card, property listing, and
+Compare provider row; live-provider listings do not get the tag.
 
 ## 2. Sample listings (Buy)
 

@@ -6,6 +6,7 @@ import {
   App,
   lowestCompleteCostPropertyId,
   RequestUsageHeader,
+  shouldShowSampleNotice,
   type PropertyDetailData,
 } from './App';
 
@@ -27,6 +28,13 @@ describe('app shell', () => {
       assert.match(html, /aria-label="Mobile navigation"/);
     });
   }
+
+  it('shows the global sample notice only for mock or unknown provider status', () => {
+    assert.equal(shouldShowSampleNotice('mock'), true);
+    assert.equal(shouldShowSampleNotice(null), true);
+    assert.equal(shouldShowSampleNotice(undefined), true);
+    assert.equal(shouldShowSampleNotice('rentcast'), false);
+  });
 
   it('provides a skip link, keyboard focus targets, and active route navigation', () => {
     const html = renderToStaticMarkup(<App initialPath="/compare" />);
