@@ -75,3 +75,10 @@ test('navigation can be reached with the keyboard and has a visible focus style'
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Ledgerline home' })).toBeFocused();
 });
+
+test('the web server forwards /api requests to the local API', async ({ request }) => {
+  // Without the Vite proxy, /api requests get the app's HTML page instead of API data.
+  const response = await request.get('/api/health');
+  expect(response.headers()['content-type']).toContain('application/json');
+  expect(await response.json()).toEqual({ status: 'ok' });
+});
