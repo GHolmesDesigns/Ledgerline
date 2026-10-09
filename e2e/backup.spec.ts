@@ -74,7 +74,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await download.saveAs(backupPath);
     await expect(backup.getByRole('status')).toContainText('Exported your personal data to');
     const backupText = readFileSync(backupPath, 'utf8');
-    expect(JSON.parse(backupText).formatVersion).toBe(2);
+    expect(JSON.parse(backupText).formatVersion).toBe(3);
     expect(backupText).not.toContain('prop_');
     expect(backupText).not.toContain('849000');
 
@@ -89,7 +89,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await backup.getByLabel('Backup file (.json)').setInputFiles(backupPath);
     await backup.getByRole('button', { name: 'Import personal data' }).click();
     await expect(backup.getByRole('status')).toContainText(
-      `Imported 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 2 properties, ${searchNames.length} personal assumption sets, 1 local rate set. Already here: 2 local rate sets.`,
+      `Imported 3 cost records, 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 2 properties, ${searchNames.length} personal assumption sets, 1 local rate set. Already here: 2 local rate sets.`,
     );
     await page.reload();
     await expect(page.getByLabel('My Fort Lauderdale search name')).toBeVisible();
@@ -115,7 +115,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await backup.getByLabel('Backup file (.json)').setInputFiles(backupPath);
     await backup.getByRole('button', { name: 'Import personal data' }).click();
     await expect(backup.getByRole('status')).toContainText('Nothing new to import.');
-    await expect(backup.getByRole('status')).toContainText('Already here: 2 notes');
+    await expect(backup.getByRole('status')).toContainText('Already here: 3 cost records, 2 notes');
 
     // A file from a newer version is refused and nothing changes.
     const newerPath = testInfo.outputPath('newer-backup.json');

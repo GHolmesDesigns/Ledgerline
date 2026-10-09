@@ -29,6 +29,7 @@ interface SampleProperty {
   baths: number;
   livingAreaSqft: number;
   yearBuilt: number;
+  floodZone?: string;
   listings: SampleListing[];
 }
 
@@ -158,6 +159,7 @@ function toProviderListing(
     zip: property.zip,
     county: property.county,
     propertyType: property.type,
+    floodZone: property.floodZone ?? null,
     beds: property.beds,
     ...splitBaths(property.baths),
     livingAreaSqft: property.livingAreaSqft,
@@ -174,6 +176,52 @@ function toProviderListing(
     sample: true,
   };
   return { sourceId, property: propertyInput, listing: normalizedListing, rawPayload };
+}
+
+/** Fixture-backed evidence keeps the sample Fort Lauderdale checklist representative. */
+export function seedMockCostEntries(store: Store) {
+  const first = sampleData.properties.find((property) => property.city === 'Fort Lauderdale');
+  if (!first) return;
+  const property = store.findPropertyByAddress({
+    street: first.address,
+    unit: first.unit,
+    city: first.city,
+    zip: first.zip,
+  });
+  if (!property || store.listCostEntries(property.id).length) return;
+  store.addCostEntry(property.id, {
+    kind: 'tax_bill',
+    amount: 0,
+    state: 'Doc',
+    source: 'Sample tax bill · no CDD',
+    date: '2026-10-05',
+    assessmentStatus: null,
+    paymentType: null,
+    amountUnknown: false,
+    sample: true,
+  });
+  store.addCostEntry(property.id, {
+    kind: 'hoa_none',
+    amount: null,
+    state: 'N/A',
+    source: 'Sample association confirmation',
+    date: '2026-10-05',
+    assessmentStatus: null,
+    paymentType: null,
+    amountUnknown: false,
+    sample: true,
+  });
+  store.addCostEntry(property.id, {
+    kind: 'homeowners_quote',
+    amount: 610,
+    state: 'Quote',
+    source: 'Sample homeowners quote',
+    date: '2026-10-05',
+    assessmentStatus: null,
+    paymentType: null,
+    amountUnknown: false,
+    sample: true,
+  });
 }
 
 function records(): ProviderListing[] {

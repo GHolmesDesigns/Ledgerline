@@ -339,6 +339,102 @@ export function createApp(
     const propertyAction = request.url?.match(
       /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal))?$/,
     );
+    const costEntriesAction = request.url?.match(
+      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/cost-entries$/,
+    );
+    if (costEntriesAction && request.method === 'POST') {
+      try {
+        const body = await readBody();
+        const property = store.getProperty(costEntriesAction[1]);
+        if (!property) throw new Error('Property not found.');
+        const kinds = [
+          'homeowners_quote',
+          'ho6_quote',
+          'flood_quote',
+          'tax_bill',
+          'tax_bill_cdd',
+          'association_fee',
+          'special_assessment',
+          'hoa_none',
+          'flood_not_carried',
+        ];
+        if (!kinds.includes(String(body.kind)))
+          throw new Error('Choose a supported cost record type.');
+        if (!['Quote', 'Doc', 'N/A'].includes(String(body.state)))
+          throw new Error('State must be Quote, Doc, or N/A.');
+        if (typeof body.source !== 'string' || !body.source.trim())
+          throw new Error('Source is required.');
+        if (
+          typeof body.date !== 'string' ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(body.date) ||
+          Number.isNaN(Date.parse(`${body.date}T00:00:00Z`))
+        )
+          throw new Error('Enter a valid date.');
+        const amount = body.amount == null || body.amount === '' ? null : Number(body.amount);
+        if (amount !== null && (!Number.isFinite(amount) || amount < 0))
+          throw new Error('Amount must be zero or greater.');
+        const kind = String(body.kind);
+        if (
+          (kind === 'hoa_none' || kind === 'flood_not_carried') &&
+          (body.state !== 'N/A' || amount !== null)
+        )
+          throw new Error('Confirmed absence records must use N/A and have no amount.');
+        if (
+          ['homeowners_quote', 'ho6_quote', 'flood_quote'].includes(kind) &&
+          (body.state !== 'Quote' || amount === null)
+        )
+          throw new Error('Insurance quotes need an amount and Quote state.');
+        if (
+          ['tax_bill', 'tax_bill_cdd', 'association_fee'].includes(kind) &&
+          (body.state !== 'Doc' || amount === null)
+        )
+          throw new Error('Tax bills and association fee records need an amount and Doc state.');
+        if (
+          kind === 'special_assessment' &&
+          (body.state !== 'Doc' ||
+            !['pending', 'approved'].includes(String(body.assessmentStatus)) ||
+            !['one_time', 'installments'].includes(String(body.paymentType)) ||
+            (body.amountUnknown ? amount !== null : amount === null))
+        )
+          throw new Error(
+            'Association letters need a pending or approved assessment, payment type, and either an amount or “amount unknown”.',
+          );
+        if (body.kind === 'flood_not_carried' && /^[av]/i.test(property.floodZone?.trim() ?? ''))
+          throw new Error(
+            `Flood insurance cannot be marked not carried in FEMA zone ${property.floodZone}.`,
+          );
+        if (
+          body.kind === 'flood_not_carried' &&
+          (!property.floodZone || /^[av]/i.test(property.floodZone))
+        )
+          throw new Error(
+            'Confirm the property is outside FEMA A and V zones before marking flood insurance not carried.',
+          );
+        const entry = store.addCostEntry(costEntriesAction[1], {
+          kind: body.kind as import('./store.js').CostEntryKind,
+          amount,
+          state: body.state as import('./store.js').CostEntryState,
+          source: body.source.trim(),
+          date: body.date,
+          assessmentStatus:
+            body.assessmentStatus === 'pending' || body.assessmentStatus === 'approved'
+              ? body.assessmentStatus
+              : null,
+          paymentType:
+            body.paymentType === 'one_time' || body.paymentType === 'installments'
+              ? body.paymentType
+              : null,
+          amountUnknown: body.amountUnknown === true,
+          sample: false,
+        });
+        json(201, { entry });
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to save cost record.',
+        });
+      }
+      return;
+    }
     if (propertyAction && request.method === 'GET' && !propertyAction[2]) {
       const propertyId = propertyAction[1];
       const property = store.getProperty(propertyId);
@@ -353,6 +449,7 @@ export function createApp(
           localSnapshots: store.listSnapshots(listing.id),
         })),
         notes: store.listNotes(propertyId),
+        costEntries: store.listCostEntries(propertyId),
         saved: store.isFavorite(propertyId),
         dismissed: store.isDismissed(propertyId),
       });

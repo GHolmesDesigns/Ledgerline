@@ -17,6 +17,7 @@ export interface PropertyInput {
   latitude?: number | null;
   longitude?: number | null;
   propertyType?: string | null;
+  floodZone?: string | null;
   beds?: number | null;
   bathsTotal?: number | null;
   bathsFull?: number | null;
@@ -122,6 +123,32 @@ export interface LocalAssumptions {
   sample: boolean;
 }
 
+export type CostEntryKind =
+  | 'homeowners_quote'
+  | 'ho6_quote'
+  | 'flood_quote'
+  | 'tax_bill'
+  | 'tax_bill_cdd'
+  | 'association_fee'
+  | 'special_assessment'
+  | 'hoa_none'
+  | 'flood_not_carried';
+export type CostEntryState = 'Quote' | 'Doc' | 'N/A';
+export interface PropertyCostEntry {
+  id: number;
+  propertyId: string;
+  kind: CostEntryKind;
+  amount: number | null;
+  state: CostEntryState;
+  source: string;
+  date: string;
+  assessmentStatus: 'pending' | 'approved' | null;
+  paymentType: 'one_time' | 'installments' | null;
+  amountUnknown: boolean;
+  sample: boolean;
+}
+export type PropertyCostEntryInput = Omit<PropertyCostEntry, 'id' | 'propertyId'>;
+
 export type SavedSearchUpdate = Partial<SavedSearchInput>;
 
 export interface ListingSearchCriteria {
@@ -200,7 +227,7 @@ export interface StoreOptions {
 
 type Row = Record<string, SqlValue>;
 
-const propertyColumns = `id, street, unit, city, zip, county, latitude, longitude, property_type,
+const propertyColumns = `id, street, unit, city, zip, county, latitude, longitude, property_type, flood_zone,
   beds, baths_total, baths_full, baths_half, living_area_sqft, lot_size_sqft, year_built,
   parcel_id, sample, created_at, updated_at`;
 
@@ -291,6 +318,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       latitude: number(row.latitude),
       longitude: number(row.longitude),
       propertyType: text(row.property_type),
+      floodZone: text(row.flood_zone),
       beds: number(row.beds),
       bathsTotal: number(row.baths_total),
       bathsFull: number(row.baths_full),
@@ -422,7 +450,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         const id = `prop_${randomUUID()}`;
         const at = now();
         run(
-          `INSERT INTO properties (${propertyColumns}) VALUES (${Array(20).fill('?').join(', ')})`,
+          `INSERT INTO properties (${propertyColumns}) VALUES (${Array(21).fill('?').join(', ')})`,
           [
             id,
             input.street,
@@ -433,6 +461,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             input.latitude ?? null,
             input.longitude ?? null,
             input.propertyType ?? null,
+            input.floodZone ?? null,
             input.beds ?? null,
             input.bathsTotal ?? null,
             input.bathsFull ?? null,
@@ -741,6 +770,49 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         body: String(row.body),
         createdAt: String(row.created_at),
         updatedAt: String(row.updated_at),
+      }));
+    },
+
+    addCostEntry(propertyId: string, input: PropertyCostEntryInput): PropertyCostEntry {
+      return transaction(() => {
+        requireProperty(propertyId);
+        run(
+          `INSERT INTO property_cost_entries (property_id, kind, amount, state, source, entry_date,
+          assessment_status, payment_type, amount_unknown, sample, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            propertyId,
+            input.kind,
+            input.amount,
+            input.state,
+            input.source,
+            input.date,
+            input.assessmentStatus,
+            input.paymentType,
+            input.amountUnknown ? 1 : 0,
+            input.sample ? 1 : 0,
+            now(),
+          ],
+        );
+        return store.listCostEntries(propertyId).at(-1)!;
+      });
+    },
+
+    listCostEntries(propertyId: string): PropertyCostEntry[] {
+      return all(`SELECT * FROM property_cost_entries WHERE property_id = ? ORDER BY id`, [
+        propertyId,
+      ]).map((row) => ({
+        id: Number(row.id),
+        propertyId: String(row.property_id),
+        kind: String(row.kind) as CostEntryKind,
+        amount: number(row.amount),
+        state: String(row.state) as CostEntryState,
+        source: String(row.source),
+        date: String(row.entry_date),
+        assessmentStatus: text(row.assessment_status) as PropertyCostEntry['assessmentStatus'],
+        paymentType: text(row.payment_type) as PropertyCostEntry['paymentType'],
+        amountUnknown: row.amount_unknown === 1,
+        sample: row.sample === 1,
       }));
     },
 

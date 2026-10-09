@@ -8,6 +8,7 @@ import type {
   Store,
   LocalAssumptions,
   PersonalAssumptions,
+  PropertyCostEntry,
 } from './store.js';
 import { defaultPersonalAssumptions } from './assumptions.js';
 
@@ -18,7 +19,7 @@ import { defaultPersonalAssumptions } from './assumptions.js';
 // are deliberately not part of a backup: refresh fetches listings again.
 
 export const BACKUP_FORMAT = 'ledgerline-personal-data';
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 export interface AddressKey {
   street: string;
@@ -42,10 +43,12 @@ export interface BackupProperty {
   county: string | null;
   latitude: number | null;
   longitude: number | null;
+  floodZone: string | null;
   sample: boolean;
   saved: { at: string } | null;
   dismissed: { at: string } | null;
   notes: Array<{ body: string; createdAt: string; updatedAt: string }>;
+  costEntries: Array<Omit<PropertyCostEntry, 'id' | 'propertyId'>>;
 }
 
 export interface BackupSavedSearch {
@@ -117,6 +120,7 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
       county: property.county,
       latitude: property.latitude,
       longitude: property.longitude,
+      floodZone: property.floodZone,
       sample: property.sample,
       saved: null,
       dismissed: null,
@@ -125,6 +129,17 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
         createdAt: note.createdAt,
         updatedAt: note.updatedAt,
       })),
+      costEntries: store.listCostEntries(propertyId).map((entry) => ({
+        kind: entry.kind,
+        amount: entry.amount,
+        state: entry.state,
+        source: entry.source,
+        date: entry.date,
+        assessmentStatus: entry.assessmentStatus,
+        paymentType: entry.paymentType,
+        amountUnknown: entry.amountUnknown,
+        sample: entry.sample,
+      })),
     };
     properties.set(idOf(record.key), record);
     byLocalId.set(propertyId, record);
@@ -132,7 +147,8 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
   };
 
   for (const property of store.listProperties()) {
-    if (store.listNotes(property.id).length > 0) include(property.id);
+    if (store.listNotes(property.id).length > 0 || store.listCostEntries(property.id).length > 0)
+      include(property.id);
   }
   for (const favorite of store.listFavorites()) {
     const record = include(favorite.propertyId);
@@ -225,6 +241,16 @@ const migrationSteps: Record<number, BackupMigration> = {
     ),
     localAssumptions: [],
   }),
+  2: (data) => ({
+    ...data,
+    properties: Array.isArray(data.properties)
+      ? data.properties.map((item) =>
+          isRecord(item)
+            ? { ...item, costEntries: Array.isArray(item.costEntries) ? item.costEntries : [] }
+            : item,
+        )
+      : data.properties,
+  }),
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -274,10 +300,17 @@ export interface ImportCounts {
   matchDecisions: number;
   personalAssumptions: number;
   localAssumptions: number;
+  costEntries: number;
 }
 
 export interface SkippedRecord {
-  section: 'properties' | 'notes' | 'savedSearches' | 'matchDecisions' | 'localAssumptions';
+  section:
+    | 'properties'
+    | 'notes'
+    | 'savedSearches'
+    | 'matchDecisions'
+    | 'localAssumptions'
+    | 'costEntries';
   label: string;
   reason: string;
 }
@@ -300,6 +333,7 @@ const emptyCounts = (): ImportCounts => ({
   matchDecisions: 0,
   personalAssumptions: 0,
   localAssumptions: 0,
+  costEntries: 0,
 });
 
 const isText = (value: unknown): value is string =>
@@ -408,6 +442,7 @@ export function importBackup(
           county,
           latitude,
           longitude,
+          floodZone: nullableText(record.floodZone) ?? null,
           sample: record.sample === true,
         });
         local.set(idOf(key), property);
@@ -459,6 +494,67 @@ export function importBackup(
         });
         have.add(identity);
         added.notes += 1;
+      }
+      const knownEntries = new Set(
+        store
+          .listCostEntries(property.id)
+          .map((entry) => JSON.stringify([entry.kind, entry.date, entry.source, entry.amount])),
+      );
+      for (const rawEntry of Array.isArray(record.costEntries) ? record.costEntries : []) {
+        if (
+          !isRecord(rawEntry) ||
+          !isText(rawEntry.kind) ||
+          ![
+            'homeowners_quote',
+            'ho6_quote',
+            'flood_quote',
+            'tax_bill',
+            'tax_bill_cdd',
+            'association_fee',
+            'special_assessment',
+            'hoa_none',
+            'flood_not_carried',
+          ].includes(rawEntry.kind) ||
+          !['Quote', 'Doc', 'N/A'].includes(String(rawEntry.state)) ||
+          !isText(rawEntry.source) ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(String(rawEntry.date))
+        ) {
+          skipped.push({ section: 'costEntries', label, reason: 'A cost record is unreadable.' });
+          continue;
+        }
+        const amount = nullableNumber(rawEntry.amount);
+        if (amount === undefined || (amount !== null && amount < 0)) {
+          skipped.push({
+            section: 'costEntries',
+            label,
+            reason: 'A cost record amount is invalid.',
+          });
+          continue;
+        }
+        const identity = JSON.stringify([rawEntry.kind, rawEntry.date, rawEntry.source, amount]);
+        if (knownEntries.has(identity)) {
+          alreadyPresent.costEntries += 1;
+          continue;
+        }
+        store.addCostEntry(property.id, {
+          kind: rawEntry.kind as import('./store.js').CostEntryKind,
+          amount,
+          state: rawEntry.state as import('./store.js').CostEntryState,
+          source: rawEntry.source,
+          date: rawEntry.date as string,
+          assessmentStatus:
+            rawEntry.assessmentStatus === 'pending' || rawEntry.assessmentStatus === 'approved'
+              ? rawEntry.assessmentStatus
+              : null,
+          paymentType:
+            rawEntry.paymentType === 'one_time' || rawEntry.paymentType === 'installments'
+              ? rawEntry.paymentType
+              : null,
+          amountUnknown: rawEntry.amountUnknown === true,
+          sample: rawEntry.sample === true,
+        });
+        knownEntries.add(identity);
+        added.costEntries += 1;
       }
     }
 

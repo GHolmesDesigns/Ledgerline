@@ -800,6 +800,7 @@ function MatchReviewPanel() {
 }
 
 type BackupCounts = {
+  costEntries: number;
   properties: number;
   personalAssumptions: number;
   localAssumptions: number;
@@ -818,6 +819,7 @@ type BackupReport = {
 };
 
 const backupCountLabels: Array<[keyof BackupCounts, string, string]> = [
+  ['costEntries', 'cost record', 'cost records'],
   ['notes', 'note', 'notes'],
   ['saved', 'saved home', 'saved homes'],
   ['dismissed', 'dismissed home', 'dismissed homes'],
@@ -1644,6 +1646,7 @@ type PropertyDetailData = {
     bathsFull: number | null;
     bathsHalf: number | null;
     parcelId: string | null;
+    floodZone?: string | null;
   };
   listings: Array<
     SearchListing['listing'] & {
@@ -1673,6 +1676,18 @@ type PropertyDetailData = {
   notes: PropertyNote[];
   saved: boolean;
   dismissed: boolean;
+  costEntries?: Array<{
+    id: number;
+    kind: string;
+    amount: number | null;
+    state: string;
+    source: string;
+    date: string;
+    amountUnknown: boolean;
+    assessmentStatus: string | null;
+    paymentType: string | null;
+    sample: boolean;
+  }>;
 };
 
 const compareStorageKey = 'ledgerline.compare-properties';
@@ -1729,6 +1744,20 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
   const [editingBody, setEditingBody] = useState('');
   const [error, setError] = useState('');
   const [compareMessage, setCompareMessage] = useState('');
+  const [costKind, setCostKind] = useState('homeowners_quote');
+  const [costAmount, setCostAmount] = useState('');
+  const [costSource, setCostSource] = useState('');
+  const [costDate, setCostDate] = useState(new Date().toISOString().slice(0, 10));
+  const [costState, setCostState] = useState('Quote');
+  const [costAmountUnknown, setCostAmountUnknown] = useState(false);
+  const [costAssessmentStatus, setCostAssessmentStatus] = useState('');
+  const [costPaymentType, setCostPaymentType] = useState('');
+  const fixedCostState =
+    costKind === 'hoa_none' || costKind === 'flood_not_carried'
+      ? 'N/A'
+      : ['tax_bill', 'tax_bill_cdd', 'association_fee', 'special_assessment'].includes(costKind)
+        ? 'Doc'
+        : null;
 
   const toggleCompare = () => {
     if (compare.ids.includes(propertyId)) {
@@ -1814,6 +1843,35 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
     await refresh();
   };
 
+  const addCostEntry = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const response = await fetch(`/api/properties/${propertyId}/cost-entries`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        kind: costKind,
+        amount: costAmount === '' ? null : Number(costAmount),
+        source: costSource,
+        date: costDate,
+        state: fixedCostState ?? costState,
+        amountUnknown: costAmountUnknown,
+        assessmentStatus: costAssessmentStatus || null,
+        paymentType: costPaymentType || null,
+      }),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(result.error ?? 'Could not save cost record.');
+      return;
+    }
+    setCostAmount('');
+    setCostSource('');
+    setCostAmountUnknown(false);
+    setCostAssessmentStatus('');
+    setCostPaymentType('');
+    await refresh();
+  };
+
   if (!data)
     return (
       <section className="property-detail-panel" aria-label="Property details">
@@ -1821,6 +1879,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       </section>
     );
   const { property, listings, notes } = data;
+  const costEntries = data.costEntries ?? [];
   const missingFields = [
     ['Property type', property.propertyType],
     ['Bedrooms', property.beds],
@@ -1883,6 +1942,162 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
         </p>
       )}
       {compareMessage && <p role="status">{compareMessage}</p>}
+      <section aria-labelledby="property-costs-heading" className="property-detail-section">
+        <h3 id="property-costs-heading">Cost records and verification</h3>
+        <ul aria-label="Cost verification checklist">
+          {[
+            [
+              property.propertyType === 'condo' || property.propertyType === 'co-op'
+                ? 'HO-6 quote'
+                : 'Homeowners quote',
+              property.propertyType === 'condo' || property.propertyType === 'co-op'
+                ? 'ho6_quote'
+                : 'homeowners_quote',
+            ],
+            ['Flood quote', 'flood_quote'],
+            ['Tax bill', 'tax_bill'],
+            ...(property.propertyType === 'single_family'
+              ? [['HOA confirmation', 'hoa_none'] as [string, string]]
+              : [['Association letter', 'association_fee'] as [string, string]]),
+          ].map(([label, kind]) => {
+            const entry =
+              kind === 'hoa_none'
+                ? costEntries.find(
+                    (item) => item.kind === 'hoa_none' || item.kind === 'association_fee',
+                  )
+                : kind === 'association_fee'
+                  ? costEntries.find(
+                      (item) =>
+                        item.kind === 'association_fee' || item.kind === 'special_assessment',
+                    )
+                  : costEntries.find((item) => item.kind === kind);
+            return (
+              <li key={kind}>
+                {label}:{' '}
+                {entry
+                  ? `Done · ${entry.state}${entry.sample ? ' · Sample data — not real listings' : ''}`
+                  : 'Not done'}
+                {!entry && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCostKind(kind);
+                      document
+                        .getElementById('cost-entry-kind')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                  >
+                    Enter {label.toLocaleLowerCase()}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <ul aria-label="Saved cost records">
+          {costEntries.map((entry) => (
+            <li key={entry.id}>
+              {entry.kind.replaceAll('_', ' ')} · {entry.state}
+              {entry.amount !== null
+                ? ` $${entry.amount.toLocaleString()}`
+                : entry.amountUnknown
+                  ? ' · amount unknown'
+                  : ''}{' '}
+              · {entry.source} · {entry.date}
+              {entry.sample ? ' · Sample data — not real listings' : ''}
+            </li>
+          ))}
+        </ul>
+        <form className="property-note-form" onSubmit={(event) => void addCostEntry(event)}>
+          <label htmlFor="cost-entry-kind">Record type</label>
+          <select
+            id="cost-entry-kind"
+            value={costKind}
+            onChange={(event) => setCostKind(event.target.value)}
+          >
+            <option value="homeowners_quote">Homeowners quote</option>
+            <option value="ho6_quote">HO-6 quote</option>
+            <option value="flood_quote">Flood quote</option>
+            <option value="tax_bill">Tax bill</option>
+            <option value="tax_bill_cdd">CDD amount on tax bill</option>
+            <option value="association_fee">Association letter / fee</option>
+            <option value="special_assessment">Special assessment</option>
+            <option value="hoa_none">HOA confirmed none</option>
+            {property.floodZone && !/^[av]/i.test(property.floodZone) && (
+              <option value="flood_not_carried">Flood policy not carried</option>
+            )}
+          </select>
+          <label htmlFor="cost-entry-amount">Amount</label>
+          <input
+            id="cost-entry-amount"
+            inputMode="decimal"
+            type="number"
+            min="0"
+            step="0.01"
+            value={costAmount}
+            onChange={(event) => setCostAmount(event.target.value)}
+          />
+          {costKind === 'special_assessment' && (
+            <>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={costAmountUnknown}
+                  onChange={(event) => setCostAmountUnknown(event.target.checked)}
+                />{' '}
+                Amount unknown
+              </label>
+              <label htmlFor="assessment-status">Assessment status</label>
+              <select
+                id="assessment-status"
+                value={costAssessmentStatus}
+                onChange={(event) => setCostAssessmentStatus(event.target.value)}
+              >
+                <option value="">Choose</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+              </select>
+              <label htmlFor="assessment-payment">Payment</label>
+              <select
+                id="assessment-payment"
+                value={costPaymentType}
+                onChange={(event) => setCostPaymentType(event.target.value)}
+              >
+                <option value="">Choose</option>
+                <option value="one_time">One-time</option>
+                <option value="installments">Installments</option>
+              </select>
+            </>
+          )}
+          <label htmlFor="cost-entry-state">State</label>
+          <select
+            id="cost-entry-state"
+            value={fixedCostState ?? costState}
+            disabled={fixedCostState !== null}
+            onChange={(event) => setCostState(event.target.value)}
+          >
+            <option>Quote</option>
+            <option>Doc</option>
+            <option>N/A</option>
+          </select>
+          <label htmlFor="cost-entry-source">Source or document</label>
+          <input
+            id="cost-entry-source"
+            value={costSource}
+            onChange={(event) => setCostSource(event.target.value)}
+            required
+          />
+          <label htmlFor="cost-entry-date">Date</label>
+          <input
+            id="cost-entry-date"
+            type="date"
+            value={costDate}
+            onChange={(event) => setCostDate(event.target.value)}
+            required
+          />
+          <button type="submit">Save cost record</button>
+        </form>
+      </section>
       <section aria-labelledby="property-listings-heading" className="property-detail-section">
         <h3 id="property-listings-heading">Listings</h3>
         <ul className="property-listing-list">
@@ -1903,6 +2118,10 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           <div>
             <dt>Type</dt>
             <dd>{property.propertyType?.replaceAll('_', ' ') ?? 'Unknown'}</dd>
+          </div>
+          <div>
+            <dt>FEMA flood zone</dt>
+            <dd>{property.floodZone ?? 'Unknown'}</dd>
           </div>
           <div>
             <dt>Bedrooms</dt>

@@ -633,6 +633,12 @@ h1 {
   display: grid;
   gap: 14px;
 }
+.property-detail-section button,
+.property-detail-section select,
+.property-detail-section input:not([type='checkbox']) {
+  box-sizing: border-box;
+  min-height: 44px;
+}
 .property-detail-section h3 {
   margin: 0;
   font: 600 1.2rem var(--font-display);

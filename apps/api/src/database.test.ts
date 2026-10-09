@@ -44,12 +44,13 @@ describe('local API bootstrap', () => {
       { version: 5, name: '005_refresh_jobs.sql' },
       { version: 6, name: '006_request_budget.sql' },
       { version: 7, name: '007_assumptions.sql' },
+      { version: 8, name: '008_property_cost_entries.sql' },
     ]);
     closeDatabase(first);
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 7 },
+      { count: 8 },
     ]);
     closeDatabase(second);
   });
@@ -71,6 +72,133 @@ describe('local API bootstrap', () => {
         server.close((error) => (error ? reject(error) : resolve())),
       );
       database.close();
+    }
+  });
+});
+
+describe('property cost-entry API', () => {
+  it('stores document records, includes them in property detail, and blocks no-flood choices in A/V zones', async () => {
+    const database = await temporaryDatabase();
+    const store = createStore(database);
+    const highRisk = store.createProperty({
+      street: '1 Flood Way',
+      city: 'Fort Lauderdale',
+      zip: '33308',
+      floodZone: 'AE',
+    });
+    const veryHighRisk = store.createProperty({
+      street: '3 Surge Way',
+      city: 'Miami Beach',
+      zip: '33139',
+      floodZone: 'VE',
+    });
+    const outside = store.createProperty({
+      street: '2 Dry Way',
+      city: 'Tampa',
+      zip: '33602',
+      floodZone: 'X',
+    });
+    const server = createApp(database, store);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    const root = `http://127.0.0.1:${address.port}`;
+    const entry = {
+      kind: 'tax_bill',
+      amount: 0,
+      state: 'Doc',
+      source: 'Tax bill · no CDD',
+      date: '2026-10-05',
+    };
+    try {
+      const saved = await fetch(`${root}/api/properties/${highRisk.id}/cost-entries`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      assert.equal(saved.status, 201);
+      const details = await fetch(`${root}/api/properties/${highRisk.id}`);
+      const body = (await details.json()) as {
+        property: { floodZone: string };
+        costEntries: Array<{ amount: number; state: string }>;
+      };
+      assert.equal(body.property.floodZone, 'AE');
+      assert.deepEqual(
+        body.costEntries.map(({ amount, state }) => ({ amount, state })),
+        [{ amount: 0, state: 'Doc' }],
+      );
+      for (const kind of ['homeowners_quote', 'ho6_quote', 'flood_quote']) {
+        const quote = await fetch(`${root}/api/properties/${highRisk.id}/cost-entries`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            kind,
+            amount: 100,
+            state: 'Quote',
+            source: 'Carrier',
+            date: '2026-10-05',
+          }),
+        });
+        assert.equal(quote.status, 201, await quote.text());
+      }
+      for (const item of [
+        { kind: 'tax_bill_cdd', amount: 450, state: 'Doc', source: 'Tax bill · CDD' },
+        { kind: 'association_fee', amount: 325, state: 'Doc', source: 'Association letter' },
+        {
+          kind: 'special_assessment',
+          amount: null,
+          amountUnknown: true,
+          assessmentStatus: 'pending',
+          paymentType: 'installments',
+          state: 'Doc',
+          source: 'Association letter',
+        },
+        { kind: 'hoa_none', amount: null, state: 'N/A', source: 'HOA confirmation' },
+      ]) {
+        const response = await fetch(`${root}/api/properties/${highRisk.id}/cost-entries`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ...item, date: '2026-10-05' }),
+        });
+        assert.equal(response.status, 201, await response.text());
+      }
+      const rejected = await fetch(`${root}/api/properties/${highRisk.id}/cost-entries`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'flood_not_carried',
+          state: 'N/A',
+          source: 'Owner choice',
+          date: '2026-10-05',
+        }),
+      });
+      assert.equal(rejected.status, 400);
+      const rejectedVe = await fetch(`${root}/api/properties/${veryHighRisk.id}/cost-entries`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'flood_not_carried',
+          state: 'N/A',
+          source: 'Owner choice',
+          date: '2026-10-05',
+        }),
+      });
+      assert.equal(rejectedVe.status, 400);
+      const allowed = await fetch(`${root}/api/properties/${outside.id}/cost-entries`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'flood_not_carried',
+          state: 'N/A',
+          source: 'Owner choice',
+          date: '2026-10-05',
+        }),
+      });
+      assert.equal(allowed.status, 201);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
     }
   });
 });
