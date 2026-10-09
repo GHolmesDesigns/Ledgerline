@@ -2,18 +2,18 @@
 
 A standalone script, outside the app, that pulls the free-tier sample for the provider data check (plan: Provider evaluation, steps 1, 2, and 4) and scores the result (step 5). Node 18 or later, no dependencies.
 
-It is the only code in this repo that calls RentCast. Garnie runs it with the free key; tests and coding agents never do (the tests use a fake network and invented listings).
+Garnie runs this standalone pull tool with the free key; tests and coding agents never do (the tests use a fake network and invented listings). The app has a separate `ListingProvider` adapter that calls RentCast only during an explicit local refresh.
 
 Nothing RentCast returns is committed. The repo is public and the provider's terms apply, so the key, raw responses, request count, estimates, and picks all live in git-ignored paths:
 
-| Path | Holds |
-|---|---|
-| `config.local.json` | API key and search areas |
-| `local/usage.json` | Every request sent, across all runs |
-| `local/raw/<runId>/` | Raw responses and a manifest, one folder per run |
-| `local/estimates/` | Raw rent-estimate responses |
-| `local/picks/picks-<seed>.csv` | The still-available sheet, with real addresses |
-| `local/picks/*.csv` | Any other record sheet, such as the coverage sheet (see below) |
+| Path                           | Holds                                                          |
+| ------------------------------ | -------------------------------------------------------------- |
+| `config.local.json`            | API key and search areas                                       |
+| `local/usage.json`             | Every request sent, across all runs                            |
+| `local/raw/<runId>/`           | Raw responses and a manifest, one folder per run               |
+| `local/estimates/`             | Raw rent-estimate responses                                    |
+| `local/picks/picks-<seed>.csv` | The still-available sheet, with real addresses                 |
+| `local/picks/*.csv`            | Any other record sheet, such as the coverage sheet (see below) |
 
 ## Before the first run
 
@@ -25,28 +25,28 @@ Nothing RentCast returns is committed. The repo is public and the provider's ter
 cp tools/rentcast-sample/config.example.json tools/rentcast-sample/config.local.json
 ```
 
-| Setting | Meaning |
-|---|---|
-| `apiKey` | Your RentCast key. Sent in a header only; never printed or saved. |
-| `requestCap` | Total requests across all runs. Default and maximum 40; you can lower it, not raise it. |
-| `rentEstimateCap` | Rent-estimate calls, counted inside `requestCap`. Default and maximum 5. |
-| `limit` | Listings per request, 1–500 (default 500). |
-| `areas.<name>` | One area per county: a `county` label, plus `sale` and `rental` objects of RentCast search parameters (`zipCode`, or `city` with `state`, or `latitude` and `longitude`; `price`; `bedrooms`; and so on). They are passed through as written, so check RentCast's docs for each endpoint's range syntax. Each search needs a location. The script adds `status=Active`, `limit`, and `offset` itself. |
+| Setting           | Meaning                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`          | Your RentCast key. Sent in a header only; never printed or saved.                                                                                                                                                                                                                                                                                                                                     |
+| `requestCap`      | Total requests across all runs. Default and maximum 40; you can lower it, not raise it.                                                                                                                                                                                                                                                                                                               |
+| `rentEstimateCap` | Rent-estimate calls, counted inside `requestCap`. Default and maximum 5.                                                                                                                                                                                                                                                                                                                              |
+| `limit`           | Listings per request, 1–500 (default 500).                                                                                                                                                                                                                                                                                                                                                            |
+| `areas.<name>`    | One area per county: a `county` label, plus `sale` and `rental` objects of RentCast search parameters (`zipCode`, or `city` with `state`, or `latitude` and `longitude`; `price`; `bedrooms`; and so on). They are passed through as written, so check RentCast's docs for each endpoint's range syntax. Each search needs a location. The script adds `status=Active`, `limit`, and `offset` itself. |
 
 ## Commands
 
 Run from the project root. Each takes `node tools/rentcast-sample/cli.mjs <command>`.
 
-| Command | What it does | Requests |
-|---|---|---|
-| `pull <area>` | Sale search, then rental search, for one area. Pages until a short page, so the manifest records requests per search. | 2 or more |
-| `estimate --listing <id>` | Rent estimate for a saved sale listing (`id` as in the raw JSON). | 1 |
-| `estimate --address "<street, city, state, zip>"` | The same for an address, with optional `--property-type`, `--bedrooms`, `--bathrooms`, `--square-footage`. | 1 |
-| `report [--run <runId>]...` | Coverage report per county and mode. | 0 |
-| `picks [--seed <seed>] [--run <runId>]... [--mode sale\|rental] [--per-cell N] [--exclude-checked]` | Seeded picks for the still-available check. The three options are for the borderline extension (see Picks). | 0 |
-| `lookup "<street address>" [--unit U] [--mode sale\|rental] [--beds N] [--sqft N] [--run <runId>]...` | Lists the saved provider listings that could be a given public listing, for the coverage check. | 0 |
-| `score [--sheet <file>]... [--run <runId>]...` | Scores the record sheets with the plan's rules and lists the decision-table rows that apply. Counts only, no addresses. | 0 |
-| `usage` | Requests used so far. | 0 |
+| Command                                                                                               | What it does                                                                                                            | Requests  |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------- |
+| `pull <area>`                                                                                         | Sale search, then rental search, for one area. Pages until a short page, so the manifest records requests per search.   | 2 or more |
+| `estimate --listing <id>`                                                                             | Rent estimate for a saved sale listing (`id` as in the raw JSON).                                                       | 1         |
+| `estimate --address "<street, city, state, zip>"`                                                     | The same for an address, with optional `--property-type`, `--bedrooms`, `--bathrooms`, `--square-footage`.              | 1         |
+| `report [--run <runId>]...`                                                                           | Coverage report per county and mode.                                                                                    | 0         |
+| `picks [--seed <seed>] [--run <runId>]... [--mode sale\|rental] [--per-cell N] [--exclude-checked]`   | Seeded picks for the still-available check. The three options are for the borderline extension (see Picks).             | 0         |
+| `lookup "<street address>" [--unit U] [--mode sale\|rental] [--beds N] [--sqft N] [--run <runId>]...` | Lists the saved provider listings that could be a given public listing, for the coverage check.                         | 0         |
+| `score [--sheet <file>]... [--run <runId>]...`                                                        | Scores the record sheets with the plan's rules and lists the decision-table rows that apply. Counts only, no addresses. | 0         |
+| `usage`                                                                                               | Requests used so far.                                                                                                   | 0         |
 
 Suggested order: `pull` each county, `report`, up to 5 `estimate` calls on sample properties, then `picks` within 24 hours of the pull (plan step 4). `report` and `picks` use the latest run of each area unless you name runs with `--run`.
 

@@ -268,7 +268,7 @@ describe('mock provider import', () => {
     const synthetic = firstPage.filter((record) =>
       record.sourceId.startsWith('rentcast-synthetic:'),
     );
-    assert.equal(synthetic.length, 33);
+    assert.equal(synthetic.length, 34);
     assert.ok(synthetic.some((record) => record.sourceId.endsWith('md-dual-sale')));
     assert.ok(synthetic.some((record) => record.sourceId.endsWith('br-older-condo-sale')));
     assert.ok(synthetic.every((record) => record.property.sample && record.listing.sample));

@@ -3,7 +3,7 @@ import initSqlJs from 'sql.js';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createServer, type AddressInfo } from 'node:net';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 // Runs the real API as its own process on a temporary data folder (never the dev
 // database), so a test can seed it, delete the data folder, and restart.
@@ -33,7 +33,12 @@ export async function startApi(databasePath: string) {
   const port = await freePort();
   const child: ChildProcess = spawn(process.execPath, [...tsx, 'apps/api/src/server.ts'], {
     cwd: repoRoot,
-    env: { ...process.env, API_PORT: String(port), LEDGERLINE_DATA_PATH: databasePath },
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      LEDGERLINE_DATA_PATH: databasePath,
+      LEDGERLINE_CONFIG_PATH: resolve(dirname(databasePath), '.env'),
+    },
     stdio: 'ignore',
   });
   await expect

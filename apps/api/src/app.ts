@@ -9,7 +9,7 @@ import {
   type ReviewListingInput,
   type Store,
 } from './store.js';
-import { MockListingProvider, mockProviderCapabilities } from './providers/mock-provider.js';
+import { MockListingProvider } from './providers/mock-provider.js';
 import { BackupError, exportBackup, importBackup } from './backup.js';
 import { RefreshJob } from './providers/refresh-job.js';
 import { RequestCeilingError } from './providers/request-budget.js';
@@ -392,7 +392,7 @@ export function createApp(
 
     if (request.method === 'GET' && request.url?.startsWith('/api/listings')) {
       if (request.url === '/api/listings/capabilities') {
-        json(200, mockProviderCapabilities);
+        json(200, refreshJob.provider.capabilities);
         return;
       }
       try {

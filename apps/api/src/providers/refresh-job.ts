@@ -123,6 +123,36 @@ export class RefreshJob {
     }
   }
 
+  /** Refreshes one shortlisted provider listing through the same budget and log path. */
+  async getListing(sourceId: string): Promise<ProviderListing | null> {
+    if (!this.provider.getListing)
+      throw new Error(`${this.provider.name} cannot fetch one listing.`);
+    if (
+      this.provider.name.toLocaleLowerCase('en-US') === 'rentcast' &&
+      !this.providerCredential()
+    ) {
+      throw new Error('No RentCast key set');
+    }
+    this.budget.assertCanSend(1, 'Listing refresh');
+    const logId = this.store.beginProviderRequest({
+      provider: this.provider.name,
+      purpose: 'listing-refresh',
+      page: 1,
+    });
+    try {
+      const listing = await this.provider.getListing(sourceId);
+      this.store.finishProviderRequest(logId, {
+        status: 'succeeded',
+        resultCount: listing ? 1 : 0,
+      });
+      return listing;
+    } catch (error) {
+      const message = this.safeErrorMessage(error);
+      this.store.finishProviderRequest(logId, { status: 'failed', errorMessage: message });
+      throw new Error(message);
+    }
+  }
+
   async refreshDue(): Promise<RefreshResult[]> {
     const results: RefreshResult[] = [];
     for (const search of this.store.listDueSavedSearches()) {
