@@ -21,6 +21,8 @@ import { ProviderCredentials } from './provider-credentials.js';
 import { defaultPersonalAssumptions, seedAssumptions } from './assumptions.js';
 import { computeCostEstimate } from './cost-estimate.js';
 import { normalizeAddress } from './providers/normalize-address.js';
+import { defaultComparableRentRules } from './store.js';
+import { findComparableRent } from './comparable-rent.js';
 
 const defaultCredentialPath = resolve(dirname(fileURLToPath(import.meta.url)), '../.env');
 
@@ -67,6 +69,73 @@ export function createApp(
         })),
         local: store.listLocalAssumptions(),
       });
+      return;
+    }
+    if (request.url === '/api/comparable-rent-rules' && request.method === 'GET') {
+      json(200, { rules: store.getComparableRentRules() });
+      return;
+    }
+    if (request.url === '/api/comparable-rent-rules' && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        const rules = {
+          sameType: body.sameType,
+          sameBeds: body.sameBeds,
+          livingAreaTolerancePct: body.livingAreaTolerancePct,
+          radiusMi: body.radiusMi,
+          seenWithinDays: body.seenWithinDays,
+          minComps: body.minComps,
+        };
+        if (typeof rules.sameType !== 'boolean' || typeof rules.sameBeds !== 'boolean')
+          throw new Error('Property type and bedroom matching must be on or off.');
+        if (
+          typeof rules.livingAreaTolerancePct !== 'number' ||
+          !Number.isFinite(rules.livingAreaTolerancePct) ||
+          rules.livingAreaTolerancePct < 0 ||
+          rules.livingAreaTolerancePct > 100
+        )
+          throw new Error('Living area tolerance must be from 0 to 100 percent.');
+        if (
+          typeof rules.radiusMi !== 'number' ||
+          !Number.isFinite(rules.radiusMi) ||
+          rules.radiusMi <= 0 ||
+          rules.radiusMi > 100
+        )
+          throw new Error('Radius must be greater than 0 and no more than 100 miles.');
+        if (
+          typeof rules.seenWithinDays !== 'number' ||
+          !Number.isInteger(rules.seenWithinDays) ||
+          rules.seenWithinDays < 1 ||
+          rules.seenWithinDays > 365
+        )
+          throw new Error('Listing age must be 1 to 365 days.');
+        if (
+          typeof rules.minComps !== 'number' ||
+          !Number.isInteger(rules.minComps) ||
+          rules.minComps < 1 ||
+          rules.minComps > 50
+        )
+          throw new Error('Minimum comps must be a whole number from 1 to 50.');
+        json(200, {
+          rules: store.setComparableRentRules(rules as typeof defaultComparableRentRules),
+        });
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to save comparable-rent rules.',
+        });
+      }
+      return;
+    }
+    if (
+      request.url?.match(/^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/comparable-rent$/) &&
+      request.method === 'GET'
+    ) {
+      const propertyId = request.url.match(
+        /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/comparable-rent$/,
+      )![1]!;
+      const result = findComparableRent(store, propertyId, store.getComparableRentRules());
+      if (!result) json(404, { error: 'Property not found.' });
+      else json(200, result);
       return;
     }
     const personalAssumptionsAction = request.url?.match(
@@ -456,6 +525,7 @@ export function createApp(
         return;
       }
       const listings = store.listListings(propertyId);
+      const comparableRent = findComparableRent(store, propertyId, store.getComparableRentRules());
       const saleListings = listings
         .filter((listing) => listing.mode === 'sale')
         .sort((left, right) => left.providerId.localeCompare(right.providerId));
@@ -545,6 +615,7 @@ export function createApp(
         costEntries: store.listCostEntries(propertyId),
         costEstimates,
         costEstimate: costEstimates[0] ?? null,
+        comparableRent,
         saved: store.isFavorite(propertyId),
         dismissed: store.isDismissed(propertyId),
       });
@@ -820,7 +891,16 @@ export function createApp(
         ) {
           throw new Error('Minimum price cannot exceed maximum price.');
         }
-        json(200, { items: store.searchListings(criteria), criteria });
+        const items = store.transaction(() =>
+          store.searchListings(criteria).map((item) => ({
+            ...item,
+            comparableRent:
+              mode === 'sale'
+                ? findComparableRent(store, item.property.id, store.getComparableRentRules())
+                : null,
+          })),
+        );
+        json(200, { items, criteria });
       } catch (error) {
         json(400, { error: error instanceof Error ? error.message : 'Unable to search listings.' });
       }

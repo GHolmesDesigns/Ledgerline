@@ -162,6 +162,38 @@ export interface LocalAssumptions {
   sample: boolean;
 }
 
+export interface ComparableRentRules {
+  sameType: boolean;
+  sameBeds: boolean;
+  livingAreaTolerancePct: number;
+  radiusMi: number;
+  seenWithinDays: number;
+  minComps: number;
+  updatedAt?: string;
+}
+
+export interface ComparableRentFigure {
+  propertyId: string;
+  source: 'same_home' | 'local_comps' | 'unavailable';
+  value: number | null;
+  low: number | null;
+  high: number | null;
+  reason: string | null;
+  compCount: number;
+  maxDistanceMi: number | null;
+  compIds: string[];
+  computedAt: string;
+}
+
+export const defaultComparableRentRules: ComparableRentRules = {
+  sameType: true,
+  sameBeds: true,
+  livingAreaTolerancePct: 20,
+  radiusMi: 1,
+  seenWithinDays: 30,
+  minComps: 3,
+};
+
 export type CostEntryKind =
   | 'homeowners_quote'
   | 'ho6_quote'
@@ -575,6 +607,94 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       return all(`SELECT ${listingColumns} FROM listings WHERE property_id = ? ORDER BY mode, id`, [
         propertyId,
       ]).map(toListing);
+    },
+
+    listAllListings(): Listing[] {
+      return all(`SELECT ${listingColumns} FROM listings ORDER BY id`).map(toListing);
+    },
+
+    getComparableRentRules(): ComparableRentRules {
+      const row = one('SELECT * FROM comparable_rent_rules WHERE id = 1');
+      return row
+        ? {
+            sameType: row.same_type === 1,
+            sameBeds: row.same_beds === 1,
+            livingAreaTolerancePct: Number(row.living_area_tolerance_pct),
+            radiusMi: Number(row.radius_mi),
+            seenWithinDays: Number(row.seen_within_days),
+            minComps: Number(row.min_comps),
+            updatedAt: String(row.updated_at),
+          }
+        : { ...defaultComparableRentRules };
+    },
+
+    setComparableRentRules(input: ComparableRentRules): ComparableRentRules {
+      const updatedAt = input.updatedAt ?? now();
+      transaction(() => {
+        run(
+          `INSERT INTO comparable_rent_rules
+            (id, same_type, same_beds, living_area_tolerance_pct, radius_mi, seen_within_days, min_comps, updated_at)
+           VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET same_type=excluded.same_type, same_beds=excluded.same_beds,
+             living_area_tolerance_pct=excluded.living_area_tolerance_pct, radius_mi=excluded.radius_mi,
+             seen_within_days=excluded.seen_within_days, min_comps=excluded.min_comps, updated_at=excluded.updated_at`,
+          [
+            input.sameType ? 1 : 0,
+            input.sameBeds ? 1 : 0,
+            input.livingAreaTolerancePct,
+            input.radiusMi,
+            input.seenWithinDays,
+            input.minComps,
+            updatedAt,
+          ],
+        );
+      });
+      return store.getComparableRentRules();
+    },
+
+    saveComparableRentFigure(input: ComparableRentFigure): ComparableRentFigure {
+      transaction(() => {
+        requireProperty(input.propertyId);
+        run(
+          `INSERT INTO comparable_rent_figures
+            (property_id, source, value, low, high, reason, comp_count, max_distance_mi, comp_ids, computed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(property_id) DO UPDATE SET source=excluded.source, value=excluded.value,
+             low=excluded.low, high=excluded.high, reason=excluded.reason, comp_count=excluded.comp_count,
+             max_distance_mi=excluded.max_distance_mi, comp_ids=excluded.comp_ids, computed_at=excluded.computed_at`,
+          [
+            input.propertyId,
+            input.source,
+            input.value,
+            input.low,
+            input.high,
+            input.reason,
+            input.compCount,
+            input.maxDistanceMi,
+            JSON.stringify(input.compIds),
+            input.computedAt,
+          ],
+        );
+      });
+      return input;
+    },
+
+    getComparableRentFigure(propertyId: string): ComparableRentFigure | null {
+      const row = one('SELECT * FROM comparable_rent_figures WHERE property_id = ?', [propertyId]);
+      return row
+        ? {
+            propertyId: String(row.property_id),
+            source: String(row.source) as ComparableRentFigure['source'],
+            value: number(row.value),
+            low: number(row.low),
+            high: number(row.high),
+            reason: text(row.reason),
+            compCount: Number(row.comp_count),
+            maxDistanceMi: number(row.max_distance_mi),
+            compIds: JSON.parse(String(row.comp_ids)) as string[],
+            computedAt: String(row.computed_at),
+          }
+        : null;
     },
 
     searchListings(criteria: ListingSearchCriteria) {

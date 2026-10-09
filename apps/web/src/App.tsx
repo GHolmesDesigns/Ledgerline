@@ -287,6 +287,41 @@ type LocalAssumptions = {
   setOn: string | null;
   sample: boolean;
 };
+type ComparableRentRules = {
+  sameType: boolean;
+  sameBeds: boolean;
+  livingAreaTolerancePct: number;
+  radiusMi: number;
+  seenWithinDays: number;
+  minComps: number;
+};
+type ComparableRent = {
+  figure: {
+    source: 'same_home' | 'local_comps' | 'unavailable';
+    value: number | null;
+    low: number | null;
+    high: number | null;
+    reason: string | null;
+    compCount: number;
+    maxDistanceMi: number | null;
+    compIds: string[];
+    computedAt: string;
+  };
+  label: string;
+  stale: boolean;
+  compsMedian: number | null;
+  comps: Array<{
+    listingId: string;
+    propertyId: string;
+    address: string;
+    beds: number | null;
+    livingAreaSqft: number | null;
+    distanceMi: number | null;
+    rent: number;
+    lastSeen: string;
+    stale: boolean;
+  }>;
+};
 type AssumptionSearch = {
   id: number;
   name: string;
@@ -617,6 +652,119 @@ function AssumptionsPanel() {
           })}
         </div>
       </details>
+    </section>
+  );
+}
+
+function ComparableRentRulesPanel() {
+  const [rules, setRules] = useState<ComparableRentRules | null>(null);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void fetch('/api/comparable-rent-rules')
+      .then(async (response) => {
+        const data = (await response.json()) as { rules?: ComparableRentRules; error?: string };
+        if (!response.ok || !data.rules) throw new Error(data.error ?? 'Rules are unavailable.');
+        setRules(data.rules);
+      })
+      .catch(() =>
+        setError('Comparable-rent rules are unavailable. Start the local API and try again.'),
+      );
+  }, []);
+  const update = (patch: Partial<ComparableRentRules>) => {
+    setRules((current) => (current ? { ...current, ...patch } : current));
+    setSaved(false);
+  };
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!rules) return;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch('/api/comparable-rent-rules', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(rules),
+      });
+      const data = (await response.json()) as { rules?: ComparableRentRules; error?: string };
+      if (!response.ok || !data.rules) throw new Error(data.error ?? 'Could not save rules.');
+      setRules(data.rules);
+      setSaved(true);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not save rules.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section aria-labelledby="comparable-rent-rules-heading" className="assumptions-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="screen-eyebrow">Rent comparison</p>
+          <h2 id="comparable-rent-rules-heading">Comparable-rent rules</h2>
+        </div>
+      </div>
+      <p className="panel-intro">
+        Local comps come from active Rent-mode listings already stored on this computer. Dense Miami
+        areas may need a smaller radius.
+      </p>
+      <form className="assumption-card" onSubmit={(event) => void save(event)}>
+        {rules && (
+          <>
+            <div className="assumption-fields">
+              <label className="assumption-field assumption-checkbox-field">
+                <input
+                  checked={rules.sameType}
+                  onChange={(event) => update({ sameType: event.target.checked })}
+                  type="checkbox"
+                />{' '}
+                <span>Same property type</span>
+              </label>
+              <label className="assumption-field assumption-checkbox-field">
+                <input
+                  checked={rules.sameBeds}
+                  onChange={(event) => update({ sameBeds: event.target.checked })}
+                  type="checkbox"
+                />{' '}
+                <span>Same bedrooms</span>
+              </label>
+              {(
+                [
+                  ['Living area tolerance (%)', 'livingAreaTolerancePct', 0, 100, 1],
+                  ['Radius (mi)', 'radiusMi', 0.1, 100, 0.1],
+                  ['Seen within (days)', 'seenWithinDays', 1, 365, 1],
+                  ['Minimum comps', 'minComps', 1, 50, 1],
+                ] as const
+              ).map(([label, key, min, max, step]) => (
+                <label className="assumption-field" key={key}>
+                  {label}
+                  <input
+                    aria-label={label}
+                    max={max}
+                    min={min}
+                    onChange={(event) => update({ [key]: Number(event.target.value) })}
+                    step={step}
+                    type="number"
+                    value={rules[key]}
+                  />
+                </label>
+              ))}
+            </div>
+            {error && (
+              <p className="search-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="assumption-actions">
+              <button disabled={busy} type="submit">
+                {busy ? 'Saving…' : 'Save comparable-rent rules'}
+              </button>
+              {saved && <span role="status">Saved</span>}
+            </div>
+          </>
+        )}
+      </form>
     </section>
   );
 }
@@ -999,6 +1147,7 @@ type SearchListing = {
   };
   saved?: boolean;
   dismissed?: boolean;
+  comparableRent?: ComparableRent | null;
 };
 
 type CountyFeature = {
@@ -1694,6 +1843,7 @@ type PropertyDetailData = {
   notes: PropertyNote[];
   saved: boolean;
   dismissed: boolean;
+  comparableRent?: ComparableRent | null;
   costEntries?: Array<{
     id: number;
     kind: string;
@@ -2527,6 +2677,67 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
         </section>
       )}
       {riskMessage && <p role="status">{riskMessage}</p>}
+      <section aria-labelledby="comparable-rent-heading" className="property-detail-section">
+        <h3 id="comparable-rent-heading">Comparable rent</h3>
+        {data.comparableRent ? (
+          <>
+            <p className="comparable-rent-value">
+              {data.comparableRent.figure.value == null
+                ? data.comparableRent.label
+                : `$${data.comparableRent.figure.value.toLocaleString()}/mo · ${data.comparableRent.label}`}
+              {data.comparableRent.stale ? ' · Stale' : ''}
+            </p>
+            {data.comparableRent.comps.length > 0 && (
+              <details className="comparable-rent-comps" open>
+                <summary>Local comps ({data.comparableRent.comps.length})</summary>
+                <div className="table-scroll">
+                  <table>
+                    <caption>Stored rental listings used for the local median</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Address</th>
+                        <th scope="col">Beds</th>
+                        <th scope="col">Sq ft</th>
+                        <th scope="col">Distance</th>
+                        <th scope="col">Rent</th>
+                        <th scope="col">Last seen</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.comparableRent.comps.map((comp) => (
+                        <tr key={comp.listingId}>
+                          <td>{comp.address}</td>
+                          <td>{comp.beds ?? '—'}</td>
+                          <td>{comp.livingAreaSqft?.toLocaleString() ?? '—'}</td>
+                          <td>{comp.distanceMi?.toFixed(1) ?? '—'} mi</td>
+                          <td>${comp.rent.toLocaleString()}/mo</td>
+                          <td>
+                            {comp.lastSeen.slice(0, 10)}
+                            {comp.stale ? ' · Stale' : ''}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p>
+                  Median: ${data.comparableRent.compsMedian?.toLocaleString() ?? 'Unavailable'}/mo ·{' '}
+                  {data.comparableRent.comps.length} comps
+                </p>
+              </details>
+            )}
+          </>
+        ) : (
+          <p>Unavailable · no rent data.</p>
+        )}
+        <p>
+          Computed{' '}
+          {data.comparableRent?.figure.computedAt
+            ? new Date(data.comparableRent.figure.computedAt).toLocaleString()
+            : '—'}{' '}
+          from local listings · browsing uses no provider requests.
+        </p>
+      </section>
       <section aria-labelledby="property-history-heading" className="property-detail-section">
         <h3 id="property-history-heading">Price and status history</h3>
         {listings.map((listing) => (
@@ -3625,98 +3836,112 @@ function SearchScreen() {
             className={`search-results-layout ${mobileView === 'map' ? 'mobile-map-active' : ''}`}
           >
             <div className="listing-grid" aria-label="Search results" role="group">
-              {items.map(({ property, listing, saved = false, dismissed = false }, index) => (
-                <article
-                  className={`listing-card${selectedId === listing.id ? ' is-selected' : ''}`}
-                  id={`listing-${listing.id}`}
-                  key={listing.id}
-                  onClick={() => setSelectedId(listing.id)}
-                >
-                  <div className="listing-card-heading">
-                    <div>
-                      <p className="listing-price">
-                        {formatPrice(listing.price, listing.mode, listing.pricePeriod)}
-                      </p>
-                      <p className="listing-status">{listing.status.replaceAll('_', ' ')}</p>
+              {items.map(
+                (
+                  { property, listing, saved = false, dismissed = false, comparableRent },
+                  index,
+                ) => (
+                  <article
+                    className={`listing-card${selectedId === listing.id ? ' is-selected' : ''}`}
+                    id={`listing-${listing.id}`}
+                    key={listing.id}
+                    onClick={() => setSelectedId(listing.id)}
+                  >
+                    <div className="listing-card-heading">
+                      <div>
+                        <p className="listing-price">
+                          {formatPrice(listing.price, listing.mode, listing.pricePeriod)}
+                        </p>
+                        <p className="listing-status">{listing.status.replaceAll('_', ' ')}</p>
+                      </div>
+                      <div className="listing-card-tools">
+                        <span className="listing-mode-label">
+                          {listing.mode === 'sale' ? 'BUY' : 'RENT'}
+                        </span>
+                        <button
+                          aria-pressed={selectedId === listing.id}
+                          className="select-listing"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedId(listing.id);
+                          }}
+                          type="button"
+                          aria-label={`Select ${property.street} on map`}
+                        >
+                          Pin {index + 1}
+                        </button>
+                      </div>
                     </div>
-                    <div className="listing-card-tools">
-                      <span className="listing-mode-label">
-                        {listing.mode === 'sale' ? 'BUY' : 'RENT'}
-                      </span>
+                    <h2>
+                      <a href={`/property/${property.id}`}>
+                        {property.street}
+                        {property.unit ? `, Unit ${property.unit}` : ''}
+                      </a>
+                    </h2>
+                    <p className="listing-location">
+                      {property.city} · {property.county ?? 'Florida'} County, {property.zip}
+                    </p>
+                    <p className="listing-facts">
+                      {property.beds ?? '—'} bd <span>·</span> {property.bathsTotal ?? '—'} ba{' '}
+                      <span>·</span> {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft{' '}
+                      <span>·</span> {property.yearBuilt ?? 'Year unknown'}
+                    </p>
+                    {listing.mode === 'sale' && comparableRent && (
+                      <p className="listing-comparable-rent">
+                        <strong>Comparable rent</strong>{' '}
+                        {comparableRent.figure.value == null
+                          ? comparableRent.label
+                          : `$${comparableRent.figure.value.toLocaleString()}/mo · ${comparableRent.label}`}
+                        {comparableRent.stale ? ' · Stale' : ''}
+                      </p>
+                    )}
+                    <div className="property-actions">
                       <button
-                        aria-pressed={selectedId === listing.id}
-                        className="select-listing"
+                        aria-label={`${saved ? 'Remove' : 'Save'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''} ${saved ? 'from saved homes' : 'to saved homes'}`}
+                        aria-pressed={saved}
                         onClick={(event) => {
                           event.stopPropagation();
-                          setSelectedId(listing.id);
+                          void mutateProperty(property.id, 'favorite', !saved);
                         }}
                         type="button"
-                        aria-label={`Select ${property.street} on map`}
                       >
-                        Pin {index + 1}
+                        {saved ? 'Saved' : 'Save'}
+                      </button>
+                      <button
+                        aria-pressed={compare.ids.includes(property.id)}
+                        className="secondary-button"
+                        aria-label={`${compare.ids.includes(property.id) ? 'Remove' : 'Compare'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}${compare.ids.includes(property.id) ? ' from Compare' : ''}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleCompare(property.id);
+                        }}
+                        type="button"
+                      >
+                        {compare.ids.includes(property.id) ? 'In Compare' : 'Compare'}
+                      </button>
+                      <button
+                        aria-label={`${dismissed ? 'Undo dismissal for' : 'Dismiss'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}`}
+                        className="secondary-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void mutateProperty(property.id, 'dismissal', !dismissed);
+                        }}
+                        type="button"
+                      >
+                        {dismissed ? 'Undo dismissal' : 'Dismiss'}
                       </button>
                     </div>
-                  </div>
-                  <h2>
-                    <a href={`/property/${property.id}`}>
-                      {property.street}
-                      {property.unit ? `, Unit ${property.unit}` : ''}
-                    </a>
-                  </h2>
-                  <p className="listing-location">
-                    {property.city} · {property.county ?? 'Florida'} County, {property.zip}
-                  </p>
-                  <p className="listing-facts">
-                    {property.beds ?? '—'} bd <span>·</span> {property.bathsTotal ?? '—'} ba{' '}
-                    <span>·</span> {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft{' '}
-                    <span>·</span> {property.yearBuilt ?? 'Year unknown'}
-                  </p>
-                  <div className="property-actions">
-                    <button
-                      aria-label={`${saved ? 'Remove' : 'Save'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''} ${saved ? 'from saved homes' : 'to saved homes'}`}
-                      aria-pressed={saved}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void mutateProperty(property.id, 'favorite', !saved);
-                      }}
-                      type="button"
-                    >
-                      {saved ? 'Saved' : 'Save'}
-                    </button>
-                    <button
-                      aria-pressed={compare.ids.includes(property.id)}
-                      className="secondary-button"
-                      aria-label={`${compare.ids.includes(property.id) ? 'Remove' : 'Compare'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}${compare.ids.includes(property.id) ? ' from Compare' : ''}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleCompare(property.id);
-                      }}
-                      type="button"
-                    >
-                      {compare.ids.includes(property.id) ? 'In Compare' : 'Compare'}
-                    </button>
-                    <button
-                      aria-label={`${dismissed ? 'Undo dismissal for' : 'Dismiss'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}`}
-                      className="secondary-button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void mutateProperty(property.id, 'dismissal', !dismissed);
-                      }}
-                      type="button"
-                    >
-                      {dismissed ? 'Undo dismissal' : 'Dismiss'}
-                    </button>
-                  </div>
-                  <div className="listing-card-footer">
-                    <span>
-                      {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
-                    </span>
-                    {stale(listing.providerLastSeenDate) && (
-                      <span className="stale-tag">Stale</span>
-                    )}
-                  </div>
-                </article>
-              ))}
+                    <div className="listing-card-footer">
+                      <span>
+                        {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
+                      </span>
+                      {stale(listing.providerLastSeenDate) && (
+                        <span className="stale-tag">Stale</span>
+                      )}
+                    </div>
+                  </article>
+                ),
+              )}
             </div>
             <div className="results-map-column">
               {boundaries ? (
@@ -3787,6 +4012,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
         {page.path === '/settings' ? (
           <div className="settings-panels">
             <AssumptionsPanel />
+            <ComparableRentRulesPanel />
             <RequestBudgetPanel />
             <ProviderCredentialsPanel />
             <SavedSearchPanel />

@@ -209,7 +209,9 @@ test('the fixed mobile tab bar never covers the end of a page', async ({ page })
     ['/settings', 'Backup and restore'],
   ]) {
     await open(page, path, ready);
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.evaluate(() =>
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }),
+    );
     const { footerBottom, navTop } = await page.evaluate(() => ({
       footerBottom: document.querySelector('.site-footer')!.getBoundingClientRect().bottom,
       navTop: document.querySelector('.mobile-nav')!.getBoundingClientRect().top,

@@ -957,6 +957,47 @@
         "rent": 5600,
         "lastSeen": "2026-09-30"
       }
+    ],
+    "nmi-1460-ne-135th-st": [
+      {
+        "address": "13510 NE 11th Ave",
+        "beds": 3,
+        "sqft": 1320,
+        "distanceMi": 0.3,
+        "rent": 3000,
+        "lastSeen": "2026-10-05"
+      },
+      {
+        "address": "14120 NE 14th Ave",
+        "beds": 3,
+        "sqft": 1480,
+        "distanceMi": 0.6,
+        "rent": 3200,
+        "lastSeen": "2026-10-06"
+      }
+    ],
+    "mir-3418-sw-129th-ter": [
+      { "address": "13820 SW 27th St", "beds": 3, "sqft": 1600, "distanceMi": 0.4, "rent": 3400, "lastSeen": "2026-10-05" },
+      { "address": "12950 SW 34th Ct", "beds": 3, "sqft": 1740, "distanceMi": 0.7, "rent": 3600, "lastSeen": "2026-10-06" },
+      { "address": "13610 SW 131st Ave", "beds": 3, "sqft": 1820, "distanceMi": 0.9, "rent": 3900, "lastSeen": "2026-10-07" }
+    ],
+    "brk-1245-brickell-bay-dr-1408": [
+      { "address": "101 Fictional Brickell Ave", "beds": 1, "sqft": 740, "distanceMi": 0.1, "rent": 2900, "lastSeen": "2026-10-05" },
+      { "address": "202 Sample Bay Dr", "beds": 1, "sqft": 790, "distanceMi": 0.2, "rent": 3000, "lastSeen": "2026-10-06" },
+      { "address": "303 Fictional Miami Ave", "beds": 1, "sqft": 820, "distanceMi": 0.2, "rent": 3200, "lastSeen": "2026-10-07" },
+      { "address": "404 Sample Brickell Way", "beds": 1, "sqft": 850, "distanceMi": 0.3, "rent": 3300, "lastSeen": "2026-10-07" }
+    ],
+    "mia-3250-ne-2nd-ave-507": [
+      { "address": "100 Fictional NE 3rd Ave", "beds": 2, "sqft": 2400, "distanceMi": 0.2, "rent": 3100, "lastSeen": "2026-10-05" },
+      { "address": "200 Sample NE 4th Ave", "beds": 2, "sqft": 2850, "distanceMi": 0.3, "rent": 3300, "lastSeen": "2026-10-06" },
+      { "address": "300 Fictional NE 5th Ave", "beds": 2, "sqft": 3000, "distanceMi": 0.4, "rent": 3500, "lastSeen": "2026-10-07" }
+    ],
+    "hol-2801-n-ocean-dr-9b": [
+      { "address": "100 Fictional Ocean Dr", "beds": 2, "sqft": 1020, "distanceMi": 0.2, "rent": 2700, "lastSeen": "2026-10-05" },
+      { "address": "200 Sample Beach Blvd", "beds": 2, "sqft": 1060, "distanceMi": 0.3, "rent": 2800, "lastSeen": "2026-10-06" },
+      { "address": "300 Fictional Surf Rd", "beds": 2, "sqft": 1100, "distanceMi": 0.4, "rent": 2900, "lastSeen": "2026-10-06" },
+      { "address": "400 Sample Palm Ave", "beds": 2, "sqft": 1150, "distanceMi": 0.4, "rent": 3000, "lastSeen": "2026-10-07" },
+      { "address": "500 Fictional Ocean Way", "beds": 2, "sqft": 1200, "distanceMi": 0.5, "rent": 3100, "lastSeen": "2026-10-07" }
     ]
   },
   "compareShortlist": [

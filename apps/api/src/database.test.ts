@@ -46,12 +46,13 @@ describe('local API bootstrap', () => {
       { version: 7, name: '007_assumptions.sql' },
       { version: 8, name: '008_property_cost_entries.sql' },
       { version: 9, name: '009_property_risk_details.sql' },
+      { version: 10, name: '010_comparable_rent.sql' },
     ]);
     closeDatabase(first);
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 9 },
+      { count: 10 },
     ]);
     closeDatabase(second);
   });
