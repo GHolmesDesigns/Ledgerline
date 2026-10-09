@@ -91,6 +91,51 @@ test('property detail shows facts, separate history sources, and manual verifica
         notes: [],
         saved: false,
         dismissed: false,
+        comparableRent: {
+          figure: { value: 5200 },
+          label: 'same home · listed Sep 28',
+          stale: false,
+          comps: [],
+        },
+        costEstimate: {
+          lines: [
+            {
+              key: 'principalInterest',
+              label: 'Principal and interest',
+              monthly: 4293,
+              state: 'Calc',
+              note: '$679,200 loan · 6.50% · 30 yr',
+            },
+            {
+              key: 'propertyTax',
+              label: 'Property tax',
+              monthly: 1380,
+              state: 'Calc',
+              note: 'Broward millage (sample) · set Oct 7 · from county tax collector',
+            },
+            {
+              key: 'homeowners',
+              label: 'Homeowners insurance',
+              monthly: 610,
+              state: 'Quote',
+              note: 'entered Oct 5',
+            },
+            {
+              key: 'flood',
+              label: 'Flood insurance',
+              monthly: 180,
+              state: 'Est.',
+              note: 'enter a quote',
+            },
+          ],
+          totalStatus: 'Estimate',
+          statusLabel: 'Estimate · needs flood quote',
+          totalLabel: '$7,171/mo',
+          monthlyTotal: 7171,
+          knownSubtotal: 7171,
+          upfrontCash: 169800,
+          upfrontLabel: '$169,800',
+        },
       },
     }),
   );
@@ -105,6 +150,13 @@ test('property detail shows facts, separate history sources, and manual verifica
   await expect(page.getByRole('heading', { name: 'Local snapshots' }).first()).toBeVisible();
   await expect(page.getByText('MIAMI A123')).toBeVisible();
   await expect(page.getByText('A. Agent')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Monthly cost to own' })).toBeVisible();
+  await expect(
+    page.getByText('Broward millage (sample) · set Oct 7 · from county tax collector'),
+  ).toBeVisible();
+  await expect(page.getByText('Estimate · needs flood quote')).toBeVisible();
+  await expect(page.getByText('≈ +$1,971/mo vs. comparable rent')).toBeVisible();
+  await expect(page.getByText('Upfront cash: $169,800')).toBeVisible();
   await expect(
     page.locator('.verification-list').getByRole('link', { name: 'Search this address' }).first(),
   ).toHaveAttribute('href', /google\.com\/maps\/search/);

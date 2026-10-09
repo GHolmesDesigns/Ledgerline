@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Show purchase cost lines, total certainty, own-vs-rent gaps, local-rate prompts, and property risk chips on search cards and property detail, with text labels that remain clear in grayscale (Issue 30 / C30).
 - Find comparable rent from an active rental listing on the same property or qualifying local Rent-mode listings. Persist the figure, source, comp IDs and rule set; show comp details and let the user edit matching rules locally. Lookups make no provider requests. (Issue 29 / C29).
 - Compute purchase cost lines, certainty, monthly totals or known subtotals, and upfront cash from local listing, evidence, and county/personal assumptions. Property detail API responses include the computed result; same-building HOA estimates use at least two recent unit listings. (Issue 28 / C28).
 - Record flood-zone source and date, roof year and wind mitigation, and condo association safety, assessment, recertification, reserve, and rental restriction details on each property. Property detail can edit and display these values, and JSON backups preserve them (Issue 27 / C27).

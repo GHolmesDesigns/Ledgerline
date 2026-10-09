@@ -322,6 +322,23 @@ type ComparableRent = {
     stale: boolean;
   }>;
 };
+
+type CostEstimate = {
+  lines: Array<{
+    key: string;
+    label: string;
+    monthly: number | null;
+    state: string;
+    note: string | null;
+  }>;
+  totalStatus: 'Calculated' | 'Estimate' | 'Incomplete';
+  statusLabel: string;
+  totalLabel: string;
+  monthlyTotal: number | null;
+  knownSubtotal: number;
+  upfrontCash: number;
+  upfrontLabel: string;
+};
 type AssumptionSearch = {
   id: number;
   name: string;
@@ -1135,6 +1152,8 @@ type SearchListing = {
     yearBuilt: number | null;
     latitude: number | null;
     longitude: number | null;
+    floodZone?: string | null;
+    riskDetails?: { roofYear: number | null; specialAssessment: string | null };
   };
   listing: {
     id: string;
@@ -1148,6 +1167,7 @@ type SearchListing = {
   saved?: boolean;
   dismissed?: boolean;
   comparableRent?: ComparableRent | null;
+  costEstimate?: CostEstimate | null;
 };
 
 type CountyFeature = {
@@ -1844,6 +1864,8 @@ type PropertyDetailData = {
   saved: boolean;
   dismissed: boolean;
   comparableRent?: ComparableRent | null;
+  costEstimate?: CostEstimate | null;
+  costEstimates?: Array<CostEstimate & { listingId: string; price: number | null }>;
   costEntries?: Array<{
     id: number;
     kind: string;
@@ -2118,6 +2140,16 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
     );
   const { property, listings, notes } = data;
   const costEntries = data.costEntries ?? [];
+  const saleListing = listings.find((listing) => listing.mode === 'sale');
+  const costEstimate =
+    data.costEstimates?.find((estimate) => estimate.listingId === saleListing?.id) ??
+    data.costEstimate ??
+    null;
+  const rentValue = data.comparableRent?.figure.value;
+  const gap =
+    costEstimate?.monthlyTotal != null && rentValue != null
+      ? costEstimate.monthlyTotal - rentValue
+      : null;
   const missingFields = [
     ['Property type', property.propertyType],
     ['Bedrooms', property.beds],
@@ -2182,6 +2214,56 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       {compareMessage && <p role="status">{compareMessage}</p>}
       <section aria-labelledby="property-costs-heading" className="property-detail-section">
         <h3 id="property-costs-heading">Cost records and verification</h3>
+        {costEstimate ? (
+          <>
+            <h4>Monthly cost to own</h4>
+            <ul className="cost-breakdown" aria-label="Monthly cost breakdown">
+              {costEstimate.lines.map((line) => (
+                <li key={line.key}>
+                  <span>{line.label}</span>
+                  <span>
+                    {line.monthly == null
+                      ? 'Unknown'
+                      : `$${Math.round(line.monthly).toLocaleString()}/mo`}{' '}
+                    <span className="line-state-tag">{line.state}</span>
+                    {line.note ? ` · ${line.note}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="cost-total">
+              <strong>{costEstimate.totalLabel}</strong>{' '}
+              <span className="total-status-tag">{costEstimate.statusLabel}</span>
+            </p>
+            {gap == null ? (
+              <p className="cost-gap-muted">
+                No own-vs-rent gap ·{' '}
+                {costEstimate.totalStatus === 'Incomplete'
+                  ? 'total incomplete'
+                  : data.comparableRent?.figure.value == null
+                    ? 'rent unavailable'
+                    : 'rent unavailable'}
+              </p>
+            ) : (
+              <p className="cost-gap">
+                {costEstimate.totalStatus === 'Estimate' ? '≈ ' : ''}
+                {gap >= 0 ? '+' : '−'}${Math.abs(Math.round(gap)).toLocaleString()}/mo vs.
+                comparable rent
+              </p>
+            )}
+            <p>Upfront cash: {costEstimate.upfrontLabel}</p>
+            {costEstimate.lines.some(
+              (line) => line.state === 'Unknown' && line.note === 'Local rates not set',
+            ) && (
+              <p className="local-rates-prompt">
+                <a href="/settings">Set local rates for {property.county} County</a>
+              </p>
+            )}
+          </>
+        ) : (
+          <p>No purchase listing is available for a cost estimate.</p>
+        )}
+        <h4>Verification checklist</h4>
         <ul aria-label="Cost verification checklist">
           {[
             [
@@ -3838,7 +3920,14 @@ function SearchScreen() {
             <div className="listing-grid" aria-label="Search results" role="group">
               {items.map(
                 (
-                  { property, listing, saved = false, dismissed = false, comparableRent },
+                  {
+                    property,
+                    listing,
+                    saved = false,
+                    dismissed = false,
+                    comparableRent,
+                    costEstimate,
+                  },
                   index,
                 ) => (
                   <article
@@ -3895,6 +3984,48 @@ function SearchScreen() {
                         {comparableRent.stale ? ' · Stale' : ''}
                       </p>
                     )}
+                    {listing.mode === 'sale' && costEstimate && (
+                      <div className="listing-cost-summary" aria-label="Monthly cost to own">
+                        <p>
+                          <strong>Est. monthly to own</strong> {costEstimate.totalLabel}{' '}
+                          <span className="total-status-tag">{costEstimate.statusLabel}</span>
+                        </p>
+                        {costEstimate.monthlyTotal != null &&
+                        comparableRent?.figure.value != null ? (
+                          <p className="cost-gap">
+                            {costEstimate.totalStatus === 'Estimate' ? '≈ ' : ''}
+                            {costEstimate.monthlyTotal >= comparableRent.figure.value ? '+' : '−'}$
+                            {Math.abs(
+                              Math.round(costEstimate.monthlyTotal - comparableRent.figure.value),
+                            ).toLocaleString()}
+                            /mo
+                          </p>
+                        ) : (
+                          <p className="cost-gap-muted">
+                            No own-vs-rent gap ·{' '}
+                            {costEstimate.totalStatus === 'Incomplete'
+                              ? 'total incomplete'
+                              : 'rent unavailable'}
+                          </p>
+                        )}
+                        {costEstimate.lines.some(
+                          (line) => line.state === 'Unknown' && line.note === 'Local rates not set',
+                        ) && (
+                          <a className="local-rates-prompt" href="/settings">
+                            Set local rates for {property.county} County
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    <div className="property-risk-chips" aria-label="Property risks" role="group">
+                      {property.floodZone && <span>Flood zone {property.floodZone}</span>}
+                      {property.riskDetails?.roofYear && (
+                        <span>Roof {property.riskDetails.roofYear}</span>
+                      )}
+                      {property.riskDetails?.specialAssessment && (
+                        <span>Special assessment · {property.riskDetails.specialAssessment}</span>
+                      )}
+                    </div>
                     <div className="property-actions">
                       <button
                         aria-label={`${saved ? 'Remove' : 'Save'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''} ${saved ? 'from saved homes' : 'to saved homes'}`}
@@ -3968,6 +4099,11 @@ function SearchScreen() {
       <p className="search-disclaimer">
         Results come from the local database. Filtering and sorting never contact a listing
         provider.
+      </p>
+      <p className="cost-assumptions-footer">
+        Monthly costs use your personal assumptions (20% down, 6.50% 30-yr fixed, maintenance 1%/yr)
+        and each county&apos;s local rates. Local rates shown are sample placeholders. Photos are
+        ones you upload; the listing provider supplies none.
       </p>
     </section>
   );
