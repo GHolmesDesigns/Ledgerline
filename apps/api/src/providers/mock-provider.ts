@@ -47,6 +47,17 @@ interface SampleProperty {
 interface SampleData {
   asOf: string;
   properties: SampleProperty[];
+  rentComps?: Record<
+    string,
+    Array<{
+      address: string;
+      beds: number;
+      sqft: number;
+      distanceMi: number;
+      rent: number;
+      lastSeen: string;
+    }>
+  >;
   savedSearches: Array<{
     area: string;
     buy: { requestsPerRefresh: number };
@@ -69,6 +80,17 @@ const fixturePath = fileURLToPath(
   new URL('../../../../fixtures/sample-data.json', import.meta.url),
 );
 const sampleData = JSON.parse(readFileSync(fixturePath, 'utf8')) as SampleData;
+
+// Approximate points for fictional fixtures, used only to exercise local-distance rules.
+const sampleCoordinates: Record<string, [number, number]> = {
+  '33308': [26.19, -80.115],
+  '33027': [25.981, -80.365],
+  '33131': [25.76, -80.19],
+  '33137': [25.81, -80.19],
+  '33161': [25.904, -80.178],
+  '33432': [26.35, -80.083],
+  '33019': [26.02, -80.115],
+};
 
 /** Adds the fictional saved-search examples once when the mock dataset is imported. */
 export function seedMockSavedSearches(store: Store) {
@@ -169,6 +191,8 @@ function toProviderListing(
     unit: property.unit,
     city: property.city,
     zip: property.zip,
+    latitude: sampleCoordinates[property.zip]?.[0] ?? null,
+    longitude: sampleCoordinates[property.zip]?.[1] ?? null,
     county: property.county,
     propertyType: property.type,
     floodZone: property.floodZone ?? null,
@@ -263,6 +287,41 @@ function records(): ProviderListing[] {
       toProviderListing(property, listing, `${property.id}:${listing.mode}`, { property, listing }),
     ),
   );
+
+  for (const [subjectId, comps] of Object.entries(sampleData.rentComps ?? {})) {
+    const subject = sampleData.properties.find((property) => property.id === subjectId);
+    const [latitude, longitude] = sampleCoordinates[subject?.zip ?? ''] ?? [null, null];
+    if (!subject || latitude === null || longitude === null) continue;
+    for (const [index, comp] of comps.entries()) {
+      const compLongitude =
+        longitude - comp.distanceMi / (69 * Math.cos((latitude * Math.PI) / 180));
+      results.push({
+        sourceId: `sample-rent-comp:${subjectId}:${index + 1}`,
+        property: {
+          street: comp.address,
+          city: subject.city,
+          zip: subject.zip,
+          county: subject.county,
+          latitude,
+          longitude: compLongitude,
+          propertyType: subject.type,
+          beds: comp.beds,
+          livingAreaSqft: comp.sqft,
+          sample: true,
+        },
+        listing: {
+          mode: 'rent',
+          price: comp.rent,
+          pricePeriod: 'month',
+          status: 'active',
+          providerListedDate: comp.lastSeen,
+          providerLastSeenDate: comp.lastSeen,
+          sample: true,
+        },
+        rawPayload: { sampleComparableFor: subjectId, comp },
+      });
+    }
+  }
 
   const incoming = sampleData.matchReview.incoming;
   const bayProperty: SampleProperty = {

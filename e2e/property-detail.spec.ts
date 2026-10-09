@@ -233,3 +233,56 @@ test('property risk details display, edit, and survive a JSON backup restore', a
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('comparable rent uses same-home priority, shows stored comps, and saves minimum-comp rules', async ({
+  page,
+}) => {
+  const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-rent-comps-'));
+  let api: Api | undefined;
+  try {
+    const databasePath = join(root, 'ledgerline.sqlite');
+    seedDatabase(databasePath);
+    api = await startApi(databasePath);
+    const budgetBefore = (await (await fetch(api.url('/api/request-budget'))).json()) as {
+      used: number;
+    };
+    const listingResponse = await fetch(api.url('/api/listings?mode=sale'));
+    const listings = (await listingResponse.json()) as {
+      items: Array<{ property: { id: string; street: string; city: string } }>;
+    };
+    const fortLauderdale = listings.items.find(
+      ({ property }) => property.street === '2207 NE 32nd Ct',
+    )!;
+    const northMiami = listings.items.find(
+      ({ property }) => property.street === '1460 NE 135th St',
+    )!;
+    await routeApiTo(page, () => api!);
+
+    await page.goto('/');
+    await expect(
+      page.locator('.listing-card').filter({ hasText: '2207 NE 32nd Ct' }),
+    ).toContainText('$5,200/mo · same home · listed Sep 28');
+    await page.goto(`/property/${fortLauderdale.property.id}`);
+    await expect(page.getByText('$5,200/mo · same home · listed Sep 28')).toBeVisible();
+    await expect(page.getByText('Local comps (4)')).toBeVisible();
+    await expect(page.getByText('Median: $5,225/mo · 4 comps')).toBeVisible();
+
+    await page.goto(`/property/${northMiami.property.id}`);
+    await expect(page.getByText('Unavailable · only 2 local comps')).toBeVisible();
+    await page.goto('/settings');
+    await page.getByLabel('Minimum comps').fill('2');
+    await page.getByRole('button', { name: 'Save comparable-rent rules' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+    await page.goto(`/property/${northMiami.property.id}`);
+    await expect(
+      page.getByText('$3,100/mo · 2 local comps · median · within 0.6 mi'),
+    ).toBeVisible();
+    const budgetAfter = (await (await fetch(api.url('/api/request-budget'))).json()) as {
+      used: number;
+    };
+    expect(budgetAfter.used).toBe(budgetBefore.used);
+  } finally {
+    await api?.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});

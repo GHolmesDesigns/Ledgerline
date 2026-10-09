@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { closeDatabase, openDatabase, persistDatabase } from '../database.js';
 import { createStore, type Store } from '../store.js';
+import { findComparableRent } from '../comparable-rent.js';
 import { importProviderListings } from './import-listings.js';
 import { normalizeAddress } from './normalize-address.js';
 import { MockListingProvider, seedMockSavedSearches } from './mock-provider.js';
@@ -244,7 +245,70 @@ describe('mock provider import', () => {
       ['sale', 849000],
     ]);
     assert.ok(listings.every((listing) => listing.sample));
-    assert.equal(store.listProperties().filter((entry) => entry.zip === '33308').length, 1);
+    assert.equal(store.listProperties().filter((entry) => entry.zip === '33308').length, 5);
+  });
+
+  it('computes the sample same-home rent and exposes its four stored local comps', async () => {
+    await importProviderListings(new MockListingProvider(), store);
+    seedMockSavedSearches(store);
+    const property = store.findPropertyByAddress({
+      street: '2207 NE 32nd Ct',
+      city: 'Fort Lauderdale',
+      zip: '33308',
+    });
+    assert.ok(property);
+    const result = findComparableRent(store, property.id, store.getComparableRentRules());
+    assert.ok(result);
+    assert.equal(result.figure.value, 5200);
+    assert.equal(result.label, 'same home · listed Sep 28');
+    assert.equal(result.comps.length, 4);
+    assert.equal(result.compsMedian, 5225);
+    assert.equal(store.listProviderRequestLogs().length, 0);
+  });
+
+  it('shows North Miami as unavailable with two local comps, then uses them when minimum is two', async () => {
+    await importProviderListings(new MockListingProvider(), store);
+    const property = store.findPropertyByAddress({
+      street: '1460 NE 135th St',
+      city: 'North Miami',
+      zip: '33161',
+    });
+    assert.ok(property);
+    const unavailable = findComparableRent(store, property.id, store.getComparableRentRules());
+    assert.ok(unavailable);
+    assert.equal(unavailable.label, 'Unavailable · only 2 local comps');
+    const allowed = findComparableRent(store, property.id, {
+      ...store.getComparableRentRules(),
+      minComps: 2,
+    });
+    assert.ok(allowed);
+    assert.equal(allowed.figure.value, 3100);
+    assert.equal(allowed.figure.compCount, 2);
+  });
+
+  it('computes the documented comparable-rent scenarios for the seven fictional purchase homes', async () => {
+    await importProviderListings(new MockListingProvider(), store);
+    seedMockSavedSearches(store);
+    const expected = [
+      ['2207 NE 32nd Ct', 5200, 'same_home', 4, 'same home · listed Sep 28'],
+      ['3418 SW 129th Ter', 3600, 'local_comps', 3, '3 local comps · median · within 0.9 mi'],
+      ['1245 Brickell Bay Dr', 3100, 'local_comps', 4, '4 local comps · median · within 0.3 mi'],
+      ['3250 NE 2nd Ave', 3300, 'local_comps', 3, '3 local comps · median · within 0.4 mi'],
+      ['1460 NE 135th St', null, 'unavailable', 2, 'Unavailable · only 2 local comps'],
+      ['618 NE 7th St', null, 'unavailable', 0, 'Unavailable · no Rent search covers this area'],
+      ['2801 N Ocean Dr', 2900, 'local_comps', 5, '5 local comps · median · within 0.5 mi'],
+    ] as const;
+    for (const [street, value, source, compCount, label] of expected) {
+      const property = store.listProperties().find((item) => item.street === street);
+      assert.ok(property, `expected sample property ${street}`);
+      const result = findComparableRent(store, property.id, store.getComparableRentRules());
+      assert.ok(result);
+      assert.equal(result.figure.value, value, street);
+      assert.equal(result.figure.source, source, street);
+      assert.equal(result.comps.length, compCount, street);
+      assert.equal(result.label, label, street);
+    }
+    assert.equal(store.listProviderRequestLogs().length, 0);
   });
 
   it('is idempotent for properties and listings while recording one snapshot per run', async () => {

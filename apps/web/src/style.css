@@ -544,6 +544,19 @@ h1 {
   font: inherit;
   font-weight: 400;
 }
+.assumption-field input[type='checkbox'] {
+  align-self: start;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  margin: 24px 0;
+}
+.assumption-checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 92px;
+}
 .assumption-input-wrap {
   display: flex;
   align-items: center;
@@ -639,9 +652,56 @@ h1 {
   box-sizing: border-box;
   min-height: 44px;
 }
+.property-detail-section summary,
+.property-detail-section a {
+  min-height: 44px;
+}
+.property-detail-section summary {
+  display: flex;
+  align-items: center;
+}
+.property-detail-section a {
+  display: inline-flex;
+  align-items: center;
+}
 .property-detail-section h3 {
   margin: 0;
   font: 600 1.2rem var(--font-display);
+}
+.comparable-rent-value,
+.listing-comparable-rent {
+  margin: 0;
+  color: var(--color-ink-soft);
+  line-height: 1.5;
+}
+.comparable-rent-value {
+  font-weight: 600;
+}
+.comparable-rent-comps .table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: white;
+}
+.comparable-rent-comps table {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+  text-align: left;
+}
+.comparable-rent-comps caption {
+  padding: 10px;
+  color: var(--color-muted);
+  text-align: left;
+}
+.comparable-rent-comps th,
+.comparable-rent-comps td {
+  padding: 10px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.comparable-rent-comps thead th {
+  background: #f6f8f9;
 }
 .risk-detail-card {
   padding: 18px;
