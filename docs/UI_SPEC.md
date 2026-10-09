@@ -31,7 +31,11 @@ Takes the weakest line:
 - **Calculated** — every line is Listing, Calc, Quote, Doc, or N/A.
 - **Estimate · needs [up to two items] +n** — any Est. line. Name up to two items; count every other Est. line as "+n". Examples: "Estimate · needs flood quote" (1 line); "Estimate · needs insurance quote, assessments not checked +1" (3 lines); "Estimate · needs HO-6 quote, flood quote +2" (4 lines).
   - Named in the plan's order: HOA confirmation (same-building median) → insurance or HO-6 quote → flood quote (A or V zone, or zone unknown) → assessments not checked (association exists) → flood quote (other zones) → CDD not checked → HOA not confirmed (single-family) → assessments not checked (no known association).
-- **Incomplete · [what's missing]** — any Unknown line. Shows the known subtotal as "at least $X". Never shows an own-vs-rent gap. Never gets "Lowest".
+- **Incomplete · [what's missing]** — any Unknown line. Shows the known subtotal as "at least $X". Never shows an own-vs-rent gap. Never gets "Lowest". Use these reasons, in plan order, and separate multiple reasons with a comma and a space:
+  1. Pending or approved special assessment with no amount: "special assessment amount unknown".
+  2. Known CDD with no amount: "CDD amount unknown".
+  3. Condo, co-op, or townhome with no listing fee or same-building median: "HOA fee unknown".
+  4. County without local rates: "no [county] rates". Show this once even if several lines are Unknown because of the missing county rates.
 
 **Incomplete happens only for four triggers:** an assessment pending or approved with no amount; a known CDD with no amount; a condo, co-op, or townhome with no HOA fee from the listing or same-building data; a county without local rates.
 
