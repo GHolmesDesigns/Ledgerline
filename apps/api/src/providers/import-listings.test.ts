@@ -90,7 +90,9 @@ describe('mock provider import', () => {
     });
     const note = store.addNote(existing.id, 'Check the building documents');
     await importProviderListings(new MockListingProvider(), store);
-    const [review] = store.listPendingMatchReviews();
+    const review = store
+      .listPendingMatchReviews()
+      .find((entry) => entry.candidatePropertyId === existing.id);
     assert.ok(review);
     assert.equal(review.reason, 'same street address; unit missing on existing record');
     assert.equal(review.candidatePropertyId, existing.id);
@@ -116,7 +118,9 @@ describe('mock provider import', () => {
     });
     store.addNote(existing.id, 'Keep this note');
     await importProviderListings(new MockListingProvider(), store);
-    const [review] = store.listPendingMatchReviews();
+    const review = store
+      .listPendingMatchReviews()
+      .find((entry) => entry.candidatePropertyId === existing.id);
     assert.ok(review);
     store.decideMatchReview(review.id, 'link');
     assert.equal(store.listListings(existing.id).length, 1);
@@ -124,7 +128,11 @@ describe('mock provider import', () => {
     store.undoMatchReview(review.id);
     assert.equal(store.listListings(existing.id).length, 0);
     assert.equal(store.listNotes(existing.id)[0]?.body, 'Keep this note');
-    assert.equal(store.listPendingMatchReviews().length, 1);
+    assert.equal(
+      store.listPendingMatchReviews().filter((entry) => entry.candidatePropertyId === existing.id)
+        .length,
+      1,
+    );
   });
 
   it('keeps the incoming unit separate and Undo removes the property it created', async () => {
@@ -136,7 +144,9 @@ describe('mock provider import', () => {
     });
     store.addNote(existing.id, 'Keep this note');
     await importProviderListings(new MockListingProvider(), store);
-    const [review] = store.listPendingMatchReviews();
+    const review = store
+      .listPendingMatchReviews()
+      .find((entry) => entry.candidatePropertyId === existing.id);
     assert.ok(review);
     const decided = store.decideMatchReview(review.id, 'keep_separate');
     assert.ok(decided.createdPropertyId);
@@ -145,7 +155,11 @@ describe('mock provider import', () => {
     store.undoMatchReview(review.id);
     assert.equal(store.getProperty(decided.createdPropertyId!), null);
     assert.equal(store.listNotes(existing.id)[0]?.body, 'Keep this note');
-    assert.equal(store.listPendingMatchReviews().length, 1);
+    assert.equal(
+      store.listPendingMatchReviews().filter((entry) => entry.candidatePropertyId === existing.id)
+        .length,
+      1,
+    );
   });
 
   it('imports an exact address-and-unit match without adding a review', async () => {
@@ -157,7 +171,11 @@ describe('mock provider import', () => {
       sample: true,
     });
     await importProviderListings(new MockListingProvider(), store);
-    assert.equal(store.listPendingMatchReviews().length, 0);
+    assert.equal(
+      store.listPendingMatchReviews().filter((entry) => entry.candidatePropertyId === property.id)
+        .length,
+      0,
+    );
     assert.equal(store.listListings(property.id).length, 1);
   });
 
@@ -238,10 +256,82 @@ describe('mock provider import', () => {
     assert.equal(store.listProperties().length, first.properties);
     const properties = store.listProperties();
     const listings = properties.flatMap((property) => store.listListings(property.id));
-    assert.equal(listings.length, first.listings);
+    assert.equal(listings.length, first.snapshots);
     assert.ok(listings.every((listing) => listing.sample));
     assert.ok(listings.every((listing) => store.listSnapshots(listing.id).length === 2));
     assert.ok(listings.every((listing) => store.listRawPayloads(listing.id).length === 2));
+  });
+
+  it('serves and imports the synthetic RentCast shaped Miami-Dade and Broward fixture listings', async () => {
+    const provider = new MockListingProvider();
+    const firstPage = await provider.search({}, 1);
+    const synthetic = firstPage.filter((record) =>
+      record.sourceId.startsWith('rentcast-synthetic:'),
+    );
+    assert.equal(synthetic.length, 33);
+    assert.ok(synthetic.some((record) => record.sourceId.endsWith('md-dual-sale')));
+    assert.ok(synthetic.some((record) => record.sourceId.endsWith('br-older-condo-sale')));
+    assert.ok(synthetic.every((record) => record.property.sample && record.listing.sample));
+
+    const imported = await importProviderListings(provider, store);
+    assert.ok(imported.listings >= synthetic.length);
+    const dualHome = store.findPropertyByAddress({
+      street: '101 Fictional Bay Way',
+      city: 'Miami',
+      zip: '00000',
+    });
+    assert.ok(dualHome);
+    assert.deepEqual(
+      store
+        .listListings(dualHome.id)
+        .map(({ mode }) => mode)
+        .sort(),
+      ['rent', 'sale'],
+    );
+    const highrise = synthetic.find((record) => record.sourceId.endsWith('md-highrise-sale'));
+    assert.ok(highrise);
+    const highriseProperty = store.findPropertyByAddress({
+      street: highrise.property.street,
+      unit: highrise.property.unit,
+      city: highrise.property.city,
+      zip: highrise.property.zip,
+    });
+    assert.ok(highriseProperty);
+    const [highriseListing] = store.listListings(highriseProperty.id);
+    assert.equal(highriseListing.hoaFee, 1180);
+    assert.equal(highriseListing.providerHistory.length, 4);
+    assert.deepEqual(store.listRawPayloads(highriseListing.id)[0]?.payload, {
+      id: 'md-highrise-sale',
+      formattedAddress: '2200 Imaginary Ocean Drive, Unit 1804, Miami Beach, FL 00000',
+      addressLine1: '2200 Imaginary Ocean Drive',
+      addressLine2: 'Unit 1804',
+      city: 'Miami Beach',
+      state: 'FL',
+      zipCode: '00000',
+      county: 'Miami-Dade',
+      latitude: null,
+      longitude: null,
+      propertyType: 'Condo',
+      bedrooms: 2,
+      bathrooms: 2.5,
+      squareFootage: 1420,
+      yearBuilt: 2008,
+      hoa: { fee: 1180 },
+      status: 'Active',
+      price: 785000,
+      listedDate: '2026-09-20T00:00:00.000Z',
+      lastSeenDate: '2026-10-07T12:00:00.000Z',
+      mlsName: 'SyntheticMLS',
+      mlsNumber: 'SYN-MD-002',
+      listingAgent: { name: 'Fictional Agent B', email: 'b@example.invalid' },
+      listingOffice: { name: 'Invented Realty', phone: '5550100002' },
+      history: {
+        '2026-09-10': { event: 'Sale Listing', price: 825000 },
+        '2026-09-20': { event: 'Sale Listing', price: 785000 },
+        '2026-10-01': { event: 'Status Change', status: 'Pending', price: 785000 },
+        '2026-10-04': { event: 'Status Change', status: 'Active', price: 785000 },
+      },
+    });
   });
 
   it('declares that the mock provider supplies no photos or source URLs', () => {

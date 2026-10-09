@@ -91,14 +91,58 @@ export const mockProviderCapabilities: ProviderCapabilities = {
   sourceUrl: false,
   waterfront: false,
   bathSplit: false,
-  history: false,
-  hoaFee: false,
+  history: true,
+  hoaFee: true,
   rentEstimates: false,
 };
+
+interface SyntheticRentCastListing {
+  id: string;
+  addressLine1: string;
+  addressLine2?: string | null;
+  city: string;
+  zipCode: string;
+  county: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  propertyType: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFootage?: number;
+  lotSize?: number;
+  yearBuilt?: number;
+  hoa?: { fee?: number | null };
+  status: string;
+  price: number;
+  listedDate?: string;
+  removedDate?: string;
+  lastSeenDate?: string;
+  mlsName?: string;
+  mlsNumber?: string;
+  listingAgent?: { name?: string; phone?: string; email?: string };
+  listingOffice?: { name?: string; phone?: string; email?: string };
+  history?: Record<string, { price?: number; status?: string }>;
+}
+
+interface SyntheticRentCastFixtures {
+  sale: SyntheticRentCastListing[];
+  rental: SyntheticRentCastListing[];
+}
+
+const rentCastFixturePath = fileURLToPath(
+  new URL('../../../../fixtures/rentcast-synthetic-listings.json', import.meta.url),
+);
+const syntheticFixtures = JSON.parse(
+  readFileSync(rentCastFixturePath, 'utf8'),
+) as SyntheticRentCastFixtures;
 
 function splitBaths(baths: number) {
   const full = Math.floor(baths);
   return { bathsTotal: baths, bathsFull: full, bathsHalf: Math.round((baths - full) * 2) };
+}
+
+function normalizeSyntheticUnit(value: string | null | undefined) {
+  return value?.replace(/^(?:unit|apt\.?|apartment|#)\s*#?\s*/i, '').trim() || null;
 }
 
 function toProviderListing(
@@ -168,6 +212,71 @@ function records(): ProviderListing[] {
       { property: bayProperty, matchReview: sampleData.matchReview },
     ),
   );
+
+  for (const [mode, listings] of [
+    ['sale', syntheticFixtures.sale],
+    ['rent', syntheticFixtures.rental],
+  ] as const) {
+    for (const record of listings) {
+      const propertyType =
+        record.propertyType === 'Single Family'
+          ? 'single_family'
+          : record.propertyType === 'Condo'
+            ? 'condo'
+            : record.propertyType === 'Townhouse'
+              ? 'townhome'
+              : 'other';
+      const history = Object.entries(record.history ?? {}).map(([date, change]) => ({
+        date,
+        price: change.price ?? null,
+        status: change.status ?? null,
+      }));
+      const hasUnknownType = propertyType === 'other';
+      results.push({
+        sourceId: `rentcast-synthetic:${record.id}`,
+        property: {
+          street: record.addressLine1,
+          unit: normalizeSyntheticUnit(record.addressLine2),
+          city: record.city,
+          zip: record.zipCode,
+          county: record.county,
+          latitude: record.latitude ?? null,
+          longitude: record.longitude ?? null,
+          propertyType,
+          beds: record.bedrooms ?? null,
+          ...((record.bathrooms ?? null) === null
+            ? { bathsTotal: null, bathsFull: null, bathsHalf: null }
+            : splitBaths(record.bathrooms!)),
+          livingAreaSqft: record.squareFootage ?? null,
+          lotSizeSqft: record.lotSize ?? null,
+          yearBuilt: record.yearBuilt ?? null,
+          sample: true,
+        },
+        listing: {
+          mode,
+          price: record.price,
+          pricePeriod: mode === 'sale' ? 'total' : 'month',
+          status: record.status.toLocaleLowerCase('en-US'),
+          hoaFee: record.hoa?.fee ?? null,
+          mlsName: record.mlsName ?? null,
+          mlsNumber: record.mlsNumber ?? null,
+          agentName: record.listingAgent?.name ?? null,
+          agentPhone: record.listingAgent?.phone ?? null,
+          agentEmail: record.listingAgent?.email ?? null,
+          officeName: record.listingOffice?.name ?? null,
+          officePhone: record.listingOffice?.phone ?? null,
+          officeEmail: record.listingOffice?.email ?? null,
+          providerListedDate: record.listedDate ?? null,
+          providerRemovedDate: record.removedDate ?? null,
+          providerLastSeenDate: record.lastSeenDate ?? null,
+          providerHistory: history,
+          fieldQuality: hasUnknownType ? { propertyType: 'unknown provider value' } : {},
+          sample: true,
+        },
+        rawPayload: record,
+      });
+    }
+  }
   return results;
 }
 

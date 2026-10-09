@@ -20,7 +20,7 @@ const freePort = () =>
     });
   });
 
-/** The sample listings and saved searches, plus one pending property match review. */
+/** The sample listings and saved searches, including synthetic match-review cases. */
 export function seedDatabase(databasePath: string) {
   execFileSync(process.execPath, [...tsx, 'apps/api/scripts/seed-e2e.ts'], {
     cwd: repoRoot,

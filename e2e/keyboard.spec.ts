@@ -119,9 +119,9 @@ test('keyboard only: search, save, compare, note, match review, and export', asy
       .getByRole('link', { name: 'Ranking & data' }),
   );
   await expect(page).toHaveURL(/\/settings$/);
-  await expect(page.getByText('1 pending')).toBeVisible();
-  await pressWithKeyboard(page, page.getByRole('button', { name: 'Link to existing' }));
-  await expect(page.getByText('No property matches need review.')).toBeVisible();
+  await expect(page.getByText('4 pending')).toBeVisible();
+  await pressWithKeyboard(page, page.getByRole('button', { name: 'Link to existing' }).first());
+  await expect(page.getByText('3 pending')).toBeVisible();
 
   // Export.
   const downloaded = page.waitForEvent('download');

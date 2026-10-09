@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Add 33 clearly labeled synthetic Miami-Dade, Broward, and outside-market listings shaped like RentCast listing responses, with a scenario coverage map for adapter mapping tests (Issue 21 / C21).
 - Store the RentCast key in a git-ignored API-local `.env` file; Ranking & data sends it once and displays only "Key set". Credential status and errors never echo the key, provider failures redact it from request logs, and the production web build scans assets against the configured key (Issue 20 / C20).
 - Show provider request usage in the header and Ranking & data, including measured saved-search request counts, rent-estimate usage, monthly projections, and over-ceiling tier guidance (Issue 19 / C19). Reading usage stays local and does not call the provider; the header updates after refreshes.
 
