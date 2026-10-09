@@ -194,7 +194,7 @@ test('no card or page shows an empty image box with the mock provider', async ({
   for (const card of await cards.all()) {
     await expect(card.locator('.listing-price')).toContainText(/\$\d/);
     await expect(card.locator('.listing-status')).not.toBeEmpty();
-    await expect(card.getByRole('link')).not.toBeEmpty();
+    await expect(card.locator('h2 a')).not.toBeEmpty();
     await expect(card.locator('.listing-location')).toContainText(/\d{5}/);
     await expect(card.locator('.listing-facts')).toContainText('bd');
   }

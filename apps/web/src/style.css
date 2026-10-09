@@ -674,6 +674,92 @@ h1 {
   color: var(--color-ink-soft);
   line-height: 1.5;
 }
+
+.listing-cost-summary,
+.property-detail-section .cost-breakdown,
+.cost-total,
+.cost-gap,
+.cost-gap-muted,
+.property-risk-chips,
+.cost-assumptions-footer {
+  font-size: 0.875rem;
+}
+
+.listing-cost-summary {
+  border-top: 1px solid var(--line, #3b4852);
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+}
+
+.listing-cost-summary p,
+.cost-total,
+.cost-gap,
+.cost-gap-muted {
+  margin: 0.3rem 0;
+}
+
+.line-state-tag,
+.total-status-tag,
+.property-risk-chips span {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.1rem 0.45rem;
+}
+
+.cost-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cost-breakdown li {
+  align-items: baseline;
+  border-bottom: 1px solid var(--line, #3b4852);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  justify-content: space-between;
+  padding: 0.55rem 0;
+}
+
+.cost-breakdown li > span:last-child {
+  text-align: right;
+}
+
+.cost-total {
+  margin-top: 0.9rem;
+}
+
+.cost-gap {
+  font-weight: 600;
+}
+
+.cost-gap-muted {
+  color: #4b555d;
+}
+
+.local-rates-prompt {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.property-risk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+
+.cost-assumptions-footer {
+  color: #4b555d;
+  margin-top: 0.35rem;
+}
 .comparable-rent-value {
   font-weight: 600;
 }
@@ -1144,6 +1230,7 @@ h1 {
   gap: 8px;
 }
 .property-actions button:not(.text-button) {
+  height: 44px;
   min-height: 44px;
   padding: 9px 14px;
   border: 1px solid var(--color-ink);

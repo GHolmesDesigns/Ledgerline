@@ -24,6 +24,67 @@ import { normalizeAddress } from './providers/normalize-address.js';
 import { defaultComparableRentRules } from './store.js';
 import { findComparableRent } from './comparable-rent.js';
 
+function costEstimateFor(
+  store: Store,
+  property: ReturnType<Store['getProperty']>,
+  saleListing: ReturnType<Store['listListings']>[number],
+  personalAssumptions: PersonalAssumptions,
+) {
+  if (!property || saleListing.mode !== 'sale') return null;
+  const localAssumption =
+    store
+      .listLocalAssumptions()
+      .find(
+        (item) =>
+          item.county.toLocaleLowerCase('en-US') ===
+          (property.county ?? '').toLocaleLowerCase('en-US'),
+      ) ?? null;
+  let sameBuildingHoaMonthly: number | null = null;
+  if (
+    ['condo', 'co-op', 'coop', 'townhome', 'townhouse'].includes(
+      (property.propertyType ?? '').toLowerCase(),
+    )
+  ) {
+    const address = normalizeAddress(property);
+    const fees = store
+      .listProperties()
+      .flatMap((other) => {
+        if (other.id === property.id) return [];
+        const otherAddress = normalizeAddress(other);
+        if (
+          otherAddress.street !== address.street ||
+          otherAddress.city !== address.city ||
+          otherAddress.zip !== address.zip
+        )
+          return [];
+        const recent = store
+          .listListings(other.id)
+          .filter(
+            (listing) =>
+              listing.mode === 'sale' &&
+              listing.hoaFee != null &&
+              Date.parse(listing.lastFetchedAt) >= Date.now() - 365 * 24 * 60 * 60 * 1000,
+          )
+          .sort((left, right) => right.lastFetchedAt.localeCompare(left.lastFetchedAt));
+        return recent[0] ? [recent[0].hoaFee!] : [];
+      })
+      .sort((left, right) => left - right);
+    if (fees.length >= 2) {
+      const middle = Math.floor(fees.length / 2);
+      sameBuildingHoaMonthly =
+        fees.length % 2 ? fees[middle] : (fees[middle - 1] + fees[middle]) / 2;
+    }
+  }
+  return computeCostEstimate({
+    property,
+    saleListing,
+    entries: store.listCostEntries(property.id),
+    localAssumption,
+    personalAssumptions,
+    sameBuildingHoaMonthly,
+  });
+}
+
 const defaultCredentialPath = resolve(dirname(fileURLToPath(import.meta.url)), '../.env');
 
 export function createApp(
@@ -541,59 +602,8 @@ export function createApp(
         }
         personalAssumptions = store.getPersonalAssumptions(searchId) ?? defaultPersonalAssumptions;
       }
-      const localAssumption =
-        store
-          .listLocalAssumptions()
-          .find(
-            (item) =>
-              item.county.toLocaleLowerCase('en-US') ===
-              (property.county ?? '').toLocaleLowerCase('en-US'),
-          ) ?? null;
-      let sameBuildingHoaMonthly: number | null = null;
-      if (
-        ['condo', 'co-op', 'coop', 'townhome', 'townhouse'].includes(
-          (property.propertyType ?? '').toLowerCase(),
-        )
-      ) {
-        const address = normalizeAddress(property);
-        const fees = store
-          .listProperties()
-          .flatMap((other) => {
-            if (other.id === property.id) return [];
-            const otherAddress = normalizeAddress(other);
-            if (
-              otherAddress.street !== address.street ||
-              otherAddress.city !== address.city ||
-              otherAddress.zip !== address.zip
-            )
-              return [];
-            const recentListings = store
-              .listListings(other.id)
-              .filter(
-                (listing) =>
-                  listing.mode === 'sale' &&
-                  listing.hoaFee != null &&
-                  Date.parse(listing.lastFetchedAt) >= Date.now() - 365 * 24 * 60 * 60 * 1000,
-              )
-              .sort((left, right) => right.lastFetchedAt.localeCompare(left.lastFetchedAt));
-            return recentListings[0] ? [recentListings[0].hoaFee!] : [];
-          })
-          .sort((left, right) => left - right);
-        if (fees.length >= 2) {
-          const middle = Math.floor(fees.length / 2);
-          sameBuildingHoaMonthly =
-            fees.length % 2 ? fees[middle] : (fees[middle - 1] + fees[middle]) / 2;
-        }
-      }
       const costEstimates = saleListings.flatMap((saleListing) => {
-        const estimate = computeCostEstimate({
-          property,
-          saleListing,
-          entries: store.listCostEntries(propertyId),
-          localAssumption,
-          personalAssumptions,
-          sameBuildingHoaMonthly,
-        });
+        const estimate = costEstimateFor(store, property, saleListing, personalAssumptions);
         return estimate
           ? [
               {
@@ -897,6 +907,10 @@ export function createApp(
             comparableRent:
               mode === 'sale'
                 ? findComparableRent(store, item.property.id, store.getComparableRentRules())
+                : null,
+            costEstimate:
+              mode === 'sale'
+                ? costEstimateFor(store, item.property, item.listing, defaultPersonalAssumptions)
                 : null,
           })),
         );

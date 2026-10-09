@@ -469,6 +469,19 @@ describe('property detail API', () => {
       };
       assert.equal(customizedResult.costEstimate.upfrontCash, 212250);
       assert.notEqual(customizedResult.costEstimate.monthlyTotal, result.costEstimate.monthlyTotal);
+      const searchResponse = await fetch(`http://127.0.0.1:${address.port}/api/listings?mode=sale`);
+      assert.equal(searchResponse.status, 200);
+      const searchResult = (await searchResponse.json()) as {
+        items: Array<{
+          property: { id: string };
+          listing: { price: number };
+          costEstimate: { monthlyTotal: number; totalStatus: string } | null;
+        }>;
+      };
+      const searchedProperty = searchResult.items.find((item) => item.property.id === property.id);
+      assert.equal(searchedProperty?.listing.price, 800000);
+      assert.equal(searchedProperty?.costEstimate?.monthlyTotal, 6802);
+      assert.equal(searchedProperty?.costEstimate?.totalStatus, 'Estimate');
       assert.equal(
         (await fetch(`http://127.0.0.1:${address.port}/api/properties/${property.id}?searchId=999`))
           .status,

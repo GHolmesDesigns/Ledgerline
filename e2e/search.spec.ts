@@ -96,3 +96,58 @@ test('price sorting changes the query and shows full photo-free result cards', a
   await expect(page.locator('.listing-facts').first()).toContainText('3 bd');
   await expect(page.locator('.listing-facts').first()).toContainText('1,850 sq ft');
 });
+
+test('purchase cards show cost, certainty, comparable-rent gap, and risk labels in grayscale', async ({
+  page,
+}) => {
+  await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
+  await page.route('**/api/listings?**', (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            ...sale(849000, '2207 NE 32nd Ct'),
+            property: {
+              ...sale(849000, '2207 NE 32nd Ct').property,
+              floodZone: 'AE',
+              riskDetails: { roofYear: 2020, specialAssessment: null },
+            },
+            comparableRent: {
+              figure: { value: 5200 },
+              label: 'same home · listed Sep 28',
+              stale: false,
+            },
+            costEstimate: {
+              lines: [
+                {
+                  key: 'flood',
+                  label: 'Flood insurance',
+                  monthly: 180,
+                  state: 'Est.',
+                  note: 'Enter a quote',
+                },
+              ],
+              totalStatus: 'Estimate',
+              statusLabel: 'Estimate · needs flood quote',
+              totalLabel: '$7,171/mo',
+              monthlyTotal: 7171,
+              knownSubtotal: 7171,
+              upfrontCash: 169800,
+              upfrontLabel: '$169,800',
+            },
+          },
+        ],
+      },
+    }),
+  );
+
+  await page.goto('/');
+  await page.addStyleTag({ content: 'html { filter: grayscale(1) !important; }' });
+  const card = page.locator('.listing-card');
+  await expect(card.getByText('Est. monthly to own')).toBeVisible();
+  await expect(card.getByText('$7,171/mo')).toBeVisible();
+  await expect(card.getByText('Estimate · needs flood quote')).toBeVisible();
+  await expect(card.getByText('≈ +$1,971/mo')).toBeVisible();
+  await expect(card.getByText('Flood zone AE')).toBeVisible();
+  await expect(card.getByText('Roof 2020')).toBeVisible();
+});
