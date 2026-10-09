@@ -116,7 +116,7 @@ test('keyboard only: search, save, compare, note, match review, and export', asy
     page,
     page
       .getByRole('navigation', { name: 'Main navigation' })
-      .getByRole('link', { name: 'Ranking & data' }),
+      .getByRole('link', { name: 'Settings' }),
   );
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByText('4 pending')).toBeVisible();

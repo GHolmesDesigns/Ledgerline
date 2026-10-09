@@ -27,6 +27,22 @@ test.afterAll(async () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+test('axe reports no serious or critical issues with the desktop sidebar collapsed', async ({
+  page,
+}) => {
+  await routeApiTo(page, () => api);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+  expect(
+    (await seriousViolations(page)).map((violation) => ({
+      id: violation.id,
+      impact: violation.impact,
+      help: violation.help,
+    })),
+  ).toEqual([]);
+});
+
 test.beforeEach(async ({ page }) => {
   await routeApiTo(page, () => api);
 });

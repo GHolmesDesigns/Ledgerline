@@ -39,7 +39,10 @@ describe('app shell', () => {
   it('provides a skip link, keyboard focus targets, and active route navigation', () => {
     const html = renderToStaticMarkup(<App initialPath="/compare" />);
     assert.match(html, /href="#main-content"/);
-    assert.match(html, /aria-current="page" class="nav-link" href="\/compare"/);
+    assert.match(
+      html,
+      /aria-current="page" aria-label="Compare" class="sidebar-nav-link" href="\/compare"/,
+    );
     assert.match(html, /id="main-content" tabindex="-1"/);
   });
 

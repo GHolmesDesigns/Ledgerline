@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type PointerEvent, type ReactNode } from 'react';
+import packageJson from '../../../package.json';
 import {
   defaultRankingWeights,
   rankListings,
@@ -84,7 +85,7 @@ function ScoreSummary({ score, children }: { score: ListingRanking; children?: R
   );
 }
 
-type Route = { title: string; eyebrow: string; path: string };
+type Route = { title: string; eyebrow: string; path: string; icon?: string };
 
 type MatchReview = {
   id: number;
@@ -935,10 +936,12 @@ function ComparableRentRulesPanel() {
 }
 
 const routes: Route[] = [
-  { title: 'Search', eyebrow: 'Find your next place', path: '/' },
-  { title: 'Compare', eyebrow: 'Side by side', path: '/compare' },
-  { title: 'Ranking & data', eyebrow: 'Make it yours', path: '/settings' },
+  { title: 'Search', eyebrow: 'Find your next place', path: '/', icon: '⌂' },
+  { title: 'Compare', eyebrow: 'Side by side', path: '/compare', icon: '⇄' },
+  { title: 'Ranking & data', eyebrow: 'Make it yours', path: '/settings', icon: '⚙' },
 ];
+
+const appVersion = packageJson.version;
 
 function currentPage(pathname: string) {
   if (pathname === '/compare') return routes[1];
@@ -1115,18 +1118,77 @@ function BrandMark() {
 function Navigation({ pathname }: { pathname: string }) {
   const page = currentPage(pathname);
   return (
-    <nav aria-label="Main navigation" className="primary-nav">
+    <nav aria-label="Main navigation" className="sidebar-nav">
       {routes.map((route) => (
         <a
           aria-current={page.path === route.path ? 'page' : undefined}
-          className="nav-link"
+          aria-label={route.path === '/settings' ? 'Settings' : route.title}
+          className="sidebar-nav-link"
           href={route.path}
           key={route.path}
+          title={route.path === '/settings' ? 'Settings' : route.title}
         >
-          {route.title}
+          <span aria-hidden="true" className="sidebar-nav-icon">
+            {route.icon}
+          </span>
+          <span className="sidebar-nav-label">
+            {route.path === '/settings' ? 'Settings' : route.title}
+          </span>
         </a>
       ))}
     </nav>
+  );
+}
+
+function Sidebar({ pathname }: { pathname: string }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('ledgerline.sidebar-collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('ledgerline.sidebar-collapsed', String(collapsed));
+    } catch {
+      // The sidebar remains usable if browser storage is unavailable.
+    }
+  }, [collapsed]);
+
+  return (
+    <aside className={`desktop-sidebar${collapsed ? ' is-collapsed' : ''}`}>
+      <div className="sidebar-brand-row">
+        <a aria-label="Ledgerline home" className="brand" href="/">
+          <BrandMark />
+          <span className="brand-name">Ledgerline</span>
+        </a>
+        <button
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="sidebar-toggle"
+          onClick={() => setCollapsed((value) => !value)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          type="button"
+        >
+          <span aria-hidden="true">{collapsed ? '›' : '‹'}</span>
+        </button>
+      </div>
+      <Navigation pathname={pathname} />
+      <p className="sidebar-version">v{appVersion}</p>
+    </aside>
+  );
+}
+
+function AboutPanel() {
+  return (
+    <section aria-labelledby="about-heading" className="about-panel">
+      <h2 id="about-heading">About</h2>
+      <p>Ledgerline version</p>
+      <strong>v{appVersion}</strong>
+    </section>
   );
 }
 
@@ -4974,53 +5036,56 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <header className="site-header">
-        <a aria-label="Ledgerline home" className="brand" href="/">
-          <BrandMark />
-          <span className="brand-name">Ledgerline</span>
-        </a>
-        <Navigation pathname={pathname} />
-        <RequestUsageHeader />
-      </header>
+      <Sidebar pathname={pathname} />
+      <div className="app-content">
+        <header className="site-header">
+          <a aria-label="Ledgerline home" className="brand mobile-brand" href="/">
+            <BrandMark />
+            <span className="brand-name">Ledgerline</span>
+          </a>
+          <RequestUsageHeader />
+        </header>
 
-      <SampleDataNotice />
+        <SampleDataNotice />
 
-      <main className="screen-content" id="main-content" tabIndex={-1}>
-        <div className="screen-heading">
-          <p className="screen-eyebrow">{page.eyebrow}</p>
-          <h1>{page.title}</h1>
-        </div>
-        {page.path === '/settings' ? (
-          <div className="settings-panels">
-            <RankingPanel />
-            <AssumptionsPanel />
-            <ComparableRentRulesPanel />
-            <RequestBudgetPanel />
-            <ProviderCredentialsPanel />
-            <SavedSearchPanel />
-            <MatchReviewPanel />
-            <BackupPanel />
+        <main className="screen-content" id="main-content" tabIndex={-1}>
+          <div className="screen-heading">
+            <p className="screen-eyebrow">{page.eyebrow}</p>
+            <h1>{page.title}</h1>
           </div>
-        ) : page.path === '/' ? (
-          <SearchScreen />
-        ) : page.path === '/compare' ? (
-          <CompareScreen />
-        ) : page.path.startsWith('/property/') ? (
-          <PropertyDetailScreen propertyId={page.path.slice('/property/'.length)} />
-        ) : (
-          <section aria-label={`${page.title} placeholder`} className="empty-panel">
-            <span aria-hidden="true" className="empty-panel-mark">
-              <BrandMark />
-            </span>
-            <p>Screen content is coming next.</p>
-          </section>
-        )}
-      </main>
+          {page.path === '/settings' ? (
+            <div className="settings-panels">
+              <RankingPanel />
+              <AssumptionsPanel />
+              <ComparableRentRulesPanel />
+              <RequestBudgetPanel />
+              <ProviderCredentialsPanel />
+              <SavedSearchPanel />
+              <MatchReviewPanel />
+              <BackupPanel />
+              <AboutPanel />
+            </div>
+          ) : page.path === '/' ? (
+            <SearchScreen />
+          ) : page.path === '/compare' ? (
+            <CompareScreen />
+          ) : page.path.startsWith('/property/') ? (
+            <PropertyDetailScreen propertyId={page.path.slice('/property/'.length)} />
+          ) : (
+            <section aria-label={`${page.title} placeholder`} className="empty-panel">
+              <span aria-hidden="true" className="empty-panel-mark">
+                <BrandMark />
+              </span>
+              <p>Screen content is coming next.</p>
+            </section>
+          )}
+        </main>
 
-      <footer className="site-footer">
-        <span>Personal Florida home finder</span>
-        <span>Built for one person, on this computer.</span>
-      </footer>
+        <footer className="site-footer">
+          <span>Personal Florida home finder</span>
+          <span>Built for one person, on this computer.</span>
+        </footer>
+      </div>
 
       <nav aria-label="Mobile navigation" className="mobile-nav">
         {routes.map((route) => (
@@ -5029,8 +5094,9 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
             className="mobile-nav-link"
             href={route.path}
             key={route.path}
+            title={route.path === '/settings' ? 'Settings' : route.title}
           >
-            {route.title}
+            {route.path === '/settings' ? 'Settings' : route.title}
           </a>
         ))}
       </nav>
