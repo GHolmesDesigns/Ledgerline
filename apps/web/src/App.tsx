@@ -1,4 +1,12 @@
-import { useEffect, useState, type FormEvent, type PointerEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import packageJson from '../../../package.json';
 import {
   defaultRankingWeights,
@@ -10,6 +18,13 @@ import {
   type RankingMode,
   type RankingWeights,
 } from './ranking';
+import {
+  defaultSettingsSectionIds,
+  moveSettingsSection,
+  readSettingsOrder,
+  SETTINGS_ORDER_KEY,
+  type SettingsSectionId,
+} from './settingsOrder';
 
 type RankingWeightSets = Record<RankingMode, RankingWeights>;
 type RankingWeightsResponse = {
@@ -1231,9 +1246,103 @@ const settingsSections = [
   { id: 'property-match-review', title: 'Property match review', component: MatchReviewPanel },
   { id: 'backup-restore', title: 'Backup and restore', component: BackupPanel },
   { id: 'about', title: 'About', component: AboutPanel },
-] as const;
+] as const satisfies readonly {
+  id: SettingsSectionId;
+  title: string;
+  component: () => ReactNode;
+}[];
 
 function SettingsPage() {
+  const [order, setOrder] = useState<SettingsSectionId[]>(readSettingsOrder);
+  const [announcement, setAnnouncement] = useState('');
+  const keyboardDrag = useRef<{ id: SettingsSectionId; original: SettingsSectionId[] } | null>(
+    null,
+  );
+  const pointerDrag = useRef<{ id: SettingsSectionId; original: SettingsSectionId[] } | null>(null);
+
+  useEffect(() => {
+    window.localStorage.setItem(SETTINGS_ORDER_KEY, JSON.stringify(order));
+  }, [order]);
+
+  const announcePosition = (id: SettingsSectionId, current: SettingsSectionId[]) => {
+    const section = settingsSections.find((item) => item.id === id)!;
+    setAnnouncement(`${section.title}, position ${current.indexOf(id) + 1} of ${current.length}`);
+  };
+
+  const move = (id: SettingsSectionId, to: number) => {
+    setOrder((current) => {
+      const next = moveSettingsSection(current, current.indexOf(id), to);
+      if (next.some((value, index) => value !== current[index])) announcePosition(id, next);
+      return next;
+    });
+  };
+
+  const moveBy = (id: SettingsSectionId, amount: number) => {
+    const index = order.indexOf(id);
+    move(id, Math.max(0, Math.min(order.length - 1, index + amount)));
+  };
+
+  const finishKeyboardDrag = (id: SettingsSectionId) => {
+    if (!keyboardDrag.current || keyboardDrag.current.id !== id) {
+      keyboardDrag.current = { id, original: [...order] };
+      setAnnouncement(
+        `${settingsSections.find((item) => item.id === id)!.title} picked up. Use arrow keys to move, Enter or Space to drop, Escape to cancel.`,
+      );
+    } else {
+      keyboardDrag.current = null;
+      announcePosition(id, order);
+    }
+  };
+
+  const onHandleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, id: SettingsSectionId) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      finishKeyboardDrag(id);
+    } else if (event.key === 'Escape' && keyboardDrag.current?.id === id) {
+      event.preventDefault();
+      setOrder(keyboardDrag.current.original);
+      keyboardDrag.current = null;
+      setAnnouncement('Move cancelled. Original section order restored.');
+    } else if (
+      (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+      keyboardDrag.current?.id === id
+    ) {
+      event.preventDefault();
+      moveBy(id, event.key === 'ArrowUp' ? -1 : 1);
+    }
+  };
+
+  const onPointerDown = (event: PointerEvent<HTMLButtonElement>, id: SettingsSectionId) => {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    pointerDrag.current = { id, original: [...order] };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    const active = pointerDrag.current;
+    if (!active || (event.buttons === 0 && event.pointerType === 'mouse')) return;
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-settings-section]');
+    const id = target?.dataset.settingsSection as SettingsSectionId | undefined;
+    if (id && id !== active.id) move(active.id, order.indexOf(id));
+  };
+
+  const onPointerUp = (id: SettingsSectionId) => {
+    if (!pointerDrag.current) return;
+    pointerDrag.current = null;
+    announcePosition(id, order);
+  };
+
+  const resetOrder = () => {
+    const defaults = [...defaultSettingsSectionIds];
+    setOrder(defaults);
+    window.localStorage.removeItem(SETTINGS_ORDER_KEY);
+    keyboardDrag.current = null;
+    pointerDrag.current = null;
+    setAnnouncement('Settings section order reset to default.');
+  };
+
   useEffect(() => {
     const focusHashTarget = () => {
       const id = window.location.hash.slice(1);
@@ -1251,18 +1360,67 @@ function SettingsPage() {
   return (
     <>
       <nav aria-label="Settings sections" className="settings-section-nav">
-        {settingsSections.map(({ id, title }) => (
-          <a href={`/settings#${id}`} key={id}>
-            {title}
-          </a>
-        ))}
+        <div className="settings-section-order-list">
+          {order.map((id) => {
+            const section = settingsSections.find((item) => item.id === id)!;
+            const index = order.indexOf(id);
+            const grabbed = keyboardDrag.current?.id === id;
+            return (
+              <div className="settings-section-order-item" data-settings-section={id} key={id}>
+                <a href={`/settings#${id}`}>{section.title}</a>
+                <button
+                  aria-label={`Reorder ${section.title}`}
+                  aria-pressed={grabbed}
+                  className="settings-drag-handle"
+                  onKeyDown={(event) => onHandleKeyDown(event, id)}
+                  onPointerDown={(event) => onPointerDown(event, id)}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={() => onPointerUp(id)}
+                  onPointerCancel={() => {
+                    pointerDrag.current = null;
+                  }}
+                  type="button"
+                >
+                  <span aria-hidden="true">⠿</span>
+                </button>
+                <div className="settings-mobile-move">
+                  <button
+                    aria-label={`Move ${section.title} up`}
+                    disabled={index === 0}
+                    onClick={() => moveBy(id, -1)}
+                    type="button"
+                  >
+                    Move up
+                  </button>
+                  <button
+                    aria-label={`Move ${section.title} down`}
+                    disabled={index === order.length - 1}
+                    onClick={() => moveBy(id, 1)}
+                    type="button"
+                  >
+                    Move down
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button className="settings-reset-order" onClick={resetOrder} type="button">
+          Reset order
+        </button>
+        <span aria-live="polite" className="sr-only" role="status">
+          {announcement}
+        </span>
       </nav>
       <div className="settings-panels">
-        {settingsSections.map(({ id, component: SectionComponent }) => (
-          <section className="settings-section" id={id} key={id} tabIndex={-1}>
-            <SectionComponent />
-          </section>
-        ))}
+        {order.map((id) => {
+          const SectionComponent = settingsSections.find((item) => item.id === id)!.component;
+          return (
+            <section className="settings-section" id={id} key={id} tabIndex={-1}>
+              <SectionComponent />
+            </section>
+          );
+        })}
       </div>
     </>
   );

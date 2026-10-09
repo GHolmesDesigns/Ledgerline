@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Let every Settings section be reordered by pointer drag, keyboard, or phone Move up/Move down controls. Save the order as a local display preference, merge sections added later, announce keyboard positions, and provide Reset order; the preference is excluded from JSON backups (Issue 77 / C39).
 - Rename Ranking & data to Settings and organize its panels into the plan's default order, with section navigation, stable anchors, and contextual links from Search, Compare, and Property. Appearance and Personal tags appear as placeholders (Issue 76 / C38).
 - Replace desktop top navigation with a collapsible, keyboard-operable sidebar whose state persists locally; show the package version in the sidebar and Settings About, and keep the mobile bottom tabs (Issue 75 / C37).
 - Fix contrast for the Property page's "Search this address" button in every interaction state. The global sample-data banner now follows the active provider (and stays visible while provider status is unknown), while mock-provider listings keep a "Sample data" tag on Search, Property, and Compare after a provider switch (Issue 58 / C36).
