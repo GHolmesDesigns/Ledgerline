@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Compute purchase cost lines, certainty, monthly totals or known subtotals, and upfront cash from local listing, evidence, and county/personal assumptions. Property detail API responses include the computed result; same-building HOA estimates use at least two recent unit listings. (Issue 28 / C28).
 - Record flood-zone source and date, roof year and wind mitigation, and condo association safety, assessment, recertification, reserve, and rental restriction details on each property. Property detail can edit and display these values, and JSON backups preserve them (Issue 27 / C27).
 - Record property-level quote and document evidence for insurance, tax bills, association fees, assessments, confirmed HOA absence, and flood-policy choices. Property detail shows a verification checklist, rejects no-flood entries in FEMA A/V zones, and backups preserve these records (Issue 26 / C26).
 - Add editable personal assumptions per saved search and per-county local rates, seeded from the fictional fixtures with Palm Beach left unset. Assumptions are stored in SQLite and included in version 2 personal-data backups (Issue 25 / C25).

@@ -1780,7 +1780,13 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
   const fixedCostState =
     costKind === 'hoa_none' || costKind === 'flood_not_carried'
       ? 'N/A'
-      : ['tax_bill', 'tax_bill_cdd', 'association_fee', 'special_assessment'].includes(costKind)
+      : [
+            'tax_bill',
+            'tax_bill_cdd',
+            'association_fee',
+            'special_assessment',
+            'assessments_none',
+          ].includes(costKind)
         ? 'Doc'
         : null;
 
@@ -1903,7 +1909,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         kind: costKind,
-        amount: costAmount === '' ? null : Number(costAmount),
+        amount: costAmountUnknown ? null : costAmount === '' ? null : Number(costAmount),
         source: costSource,
         date: costDate,
         state: fixedCostState ?? costState,
@@ -2095,21 +2101,32 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           <select
             id="cost-entry-kind"
             value={costKind}
-            onChange={(event) => setCostKind(event.target.value)}
+            onChange={(event) => {
+              setCostKind(event.target.value);
+              if (event.target.value === 'assessments_none') setCostAmount('0');
+              else if (costKind === 'assessments_none') setCostAmount('');
+            }}
           >
             <option value="homeowners_quote">Homeowners quote</option>
             <option value="ho6_quote">HO-6 quote</option>
             <option value="flood_quote">Flood quote</option>
-            <option value="tax_bill">Tax bill</option>
-            <option value="tax_bill_cdd">CDD amount on tax bill</option>
+            <option value="tax_bill">Tax bill · CDD confirmed none</option>
+            <option value="tax_bill_cdd">Annual CDD amount on tax bill</option>
             <option value="association_fee">Association letter / fee</option>
             <option value="special_assessment">Special assessment</option>
+            <option value="assessments_none">Association letter · no special assessments</option>
             <option value="hoa_none">HOA confirmed none</option>
             {property.floodZone && !/^[av]/i.test(property.floodZone) && (
               <option value="flood_not_carried">Flood policy not carried</option>
             )}
           </select>
-          <label htmlFor="cost-entry-amount">Amount</label>
+          <label htmlFor="cost-entry-amount">
+            {costKind === 'tax_bill_cdd'
+              ? 'Annual CDD amount'
+              : costKind === 'assessments_none'
+                ? 'Verified amount'
+                : 'Amount'}
+          </label>
           <input
             id="cost-entry-amount"
             inputMode="decimal"
@@ -2119,16 +2136,20 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
             value={costAmount}
             onChange={(event) => setCostAmount(event.target.value)}
           />
+          {['special_assessment', 'tax_bill_cdd'].includes(costKind) && (
+            <label>
+              <input
+                type="checkbox"
+                checked={costAmountUnknown}
+                onChange={(event) => setCostAmountUnknown(event.target.checked)}
+              />{' '}
+              {costKind === 'special_assessment'
+                ? 'Amount unknown'
+                : 'CDD is known, amount unknown'}
+            </label>
+          )}
           {costKind === 'special_assessment' && (
             <>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={costAmountUnknown}
-                  onChange={(event) => setCostAmountUnknown(event.target.checked)}
-                />{' '}
-                Amount unknown
-              </label>
               <label htmlFor="assessment-status">Assessment status</label>
               <select
                 id="assessment-status"

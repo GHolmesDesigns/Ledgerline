@@ -90,6 +90,17 @@ async function seedPersonalData(store: Store, decision: 'link' | 'keep_separate'
     amountUnknown: false,
     sample: false,
   });
+  store.addCostEntry(fortLauderdale.id, {
+    kind: 'assessments_none',
+    amount: 0,
+    state: 'Doc',
+    source: 'Association letter confirms no pending assessments',
+    date: '2026-10-06',
+    assessmentStatus: null,
+    paymentType: null,
+    amountUnknown: false,
+    sample: false,
+  });
   store.setFavorite(fortLauderdale.id, true);
   store.setDismissed(other.id, true);
 
@@ -167,7 +178,7 @@ describe('personal-data backup', () => {
     assert.equal(report.added.matchDecisions, 1);
     assert.equal(report.added.personalAssumptions, 2);
     assert.equal(report.added.localAssumptions, 2);
-    assert.equal(report.added.costEntries, 2);
+    assert.equal(report.added.costEntries, 3);
     // The restored database re-exports to exactly the same file.
     assert.deepEqual(
       exportBackup(target.store, exportedAt),
@@ -195,6 +206,11 @@ describe('personal-data backup', () => {
     assert.deepEqual(
       target.store.listNotes(fortLauderdale.id).map((note) => note.body),
       ['Quiet street, check flood zone', 'Roof is from 2020'],
+    );
+    assert.ok(
+      target.store
+        .listCostEntries(fortLauderdale.id)
+        .some((entry) => entry.kind === 'assessments_none'),
     );
   });
 
