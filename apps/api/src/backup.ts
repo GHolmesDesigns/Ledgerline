@@ -580,6 +580,7 @@ export function importBackup(
             'tax_bill_cdd',
             'association_fee',
             'special_assessment',
+            'assessments_none',
             'hoa_none',
             'flood_not_carried',
           ].includes(rawEntry.kind) ||

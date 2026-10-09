@@ -170,6 +170,7 @@ export type CostEntryKind =
   | 'tax_bill_cdd'
   | 'association_fee'
   | 'special_assessment'
+  | 'assessments_none'
   | 'hoa_none'
   | 'flood_not_carried';
 export type CostEntryState = 'Quote' | 'Doc' | 'N/A';

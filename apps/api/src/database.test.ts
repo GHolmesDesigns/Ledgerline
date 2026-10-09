@@ -144,7 +144,20 @@ describe('property cost-entry API', () => {
       }
       for (const item of [
         { kind: 'tax_bill_cdd', amount: 450, state: 'Doc', source: 'Tax bill · CDD' },
+        {
+          kind: 'tax_bill_cdd',
+          amount: null,
+          amountUnknown: true,
+          state: 'Doc',
+          source: 'Disclosure · CDD amount not listed',
+        },
         { kind: 'association_fee', amount: 325, state: 'Doc', source: 'Association letter' },
+        {
+          kind: 'assessments_none',
+          amount: 0,
+          state: 'Doc',
+          source: 'Association letter · no pending assessments',
+        },
         {
           kind: 'special_assessment',
           amount: null,
@@ -318,14 +331,16 @@ describe('saved-search API', () => {
 });
 
 describe('property detail API', () => {
-  it('returns normalized listing history and local snapshots without raw provider payloads', async () => {
+  it('returns normalized listing history and a computed cost estimate without raw provider payloads', async () => {
     const database = await temporaryDatabase();
     const store = createStore(database);
     const property = store.createProperty({
       street: '2207 NE 32nd Ct',
       city: 'Fort Lauderdale',
       zip: '33308',
+      county: 'Broward',
       propertyType: 'single_family',
+      floodZone: 'AE',
       beds: 3,
       bathsTotal: 2,
       livingAreaSqft: 1850,
@@ -348,7 +363,72 @@ describe('property detail API', () => {
       price: 849000,
       status: 'active',
     });
+    const secondSale = store.upsertListing(property.id, {
+      provider: 'mock',
+      providerId: 'detail-sale-2',
+      mode: 'sale',
+      price: 800000,
+      pricePeriod: 'total',
+      status: 'active',
+    });
+    store.addSnapshot(secondSale.id, { price: 800000, status: 'active' });
     store.addRawPayload(listing.id, { privateDebugData: 'never returned' });
+    store.setLocalAssumption({
+      county: 'Broward',
+      set: true,
+      millage: 19.5,
+      typicalNonAdValoremPerYear: 700,
+      homeownersDefaultMonthly: 520,
+      ho6DefaultMonthly: 110,
+      floodDefaultMonthly: { X: 50, AE: 180, VE: 420 },
+      source: 'sample',
+      setOn: '2026-10-07',
+      sample: true,
+    });
+    store.addCostEntry(property.id, {
+      kind: 'homeowners_quote',
+      amount: 610,
+      state: 'Quote',
+      source: 'Sample quote',
+      date: '2026-10-05',
+      assessmentStatus: null,
+      paymentType: null,
+      amountUnknown: false,
+      sample: true,
+    });
+    store.addCostEntry(property.id, {
+      kind: 'tax_bill',
+      amount: 0,
+      state: 'Doc',
+      source: 'Tax bill shows no CDD',
+      date: '2026-10-05',
+      assessmentStatus: null,
+      paymentType: null,
+      amountUnknown: false,
+      sample: true,
+    });
+    store.addCostEntry(property.id, {
+      kind: 'hoa_none',
+      amount: null,
+      state: 'N/A',
+      source: 'No association',
+      date: '2026-10-05',
+      assessmentStatus: null,
+      paymentType: null,
+      amountUnknown: false,
+      sample: true,
+    });
+    const buySearch = store.createSavedSearch({
+      name: 'Custom Buy',
+      mode: 'sale',
+      location: 'Broward',
+    });
+    store.setPersonalAssumptions(buySearch.id, {
+      downPaymentPct: 25,
+      mortgageRatePct: 6.5,
+      termYears: 30,
+      maintenancePctPerYear: 1,
+    });
     const server = createApp(database, store);
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
@@ -365,11 +445,34 @@ describe('property detail API', () => {
           localSnapshots: Array<{ price: number }>;
           privateDebugData?: string;
         }>;
+        costEstimate: { monthlyTotal: number; totalStatus: string; upfrontCash: number };
+        costEstimates: Array<{ price: number; monthlyTotal: number }>;
       };
       assert.equal(result.property.lotSizeSqft, 9148);
-      assert.equal(result.listings[0].providerHistory[0].price, 859000);
-      assert.equal(result.listings[0].localSnapshots[0].price, 849000);
-      assert.equal(result.listings[0].privateDebugData, undefined);
+      const originalListing = result.listings.find((item) => item.providerHistory.length > 0)!;
+      assert.equal(originalListing.providerHistory[0].price, 859000);
+      assert.equal(originalListing.localSnapshots[0].price, 849000);
+      assert.equal(originalListing.privateDebugData, undefined);
+      assert.deepEqual(
+        result.costEstimates.map((estimate) => estimate.price),
+        [849000, 800000],
+      );
+      assert.equal(result.costEstimate.monthlyTotal, 7171);
+      assert.equal(result.costEstimate.totalStatus, 'Estimate');
+      assert.equal(result.costEstimate.upfrontCash, 169800);
+      const customized = await fetch(
+        `http://127.0.0.1:${address.port}/api/properties/${property.id}?searchId=${buySearch.id}`,
+      );
+      const customizedResult = (await customized.json()) as {
+        costEstimate: { upfrontCash: number; monthlyTotal: number };
+      };
+      assert.equal(customizedResult.costEstimate.upfrontCash, 212250);
+      assert.notEqual(customizedResult.costEstimate.monthlyTotal, result.costEstimate.monthlyTotal);
+      assert.equal(
+        (await fetch(`http://127.0.0.1:${address.port}/api/properties/${property.id}?searchId=999`))
+          .status,
+        400,
+      );
       assert.equal(
         (await fetch(`http://127.0.0.1:${address.port}/api/properties/prop_missing`)).status,
         404,

@@ -19,6 +19,8 @@ import { RequestCeilingError } from './providers/request-budget.js';
 import { RentEstimateUnavailableError, requestRentEstimate } from './providers/rent-estimate.js';
 import { ProviderCredentials } from './provider-credentials.js';
 import { defaultPersonalAssumptions, seedAssumptions } from './assumptions.js';
+import { computeCostEstimate } from './cost-estimate.js';
+import { normalizeAddress } from './providers/normalize-address.js';
 
 const defaultCredentialPath = resolve(dirname(fileURLToPath(import.meta.url)), '../.env');
 
@@ -338,7 +340,7 @@ export function createApp(
     }
 
     const propertyAction = request.url?.match(
-      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal|risk-details))?$/,
+      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal|risk-details))?(?:\?.*)?$/,
     );
     const costEntriesAction = request.url?.match(
       /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/cost-entries$/,
@@ -356,6 +358,7 @@ export function createApp(
           'tax_bill_cdd',
           'association_fee',
           'special_assessment',
+          'assessments_none',
           'hoa_none',
           'flood_not_carried',
         ];
@@ -386,10 +389,19 @@ export function createApp(
         )
           throw new Error('Insurance quotes need an amount and Quote state.');
         if (
-          ['tax_bill', 'tax_bill_cdd', 'association_fee'].includes(kind) &&
+          ['tax_bill', 'association_fee'].includes(kind) &&
           (body.state !== 'Doc' || amount === null)
         )
           throw new Error('Tax bills and association fee records need an amount and Doc state.');
+        if (
+          kind === 'tax_bill_cdd' &&
+          (body.state !== 'Doc' || (body.amountUnknown ? amount !== null : amount === null))
+        )
+          throw new Error(
+            'CDD records need Doc state and either an annual amount or “amount unknown”.',
+          );
+        if (kind === 'assessments_none' && (body.state !== 'Doc' || amount !== 0))
+          throw new Error('Confirmed no assessments needs a documented $0 amount.');
         if (
           kind === 'special_assessment' &&
           (body.state !== 'Doc' ||
@@ -443,14 +455,96 @@ export function createApp(
         json(404, { error: 'Property not found.' });
         return;
       }
+      const listings = store.listListings(propertyId);
+      const saleListings = listings
+        .filter((listing) => listing.mode === 'sale')
+        .sort((left, right) => left.providerId.localeCompare(right.providerId));
+      const requestUrl = new URL(request.url ?? '/', 'http://localhost');
+      const rawSearchId = requestUrl.searchParams.get('searchId');
+      let personalAssumptions = defaultPersonalAssumptions;
+      if (rawSearchId !== null) {
+        const searchId = Number(rawSearchId);
+        const search = Number.isInteger(searchId) ? store.getSavedSearch(searchId) : null;
+        if (!search || search.mode !== 'sale') {
+          json(400, { error: 'Choose an existing Buy saved search for its personal assumptions.' });
+          return;
+        }
+        personalAssumptions = store.getPersonalAssumptions(searchId) ?? defaultPersonalAssumptions;
+      }
+      const localAssumption =
+        store
+          .listLocalAssumptions()
+          .find(
+            (item) =>
+              item.county.toLocaleLowerCase('en-US') ===
+              (property.county ?? '').toLocaleLowerCase('en-US'),
+          ) ?? null;
+      let sameBuildingHoaMonthly: number | null = null;
+      if (
+        ['condo', 'co-op', 'coop', 'townhome', 'townhouse'].includes(
+          (property.propertyType ?? '').toLowerCase(),
+        )
+      ) {
+        const address = normalizeAddress(property);
+        const fees = store
+          .listProperties()
+          .flatMap((other) => {
+            if (other.id === property.id) return [];
+            const otherAddress = normalizeAddress(other);
+            if (
+              otherAddress.street !== address.street ||
+              otherAddress.city !== address.city ||
+              otherAddress.zip !== address.zip
+            )
+              return [];
+            const recentListings = store
+              .listListings(other.id)
+              .filter(
+                (listing) =>
+                  listing.mode === 'sale' &&
+                  listing.hoaFee != null &&
+                  Date.parse(listing.lastFetchedAt) >= Date.now() - 365 * 24 * 60 * 60 * 1000,
+              )
+              .sort((left, right) => right.lastFetchedAt.localeCompare(left.lastFetchedAt));
+            return recentListings[0] ? [recentListings[0].hoaFee!] : [];
+          })
+          .sort((left, right) => left - right);
+        if (fees.length >= 2) {
+          const middle = Math.floor(fees.length / 2);
+          sameBuildingHoaMonthly =
+            fees.length % 2 ? fees[middle] : (fees[middle - 1] + fees[middle]) / 2;
+        }
+      }
+      const costEstimates = saleListings.flatMap((saleListing) => {
+        const estimate = computeCostEstimate({
+          property,
+          saleListing,
+          entries: store.listCostEntries(propertyId),
+          localAssumption,
+          personalAssumptions,
+          sameBuildingHoaMonthly,
+        });
+        return estimate
+          ? [
+              {
+                listingId: saleListing.id,
+                provider: saleListing.provider,
+                price: saleListing.price,
+                ...estimate,
+              },
+            ]
+          : [];
+      });
       json(200, {
         property,
-        listings: store.listListings(propertyId).map((listing) => ({
+        listings: listings.map((listing) => ({
           ...listing,
           localSnapshots: store.listSnapshots(listing.id),
         })),
         notes: store.listNotes(propertyId),
         costEntries: store.listCostEntries(propertyId),
+        costEstimates,
+        costEstimate: costEstimates[0] ?? null,
         saved: store.isFavorite(propertyId),
         dismissed: store.isDismissed(propertyId),
       });
