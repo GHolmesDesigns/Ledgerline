@@ -10,6 +10,7 @@ import {
   type PersonalAssumptions,
   type ReviewListingInput,
   type Store,
+  type PropertyRiskDetails,
 } from './store.js';
 import { MockListingProvider } from './providers/mock-provider.js';
 import { BackupError, exportBackup, importBackup } from './backup.js';
@@ -337,7 +338,7 @@ export function createApp(
     }
 
     const propertyAction = request.url?.match(
-      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal))?$/,
+      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal|risk-details))?$/,
     );
     const costEntriesAction = request.url?.match(
       /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/cost-entries$/,
@@ -453,6 +454,102 @@ export function createApp(
         saved: store.isFavorite(propertyId),
         dismissed: store.isDismissed(propertyId),
       });
+      return;
+    }
+    if (propertyAction && propertyAction[2] === 'risk-details' && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        const raw = body.riskDetails;
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+          throw new Error('Risk details must be an object.');
+        }
+        const values = raw as Record<string, unknown>;
+        const textValue = (key: string) => {
+          const value = values[key];
+          if (value == null || value === '') return null;
+          if (typeof value !== 'string' || value.trim().length > 300) {
+            throw new Error(`${key} must be text up to 300 characters.`);
+          }
+          return value.trim() || null;
+        };
+        const dateValue = (key: string) => {
+          const value = textValue(key);
+          if (
+            value !== null &&
+            (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))
+          ) {
+            throw new Error(`${key} must be a valid date.`);
+          }
+          return value;
+        };
+        const integerValue = (key: string, minimum: number) => {
+          const value = values[key];
+          if (value == null || value === '') return null;
+          if (
+            typeof value !== 'number' ||
+            !Number.isInteger(value) ||
+            value < minimum ||
+            value > new Date().getFullYear() + 1
+          ) {
+            throw new Error(`${key} must be a whole number from ${minimum} to next year.`);
+          }
+          return value;
+        };
+        const amount = values.assessmentAmount;
+        if (
+          amount != null &&
+          (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0)
+        ) {
+          throw new Error('Assessment amount must be a non-negative number.');
+        }
+        const mitigation = values.windMitigation;
+        if (
+          !Array.isArray(mitigation) ||
+          mitigation.some((item) => typeof item !== 'string' || item.length > 80)
+        ) {
+          throw new Error('Wind mitigation must be a list of text values.');
+        }
+        const paymentType = values.assessmentPaymentType;
+        if (
+          paymentType != null &&
+          paymentType !== '' &&
+          paymentType !== 'one_time' &&
+          paymentType !== 'installments'
+        ) {
+          throw new Error('Assessment payment type must be one_time or installments.');
+        }
+        const riskDetails: PropertyRiskDetails = {
+          floodZoneSource: textValue('floodZoneSource'),
+          floodZoneDate: dateValue('floodZoneDate'),
+          roofYear: integerValue('roofYear', 1800),
+          windMitigation: [...new Set(mitigation as string[])],
+          insuranceSource: textValue('insuranceSource'),
+          insuranceDate: dateValue('insuranceDate'),
+          milestoneInspection: textValue('milestoneInspection'),
+          countyRecertification: textValue('countyRecertification'),
+          reserveStudy: textValue('reserveStudy'),
+          specialAssessment: textValue('specialAssessment'),
+          assessmentAmount: amount as number | null,
+          assessmentPaymentType: (paymentType ||
+            null) as PropertyRiskDetails['assessmentPaymentType'],
+          rentalRestrictions: textValue('rentalRestrictions'),
+          approvalRestrictions: textValue('approvalRestrictions'),
+          associationSource: textValue('associationSource'),
+          associationDate: dateValue('associationDate'),
+        };
+        const floodZone =
+          body.floodZone == null || body.floodZone === ''
+            ? null
+            : String(body.floodZone).trim().toUpperCase();
+        if (floodZone && floodZone.length > 12)
+          throw new Error('Flood zone must be 12 characters or fewer.');
+        const property = store.updateRiskDetails(propertyAction[1], floodZone, riskDetails);
+        json(200, { property });
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to update property risk details.',
+        });
+      }
       return;
     }
     if (propertyAction && propertyAction[2] === 'notes' && request.method === 'POST') {

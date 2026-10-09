@@ -30,10 +30,22 @@ interface SampleProperty {
   livingAreaSqft: number;
   yearBuilt: number;
   floodZone?: string;
+  roofYear?: number | null;
+  windMitigation?: string[];
+  association?: {
+    status?: string;
+    milestoneInspection?: string;
+    countyRecertification?: string;
+    reserveStudy?: string;
+    specialAssessment?: string;
+    rentalRestrictions?: string;
+    approvalRestrictions?: string;
+  };
   listings: SampleListing[];
 }
 
 interface SampleData {
+  asOf: string;
   properties: SampleProperty[];
   savedSearches: Array<{
     area: string;
@@ -160,6 +172,27 @@ function toProviderListing(
     county: property.county,
     propertyType: property.type,
     floodZone: property.floodZone ?? null,
+    riskDetails: {
+      floodZoneSource: property.floodZone ? 'Sample data — not real listings' : null,
+      floodZoneDate: property.floodZone ? sampleData.asOf : null,
+      roofYear: property.roofYear ?? null,
+      windMitigation: property.windMitigation ?? [],
+      insuranceSource:
+        property.roofYear || property.windMitigation?.length
+          ? 'Sample data — not real listings'
+          : null,
+      insuranceDate: property.roofYear || property.windMitigation?.length ? sampleData.asOf : null,
+      milestoneInspection: property.association?.milestoneInspection ?? null,
+      countyRecertification: property.association?.countyRecertification ?? null,
+      reserveStudy: property.association?.reserveStudy ?? null,
+      specialAssessment: property.association?.specialAssessment ?? null,
+      assessmentAmount: null,
+      assessmentPaymentType: null,
+      rentalRestrictions: property.association?.rentalRestrictions ?? null,
+      approvalRestrictions: property.association?.approvalRestrictions ?? null,
+      associationSource: property.association ? 'Sample data — not real listings' : null,
+      associationDate: property.association ? sampleData.asOf : null,
+    },
     beds: property.beds,
     ...splitBaths(property.baths),
     livingAreaSqft: property.livingAreaSqft,

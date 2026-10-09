@@ -1647,6 +1647,24 @@ type PropertyDetailData = {
     bathsHalf: number | null;
     parcelId: string | null;
     floodZone?: string | null;
+    riskDetails: {
+      floodZoneSource: string | null;
+      floodZoneDate: string | null;
+      roofYear: number | null;
+      windMitigation: string[];
+      insuranceSource: string | null;
+      insuranceDate: string | null;
+      milestoneInspection: string | null;
+      countyRecertification: string | null;
+      reserveStudy: string | null;
+      specialAssessment: string | null;
+      assessmentAmount: number | null;
+      assessmentPaymentType: 'one_time' | 'installments' | null;
+      rentalRestrictions: string | null;
+      approvalRestrictions: string | null;
+      associationSource: string | null;
+      associationDate: string | null;
+    };
   };
   listings: Array<
     SearchListing['listing'] & {
@@ -1752,6 +1770,13 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
   const [costAmountUnknown, setCostAmountUnknown] = useState(false);
   const [costAssessmentStatus, setCostAssessmentStatus] = useState('');
   const [costPaymentType, setCostPaymentType] = useState('');
+  const [riskDraft, setRiskDraft] = useState<PropertyDetailData['property']['riskDetails'] | null>(
+    null,
+  );
+  const [riskFloodZone, setRiskFloodZone] = useState('');
+  const [riskBusy, setRiskBusy] = useState(false);
+  const [riskMessage, setRiskMessage] = useState('');
+  const [carrierAgeLimit, setCarrierAgeLimit] = useState('');
   const fixedCostState =
     costKind === 'hoa_none' || costKind === 'flood_not_carried'
       ? 'N/A'
@@ -1777,6 +1802,27 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       const result = (await response.json()) as PropertyDetailData & { error?: string };
       if (!response.ok) throw new Error(result.error ?? 'Property details are unavailable.');
       setData(result);
+      setRiskDraft(
+        result.property.riskDetails ?? {
+          floodZoneSource: null,
+          floodZoneDate: null,
+          roofYear: null,
+          windMitigation: [],
+          insuranceSource: null,
+          insuranceDate: null,
+          milestoneInspection: null,
+          countyRecertification: null,
+          reserveStudy: null,
+          specialAssessment: null,
+          assessmentAmount: null,
+          assessmentPaymentType: null,
+          rentalRestrictions: null,
+          approvalRestrictions: null,
+          associationSource: null,
+          associationDate: null,
+        },
+      );
+      setRiskFloodZone(result.property.floodZone ?? '');
       setError('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Property details are unavailable.');
@@ -1785,6 +1831,13 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
   useEffect(() => {
     void refresh();
   }, [propertyId]);
+  useEffect(() => {
+    try {
+      setCarrierAgeLimit(window.localStorage.getItem('ledgerline.carrier-age-limit-years') ?? '');
+    } catch {
+      setCarrierAgeLimit('');
+    }
+  }, []);
 
   const toggle = async (field: 'favorite' | 'dismissal') => {
     if (!data) return;
@@ -1870,6 +1923,35 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
     setCostAssessmentStatus('');
     setCostPaymentType('');
     await refresh();
+  };
+
+  const saveRiskDetails = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!riskDraft) return;
+    setRiskBusy(true);
+    setRiskMessage('');
+    try {
+      const response = await fetch(`/api/properties/${propertyId}/risk-details`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ riskDetails: riskDraft, floodZone: riskFloodZone || null }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'Could not save property details.');
+      setRiskMessage('Property details saved.');
+      await refresh();
+    } catch (reason) {
+      setRiskMessage(reason instanceof Error ? reason.message : 'Could not save property details.');
+    } finally {
+      setRiskBusy(false);
+    }
+  };
+
+  const updateRisk = (
+    field: keyof PropertyDetailData['property']['riskDetails'],
+    value: unknown,
+  ) => {
+    setRiskDraft((current) => (current ? { ...current, [field]: value } : current));
   };
 
   if (!data)
@@ -2150,6 +2232,280 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           </div>
         </dl>
       </section>
+      <section
+        aria-labelledby="insurance-heading"
+        className="property-detail-section risk-detail-card"
+      >
+        <h3 id="insurance-heading">Insurance</h3>
+        <p>
+          Roof {riskDraft?.roofYear ?? 'Unknown'} · built {property.yearBuilt ?? 'Unknown'}
+          {riskDraft?.roofYear != null &&
+          carrierAgeLimit !== '' &&
+          new Date().getFullYear() - riskDraft.roofYear > Number(carrierAgeLimit)
+            ? ' · may limit carriers'
+            : ''}
+        </p>
+        <p>Wind mitigation: {riskDraft?.windMitigation.join(', ') || 'Not recorded'}</p>
+        <p>
+          Source: {riskDraft?.insuranceSource ?? 'Not recorded'} ·{' '}
+          {riskDraft?.insuranceDate ?? 'date not recorded'}
+        </p>
+        <p>
+          Flood zone source: {riskDraft?.floodZoneSource ?? 'Not recorded'} ·{' '}
+          {riskDraft?.floodZoneDate ?? 'date not recorded'}
+        </p>
+        <form className="risk-detail-form" onSubmit={(event) => void saveRiskDetails(event)}>
+          <label>
+            FEMA flood zone
+            <input
+              value={riskFloodZone}
+              maxLength={12}
+              onChange={(event) => setRiskFloodZone(event.target.value.toUpperCase())}
+            />
+          </label>
+          <label>
+            Flood zone source
+            <input
+              value={riskDraft?.floodZoneSource ?? ''}
+              onChange={(event) => updateRisk('floodZoneSource', event.target.value || null)}
+            />
+          </label>
+          <label>
+            Flood zone date
+            <input
+              type="date"
+              value={riskDraft?.floodZoneDate ?? ''}
+              onChange={(event) => updateRisk('floodZoneDate', event.target.value || null)}
+            />
+          </label>
+          <label>
+            Roof year
+            <input
+              type="number"
+              min="1800"
+              max={new Date().getFullYear() + 1}
+              value={riskDraft?.roofYear ?? ''}
+              onChange={(event) =>
+                updateRisk('roofYear', event.target.value ? Number(event.target.value) : null)
+              }
+            />
+          </label>
+          <fieldset>
+            <legend>Wind mitigation</legend>
+            {['impact windows', 'shutters', 'other'].map((feature) => (
+              <label key={feature}>
+                <input
+                  type="checkbox"
+                  checked={riskDraft?.windMitigation.includes(feature) ?? false}
+                  onChange={(event) =>
+                    updateRisk(
+                      'windMitigation',
+                      event.target.checked
+                        ? [...(riskDraft?.windMitigation ?? []), feature]
+                        : (riskDraft?.windMitigation ?? []).filter((item) => item !== feature),
+                    )
+                  }
+                />
+                {feature}
+              </label>
+            ))}
+          </fieldset>
+          <label>
+            Insurance details source
+            <input
+              value={riskDraft?.insuranceSource ?? ''}
+              onChange={(event) => updateRisk('insuranceSource', event.target.value || null)}
+            />
+          </label>
+          <label>
+            Insurance details date
+            <input
+              type="date"
+              value={riskDraft?.insuranceDate ?? ''}
+              onChange={(event) => updateRisk('insuranceDate', event.target.value || null)}
+            />
+          </label>
+          <label>
+            Carrier review age limit (years)
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={carrierAgeLimit}
+              onChange={(event) => {
+                const value = event.target.value;
+                setCarrierAgeLimit(value);
+                try {
+                  if (value === '')
+                    window.localStorage.removeItem('ledgerline.carrier-age-limit-years');
+                  else window.localStorage.setItem('ledgerline.carrier-age-limit-years', value);
+                } catch {
+                  /* Local preference storage can be unavailable in private browsing. */
+                }
+              }}
+            />
+          </label>
+          <p className="field-help">Set a threshold to show “may limit carriers” on older roofs.</p>
+          <button disabled={riskBusy || !riskDraft} type="submit">
+            {riskBusy ? 'Saving…' : 'Save insurance details'}
+          </button>
+        </form>
+      </section>
+      {['condo', 'co-op', 'coop', 'townhome'].includes(
+        (property.propertyType ?? '').toLowerCase().replaceAll('_', '-'),
+      ) && (
+        <section
+          aria-labelledby="association-heading"
+          className="property-detail-section risk-detail-card"
+        >
+          <h3 id="association-heading">Condo &amp; association</h3>
+          <dl className="property-facts-grid">
+            <div>
+              <dt>Milestone inspection</dt>
+              <dd>{riskDraft?.milestoneInspection ?? 'Not recorded'}</dd>
+            </div>
+            <div>
+              <dt>County recertification</dt>
+              <dd>{riskDraft?.countyRecertification ?? 'Not recorded'}</dd>
+            </div>
+            <div>
+              <dt>Reserve study</dt>
+              <dd>{riskDraft?.reserveStudy ?? 'Not recorded'}</dd>
+            </div>
+            <div>
+              <dt>Special assessment</dt>
+              <dd>
+                {riskDraft?.specialAssessment == null
+                  ? 'Not recorded'
+                  : /^(pending|approved)$/i.test(riskDraft.specialAssessment) &&
+                      riskDraft.assessmentAmount == null
+                    ? `${riskDraft.specialAssessment}, amount unknown`
+                    : riskDraft.specialAssessment}
+                {riskDraft?.assessmentAmount != null
+                  ? ` · $${riskDraft.assessmentAmount.toLocaleString()}`
+                  : ''}
+                {riskDraft?.assessmentPaymentType === 'one_time'
+                  ? ' · one-time'
+                  : riskDraft?.assessmentPaymentType === 'installments'
+                    ? ' · installments'
+                    : ''}
+              </dd>
+            </div>
+            <div>
+              <dt>Rental restrictions</dt>
+              <dd>{riskDraft?.rentalRestrictions ?? 'Not recorded'}</dd>
+            </div>
+            <div>
+              <dt>Approval restrictions</dt>
+              <dd>{riskDraft?.approvalRestrictions ?? 'Not recorded'}</dd>
+            </div>
+          </dl>
+          <p>
+            Source: {riskDraft?.associationSource ?? 'Not recorded'} ·{' '}
+            {riskDraft?.associationDate ?? 'date not recorded'}
+          </p>
+          <form className="risk-detail-form" onSubmit={(event) => void saveRiskDetails(event)}>
+            <label>
+              Milestone inspection
+              <input
+                value={riskDraft?.milestoneInspection ?? ''}
+                onChange={(event) => updateRisk('milestoneInspection', event.target.value || null)}
+              />
+            </label>
+            <label>
+              County recertification
+              <input
+                value={riskDraft?.countyRecertification ?? ''}
+                onChange={(event) =>
+                  updateRisk('countyRecertification', event.target.value || null)
+                }
+              />
+            </label>
+            <label>
+              Reserve study
+              <input
+                value={riskDraft?.reserveStudy ?? ''}
+                onChange={(event) => updateRisk('reserveStudy', event.target.value || null)}
+              />
+            </label>
+            <label>
+              Special assessment status
+              <select
+                value={riskDraft?.specialAssessment ?? ''}
+                onChange={(event) => updateRisk('specialAssessment', event.target.value || null)}
+              >
+                <option value="">Not recorded</option>
+                <option value="not checked">Not checked</option>
+                <option value="none">None</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+              </select>
+            </label>
+            <label>
+              Assessment amount
+              <input
+                aria-label="Assessment amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={riskDraft?.assessmentAmount ?? ''}
+                onChange={(event) =>
+                  updateRisk(
+                    'assessmentAmount',
+                    event.target.value ? Number(event.target.value) : null,
+                  )
+                }
+              />
+            </label>
+            <label>
+              Assessment payment type
+              <select
+                value={riskDraft?.assessmentPaymentType ?? ''}
+                onChange={(event) =>
+                  updateRisk('assessmentPaymentType', event.target.value || null)
+                }
+              >
+                <option value="">Not recorded</option>
+                <option value="one_time">One-time</option>
+                <option value="installments">Installments</option>
+              </select>
+            </label>
+            <label>
+              Rental restrictions
+              <input
+                value={riskDraft?.rentalRestrictions ?? ''}
+                onChange={(event) => updateRisk('rentalRestrictions', event.target.value || null)}
+              />
+            </label>
+            <label>
+              Approval restrictions
+              <input
+                value={riskDraft?.approvalRestrictions ?? ''}
+                onChange={(event) => updateRisk('approvalRestrictions', event.target.value || null)}
+              />
+            </label>
+            <label>
+              Association details source
+              <input
+                value={riskDraft?.associationSource ?? ''}
+                onChange={(event) => updateRisk('associationSource', event.target.value || null)}
+              />
+            </label>
+            <label>
+              Association details date
+              <input
+                type="date"
+                value={riskDraft?.associationDate ?? ''}
+                onChange={(event) => updateRisk('associationDate', event.target.value || null)}
+              />
+            </label>
+            <button disabled={riskBusy || !riskDraft} type="submit">
+              {riskBusy ? 'Saving…' : 'Save association details'}
+            </button>
+          </form>
+        </section>
+      )}
+      {riskMessage && <p role="status">{riskMessage}</p>}
       <section aria-labelledby="property-history-heading" className="property-detail-section">
         <h3 id="property-history-heading">Price and status history</h3>
         {listings.map((listing) => (

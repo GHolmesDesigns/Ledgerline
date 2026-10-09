@@ -116,6 +116,8 @@ Line-by-line amounts and states are in the fixture file.
 - **Verification checklist:** Tax bill checked ✓ · HOA confirmed none ✓ · Homeowners quote ✓ · Flood quote ☐ (the remaining item behind "Estimate"), with an "Enter flood quote" action.
 - Rent panel: primary "same home · listed Sep 28"; expandable "Local comps (4)" table (address, beds, sq ft, distance, rent, last seen; median $5,225); button "Get RentCast rent estimate · 1 request · 22 left this month".
 - Insurance card: roof 2020, built 1964, impact windows.
+- Insurance card records roof year, wind-mitigation features, and the source and date; its configurable carrier-review age limit shows "may limit carriers" when the roof is older. Flood zone, source, and date are editable on property detail.
+- Condo & association card records milestone inspection, Miami-Dade or Broward recertification, reserve-study status, special-assessment status and amount/payment type, rental and approval restrictions, and source/date. It is omitted for single-family properties.
 - **Photos:** "Add photos" (file picker and drag-and-drop) and remove; the first photo is the card photo. With none: "No photos yet · Add photos", not an empty image box.
 - **"Open Street View"** link: opens Google Maps Street View at the property's coordinates in a new tab (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG`; no key, no request from the app).
 - Price history (provider history vs. local snapshots labeled), verification links (MLS #, agent, address search; the app never fetches these pages), notes, data quality.

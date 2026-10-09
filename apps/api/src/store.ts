@@ -8,6 +8,44 @@ import { randomUUID } from 'node:crypto';
 export type ListingMode = 'sale' | 'rent';
 export type PricePeriod = 'total' | 'month' | 'week' | 'year';
 
+export interface PropertyRiskDetails {
+  floodZoneSource: string | null;
+  floodZoneDate: string | null;
+  roofYear: number | null;
+  windMitigation: string[];
+  insuranceSource: string | null;
+  insuranceDate: string | null;
+  milestoneInspection: string | null;
+  countyRecertification: string | null;
+  reserveStudy: string | null;
+  specialAssessment: string | null;
+  assessmentAmount: number | null;
+  assessmentPaymentType: 'one_time' | 'installments' | null;
+  rentalRestrictions: string | null;
+  approvalRestrictions: string | null;
+  associationSource: string | null;
+  associationDate: string | null;
+}
+
+export const emptyRiskDetails: PropertyRiskDetails = {
+  floodZoneSource: null,
+  floodZoneDate: null,
+  roofYear: null,
+  windMitigation: [],
+  insuranceSource: null,
+  insuranceDate: null,
+  milestoneInspection: null,
+  countyRecertification: null,
+  reserveStudy: null,
+  specialAssessment: null,
+  assessmentAmount: null,
+  assessmentPaymentType: null,
+  rentalRestrictions: null,
+  approvalRestrictions: null,
+  associationSource: null,
+  associationDate: null,
+};
+
 export interface PropertyInput {
   street: string;
   unit?: string | null;
@@ -18,6 +56,7 @@ export interface PropertyInput {
   longitude?: number | null;
   propertyType?: string | null;
   floodZone?: string | null;
+  riskDetails?: PropertyRiskDetails;
   beds?: number | null;
   bathsTotal?: number | null;
   bathsFull?: number | null;
@@ -229,7 +268,7 @@ type Row = Record<string, SqlValue>;
 
 const propertyColumns = `id, street, unit, city, zip, county, latitude, longitude, property_type, flood_zone,
   beds, baths_total, baths_full, baths_half, living_area_sqft, lot_size_sqft, year_built,
-  parcel_id, sample, created_at, updated_at`;
+  parcel_id, sample, created_at, updated_at, risk_details`;
 
 const listingColumns = `id, property_id, provider, provider_id, mls_name, mls_number, mode, price,
   price_period, status, hoa_fee, image_urls, source_url, agent_name, agent_phone, agent_email,
@@ -319,6 +358,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       longitude: number(row.longitude),
       propertyType: text(row.property_type),
       floodZone: text(row.flood_zone),
+      riskDetails: { ...emptyRiskDetails, ...JSON.parse(String(row.risk_details ?? '{}')) },
       beds: number(row.beds),
       bathsTotal: number(row.baths_total),
       bathsFull: number(row.baths_full),
@@ -450,7 +490,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         const id = `prop_${randomUUID()}`;
         const at = now();
         run(
-          `INSERT INTO properties (${propertyColumns}) VALUES (${Array(21).fill('?').join(', ')})`,
+          `INSERT INTO properties (${propertyColumns}) VALUES (${Array(22).fill('?').join(', ')})`,
           [
             id,
             input.street,
@@ -473,6 +513,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             input.sample ? 1 : 0,
             at,
             at,
+            JSON.stringify({ ...emptyRiskDetails, ...(input.riskDetails ?? {}) }),
           ],
         );
         return store.getProperty(id)!;
@@ -482,6 +523,23 @@ export function createStore(database: Database, options: StoreOptions = {}) {
     getProperty(propertyId: string): Property | null {
       const row = one(`SELECT ${propertyColumns} FROM properties WHERE id = ?`, [propertyId]);
       return row ? toProperty(row) : null;
+    },
+
+    updateRiskDetails(
+      propertyId: string,
+      floodZone: string | null,
+      riskDetails: PropertyRiskDetails,
+    ) {
+      return transaction(() => {
+        requireProperty(propertyId);
+        run('UPDATE properties SET flood_zone = ?, risk_details = ?, updated_at = ? WHERE id = ?', [
+          floodZone,
+          JSON.stringify(riskDetails),
+          now(),
+          propertyId,
+        ]);
+        return store.getProperty(propertyId)!;
+      });
     },
 
     /** Exact match on normalized street, unit, city, and ZIP. */
