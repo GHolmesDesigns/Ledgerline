@@ -1994,6 +1994,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
   );
   const [riskFloodZone, setRiskFloodZone] = useState('');
   const [riskBusy, setRiskBusy] = useState(false);
+  const [floodLookupBusy, setFloodLookupBusy] = useState(false);
   const [riskMessage, setRiskMessage] = useState('');
   const [requestUsage, setRequestUsage] = useState<RequestUsage | null>(null);
   const [rentEstimateAvailable, setRentEstimateAvailable] = useState(false);
@@ -2208,6 +2209,30 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       setRiskMessage(reason instanceof Error ? reason.message : 'Could not save property details.');
     } finally {
       setRiskBusy(false);
+    }
+  };
+
+  const lookupFloodZone = async () => {
+    setFloodLookupBusy(true);
+    setRiskMessage('');
+    try {
+      const response = await fetch(`/api/properties/${propertyId}/flood-zone-lookup`, {
+        method: 'POST',
+      });
+      const result = (await response.json()) as {
+        property?: PropertyDetailData['property'];
+        error?: string;
+      };
+      if (!response.ok) throw new Error(result.error ?? 'FEMA flood-zone lookup failed.');
+      if (!result.property) throw new Error('FEMA flood-zone lookup returned no property.');
+      setRiskFloodZone(result.property.floodZone ?? '');
+      setRiskDraft(result.property.riskDetails);
+      setData((current) => (current ? { ...current, property: result.property! } : current));
+      setRiskMessage(`FEMA NFHL zone ${result.property.floodZone} saved.`);
+    } catch (reason) {
+      setRiskMessage(reason instanceof Error ? reason.message : 'FEMA flood-zone lookup failed.');
+    } finally {
+      setFloodLookupBusy(false);
     }
   };
 
@@ -2542,7 +2567,12 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           </div>
           <div>
             <dt>FEMA flood zone</dt>
-            <dd>{property.floodZone ?? 'Unknown'}</dd>
+            <dd>
+              {property.floodZone ?? 'Unknown'}
+              {property.floodZone?.toUpperCase() === 'X' && (
+                <p>Zone X doesn&apos;t mean no flood risk.</p>
+              )}
+            </dd>
           </div>
           <div>
             <dt>Bedrooms</dt>
@@ -2617,6 +2647,18 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               onChange={(event) => updateRisk('floodZoneDate', event.target.value || null)}
             />
           </label>
+          <div className="risk-detail-action">
+            <button
+              disabled={floodLookupBusy || property.latitude == null || property.longitude == null}
+              onClick={() => void lookupFloodZone()}
+              type="button"
+            >
+              {floodLookupBusy ? 'Looking up…' : 'Look up FEMA zone'}
+            </button>
+            {(property.latitude == null || property.longitude == null) && (
+              <small>Add property coordinates to use the FEMA lookup.</small>
+            )}
+          </div>
           <label>
             Roof year
             <input
@@ -3408,7 +3450,8 @@ function CompareScreen() {
       'Flood zone',
       (item) => {
         const details = riskDetails(item);
-        return `${item.property.floodZone ?? 'Unknown'} · ${details.floodZoneSource ?? 'source not recorded'} · ${details.floodZoneDate ?? 'date not recorded'}`;
+        const zone = item.property.floodZone ?? 'Unknown';
+        return `${zone} · ${details.floodZoneSource ?? 'source not recorded'} · ${details.floodZoneDate ?? 'date not recorded'}${zone.toUpperCase() === 'X' ? " · Zone X doesn't mean no flood risk." : ''}`;
       },
     ],
     [
@@ -4301,7 +4344,13 @@ function SearchScreen() {
                       </div>
                     )}
                     <div className="property-risk-chips" aria-label="Property risks" role="group">
-                      {property.floodZone && <span>Flood zone {property.floodZone}</span>}
+                      {property.floodZone && (
+                        <span>
+                          Flood zone {property.floodZone}
+                          {property.floodZone.toUpperCase() === 'X' &&
+                            " · Zone X doesn't mean no flood risk."}
+                        </span>
+                      )}
                       {property.riskDetails?.roofYear && (
                         <span>Roof {property.riskDetails.roofYear}</span>
                       )}

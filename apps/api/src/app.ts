@@ -23,6 +23,7 @@ import { computeCostEstimate } from './cost-estimate.js';
 import { normalizeAddress } from './providers/normalize-address.js';
 import { defaultComparableRentRules } from './store.js';
 import { findComparableRent } from './comparable-rent.js';
+import { createFemaNfhlLookup, type FloodZoneLookup } from './fema-nfhl.js';
 
 function costEstimateFor(
   store: Store,
@@ -92,6 +93,7 @@ export function createApp(
   store: Store = createStore(database),
   refreshJob: RefreshJob = new RefreshJob(store, new MockListingProvider()),
   credentials: ProviderCredentials = new ProviderCredentials(defaultCredentialPath),
+  floodZoneLookup: FloodZoneLookup = createFemaNfhlLookup(),
 ) {
   return createServer(async (request: IncomingMessage, response: ServerResponse) => {
     const json = (status: number, body: unknown) => {
@@ -115,6 +117,36 @@ export function createApp(
         databaseReady = false;
       }
       json(databaseReady ? 200 : 503, { status: databaseReady ? 'ok' : 'unavailable' });
+      return;
+    }
+
+    const floodZoneAction = request.url?.match(
+      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/flood-zone-lookup$/,
+    );
+    if (floodZoneAction && request.method === 'POST') {
+      const property = store.getProperty(floodZoneAction[1]);
+      if (!property) {
+        json(404, { error: 'Property not found.' });
+        return;
+      }
+      if (property.latitude == null || property.longitude == null) {
+        json(400, { error: 'Add property coordinates before looking up its FEMA flood zone.' });
+        return;
+      }
+      try {
+        const floodZone = await floodZoneLookup(property.latitude, property.longitude);
+        const riskDetails = {
+          ...property.riskDetails,
+          floodZoneSource: 'FEMA NFHL',
+          floodZoneDate: new Date().toISOString().slice(0, 10),
+        };
+        const updated = store.updateRiskDetails(property.id, floodZone, riskDetails);
+        json(200, { property: updated });
+      } catch (error) {
+        json(502, {
+          error: error instanceof Error ? error.message : 'FEMA flood-zone lookup failed.',
+        });
+      }
       return;
     }
 
