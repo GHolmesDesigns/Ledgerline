@@ -20,6 +20,175 @@ type MatchReview = {
   noteCount: number;
 };
 
+type RequestUsage = {
+  ceiling: number;
+  used: number;
+  remaining: number;
+  provider: string;
+  tier: string;
+  lastSuccessfulRefreshAt: string | null;
+  requestsPerRefreshAll: number;
+  rentEstimatesUsed: number;
+  recommendedTier: string | null;
+  projections: Record<string, { remainingRuns: number; projected: number; overCeiling: boolean }>;
+  searches: Array<{
+    id: number;
+    name: string;
+    mode: 'sale' | 'rent';
+    location: string;
+    pairedSearchId: number | null;
+    requestsPerRefresh: number;
+    measured: boolean;
+  }>;
+};
+
+async function fetchRequestUsage() {
+  const response = await fetch('/api/request-budget');
+  if (!response.ok) throw new Error('Request usage is unavailable.');
+  return (await response.json()) as RequestUsage;
+}
+
+export function RequestUsageHeader({ initialData }: { initialData?: RequestUsage }) {
+  const [usage, setUsage] = useState<RequestUsage | null>(initialData ?? null);
+  useEffect(() => {
+    let active = true;
+    const refresh = () =>
+      void fetchRequestUsage()
+        .then((data) => active && setUsage(data))
+        .catch(() => {});
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
+    window.addEventListener('provider-usage-updated', refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('provider-usage-updated', refresh);
+    };
+  }, []);
+  const used = usage?.used ?? 0;
+  const ceiling = usage?.ceiling ?? 45;
+  const lastRefresh = usage?.lastSuccessfulRefreshAt
+    ? new Date(usage.lastSuccessfulRefreshAt).toLocaleString()
+    : 'No successful refresh yet';
+  return (
+    <div className="request-usage-header" aria-label="Provider request usage">
+      <div className="request-usage-heading">
+        <strong>
+          {usage?.provider ?? 'Provider'} · {usage?.tier ?? 'loading'} · {used} / {ceiling} requests
+        </strong>
+        <span>Last refresh · {lastRefresh}</span>
+      </div>
+      <progress
+        aria-label={`${used} of ${ceiling} provider requests used`}
+        max={ceiling || 1}
+        value={Math.min(used, ceiling)}
+      />
+      <span className="request-usage-note">Browsing uses no requests</span>
+    </div>
+  );
+}
+
+function RequestBudgetPanel() {
+  const [usage, setUsage] = useState<RequestUsage | null>(null);
+  const [error, setError] = useState('');
+  const refresh = async () => {
+    try {
+      setUsage(await fetchRequestUsage());
+      setError('');
+    } catch {
+      setError('Request usage is unavailable. Start the local API and try again.');
+    }
+  };
+  useEffect(() => {
+    void refresh();
+  }, []);
+  const searchesByLocation = new Map<string, RequestUsage['searches']>();
+  for (const search of usage?.searches ?? []) {
+    const key = search.location.trim().toLocaleLowerCase('en-US');
+    searchesByLocation.set(key, [...(searchesByLocation.get(key) ?? []), search]);
+  }
+  const projectionLabel = (period: 'weekly' | 'daily') => {
+    const projection = usage?.projections[period];
+    if (!projection) return '—';
+    return `${projection.projected} requests${projection.overCeiling ? ` · over ceiling${usage.recommendedTier ? `, needs ${usage.recommendedTier}` : ''}` : ''}`;
+  };
+  return (
+    <section aria-labelledby="request-budget-heading" className="request-budget-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="screen-eyebrow">Data source &amp; request budget</p>
+          <h2 id="request-budget-heading">Provider usage</h2>
+        </div>
+        <strong>{usage ? `${usage.used} / ${usage.ceiling} this month` : 'Loading usage…'}</strong>
+      </div>
+      {error && (
+        <p role="alert" className="search-error">
+          {error}
+        </p>
+      )}
+      {usage && (
+        <>
+          <progress
+            aria-label={`${usage.used} of ${usage.ceiling} provider requests used`}
+            max={usage.ceiling || 1}
+            value={Math.min(usage.used, usage.ceiling)}
+          />
+          <p className="panel-intro">
+            {usage.provider} · {usage.tier}. Browsing uses no requests. Rent estimates: +1 request
+            each · {usage.rentEstimatesUsed} used this month.
+          </p>
+          <div className="request-projections" aria-label="Monthly request projections">
+            <p>
+              <strong>Weekly</strong>
+              <span>{projectionLabel('weekly')}</span>
+            </p>
+            <p>
+              <strong>Daily</strong>
+              <span>{projectionLabel('daily')}</span>
+            </p>
+          </div>
+          <p className="request-search-total">
+            Refreshing all saved searches: {usage.requestsPerRefreshAll} requests per run.
+          </p>
+          {searchesByLocation.size > 0 && (
+            <div className="request-search-groups">
+              {[...searchesByLocation.values()].map((group) => (
+                <section
+                  key={group[0].location.toLocaleLowerCase('en-US')}
+                  aria-label={`${group[0].location} request usage`}
+                >
+                  <h3>{group[0].location}</h3>
+                  {group.map((search) => {
+                    const paired = group.find(
+                      (candidate) => candidate.id === search.pairedSearchId,
+                    );
+                    const buyOnly = search.mode === 'sale' && !paired;
+                    return (
+                      <p key={search.id}>
+                        <span>
+                          {search.mode === 'sale' ? 'Buy' : 'Rent'} · {search.name} · ~
+                          {search.requestsPerRefresh} requests per refresh
+                          {search.measured ? ' (measured)' : ' (estimated)'}
+                        </span>
+                        {buyOnly && (
+                          <span>
+                            No Rent search · local comps unavailable ·{' '}
+                            <a href="/settings">Add Rent search</a>
+                          </span>
+                        )}
+                      </p>
+                    );
+                  })}
+                </section>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 const routes: Route[] = [
   { title: 'Search', eyebrow: 'Find your next place', path: '/' },
   { title: 'Compare', eyebrow: 'Side by side', path: '/compare' },
@@ -461,6 +630,9 @@ const intervalLabel = (days: number | null) =>
 
 function SavedSearchPanel() {
   const [items, setItems] = useState<SavedSearch[]>([]);
+  const [requestCounts, setRequestCounts] = useState<
+    Record<number, { count: number; measured: boolean }>
+  >({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
@@ -469,6 +641,15 @@ function SavedSearchPanel() {
       const response = await fetch('/api/saved-searches');
       if (!response.ok) throw new Error('Could not load saved searches.');
       setItems(((await response.json()) as { items: SavedSearch[] }).items);
+      const usage = await fetchRequestUsage();
+      setRequestCounts(
+        Object.fromEntries(
+          usage.searches.map((search) => [
+            search.id,
+            { count: search.requestsPerRefresh, measured: search.measured },
+          ]),
+        ),
+      );
       setError('');
     } catch {
       setError('Saved searches are unavailable. Start the local API and try again.');
@@ -551,6 +732,7 @@ function SavedSearchPanel() {
       const data = (await response.json()) as { result?: { error?: string }; error?: string };
       if (!response.ok) throw new Error(data.result?.error ?? data.error ?? 'Refresh failed.');
       await refresh();
+      window.dispatchEvent(new Event('provider-usage-updated'));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Refresh failed.');
       await refresh();
@@ -568,6 +750,7 @@ function SavedSearchPanel() {
       const failed = data.results.filter((result) => result.error).length;
       if (failed) setError(`${failed} saved search${failed === 1 ? '' : 'es'} failed to refresh.`);
       await refresh();
+      window.dispatchEvent(new Event('provider-usage-updated'));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not refresh due searches.');
     } finally {
@@ -705,12 +888,15 @@ function SavedSearchPanel() {
                         Save changes
                       </button>
                       <button
+                        aria-label="Refresh now"
                         className="text-button"
                         disabled={busy || refreshingId !== null}
                         onClick={() => void refreshOne(search)}
                         type="button"
                       >
-                        {refreshingId === search.id ? 'Refreshing…' : 'Refresh now'}
+                        {refreshingId === search.id
+                          ? 'Refreshing…'
+                          : `Refresh this search · ~${requestCounts[search.id]?.count ?? 1} request${(requestCounts[search.id]?.count ?? 1) === 1 ? '' : 's'} (${requestCounts[search.id]?.measured ? 'measured' : 'estimated'})`}
                       </button>
                       {search.mode === 'sale' && !paired && (
                         <button
@@ -2552,7 +2738,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
           <span className="brand-name">Ledgerline</span>
         </a>
         <Navigation pathname={pathname} />
-        <span className="header-context">Florida home dashboard</span>
+        <RequestUsageHeader />
       </header>
 
       <div className="sample-notice" role="status">
@@ -2567,6 +2753,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
         </div>
         {page.path === '/settings' ? (
           <div className="settings-panels">
+            <RequestBudgetPanel />
             <SavedSearchPanel />
             <MatchReviewPanel />
             <BackupPanel />

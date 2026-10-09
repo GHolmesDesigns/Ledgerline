@@ -362,4 +362,54 @@ describe('refresh and rent estimate enforcement', () => {
       await api.close();
     }
   });
+
+  it('summarizes measured refresh usage and monthly projections without provider calls', async () => {
+    const { database, store, budget, search, otherSearch } = await setup();
+    const rent = otherSearch('Miami · Rent');
+    store.pairSavedSearches(search.id, rent.id);
+    store.markRefreshSucceeded(search.id, '2026-10-08T12:00:00.000Z');
+    store.markRefreshSucceeded(rent.id, '2026-10-08T12:00:00.000Z');
+    const log = (purpose: string, savedSearchId: number | undefined, page: number) => {
+      const id = store.beginProviderRequest({
+        provider: 'test-provider',
+        savedSearchId,
+        purpose,
+        page,
+      });
+      store.finishProviderRequest(id, { status: 'succeeded', resultCount: 1 });
+    };
+    for (let page = 1; page <= 2; page += 1) log('saved-search-refresh', search.id, page);
+    for (let page = 1; page <= 4; page += 1) log('saved-search-refresh', rent.id, page);
+    log('rent-estimate', undefined, 1);
+    for (let request = 0; request < 16; request += 1) log('other', undefined, request + 1);
+    const { provider, calls } = countingProvider();
+    const api = await serve(database, store, new RefreshJob(store, provider, budget));
+    try {
+      const response = await fetch(`${api.url}/api/request-budget`);
+      const usage = (await response.json()) as {
+        provider: string;
+        requestsPerRefreshAll: number;
+        rentEstimatesUsed: number;
+        lastSuccessfulRefreshAt: string;
+        projections: Record<string, { remainingRuns: number; projected: number }>;
+      };
+      assert.equal(usage.provider, 'test-provider');
+      assert.equal(usage.requestsPerRefreshAll, 6);
+      assert.equal(usage.rentEstimatesUsed, 1);
+      assert.equal(usage.lastSuccessfulRefreshAt, '2026-10-08T12:00:00.000Z');
+      assert.deepEqual(
+        [usage.projections.weekly?.remainingRuns, usage.projections.weekly?.projected],
+        [3, 42],
+      );
+      assert.deepEqual(
+        [usage.projections.daily?.remainingRuns, usage.projections.daily?.projected],
+        [24, 168],
+      );
+      assert.equal(calls.search, 0);
+      assert.equal(calls.estimate, 0);
+      assert.equal(budget.status().used, 23);
+    } finally {
+      await api.close();
+    }
+  });
 });

@@ -27,7 +27,7 @@ Run against the mock provider loaded from `fixtures/sample-data.json`. Each chec
 | 2.2 | Property present in mock and live data | Notes survive the switch |
 | 2.3 | Refresh that would pass the ceiling (set ceiling below used + projected) | Refresh blocked and the reason shown |
 | 2.4 | Rent estimate request | Counts 1 against the same ceiling; blocked when over |
-| 2.5 | Header | Shows used / ceiling, projected monthly total, last successful refresh |
+| 2.5 | Request usage header and Ranking & data budget panel | Header shows provider, tier, used / ceiling, usage bar, last successful refresh, and "Browsing uses no requests". Saved-search pairs show measured requests per refresh and Buy-only areas show the missing Rent search. With the sample budget, weekly projects 42 and daily 168; the daily over-ceiling warning names Foundation at $74/mo. Showing usage sends no provider request. |
 | 2.6 | Credentials | RentCast key only on the local server; absent from browser bundle and Git. Google Maps key absent from browser bundle and Git, sent to the page by the local server at runtime, and restricted in Google Cloud to the app's localhost address and the Maps JavaScript API |
 | 2.7 | Refresh a saved search with 501 mock results | Two provider-page requests are logged; 501 listings and one snapshot per listing are stored; notes remain unchanged |
 | 2.8 | Fail a refresh after an earlier success | Existing listings, snapshots, notes, and last-success time stay unchanged; attempt time and visible failure are recorded |
