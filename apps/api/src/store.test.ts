@@ -456,6 +456,23 @@ describe('saved searches', () => {
     assert.equal(store.getSavedSearch(buy.id)?.pairedSearchId, null);
   });
 
+  it('deleting a saved search leaves properties, listings, notes, favorites, and dismissals alone', () => {
+    const house = store.createProperty(address);
+    store.replaceListings(house.id, [saleListing]);
+    store.addNote(house.id, 'Keep me');
+    store.setFavorite(house.id, true);
+    store.setDismissed(house.id, true);
+    const search = store.createSavedSearch({ name: 'Buy', mode: 'sale', location: 'Miami 33131' });
+
+    store.deleteSavedSearch(search.id);
+
+    assert.equal(store.getSavedSearch(search.id), null);
+    assert.equal(store.getProperty(house.id)?.street, address.street);
+    assert.equal(store.listNotes(house.id).length, 1);
+    assert.equal(store.isFavorite(house.id), true);
+    assert.equal(store.isDismissed(house.id), true);
+  });
+
   it('updates a saved search and only pairs searches that cover the same area', () => {
     const buy = store.createSavedSearch({ name: 'Buy', mode: 'sale', location: 'Miami 33131' });
     const rent = store.createSavedSearch({ name: 'Rent', mode: 'rent', location: 'Miami 33131' });

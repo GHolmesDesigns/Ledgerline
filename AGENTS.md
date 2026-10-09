@@ -4,7 +4,7 @@ A personal, local-only web app to find, rank, and compare Florida homes to rent 
 
 ## Source of truth (in priority order)
 
-1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.9, Oct 9, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
+1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.15, Oct 9, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
 2. `docs/UI_SPEC.md` — screen-by-screen UI requirements and labels.
 3. `docs/ACCEPTANCE_CHECKS.md` — testable checks for Milestones 1–3.
 4. `fixtures/sample-data.json` — fictional sample data with every expected number. `node fixtures/check-fixtures.mjs` must pass.
@@ -65,7 +65,7 @@ These come from the plan, section 5; the fixtures exercise every one.
 
 Follow the plan's milestones. Milestone 0 (provider data check) is done (plan, "Decisions made"; `docs/PROVIDER_EVALUATION.md`): RentCast is a go for purchase listings, and Rent-mode search is not relied on for finding rentals. Don't call RentCast unless asked. Start at Milestone 1 on mock data built from `fixtures/sample-data.json`.
 
-Photos are decided (plan 2.7; see Architecture rules), but cards must still read well without them. Ranking factors and default weights follow plan 2.8; implausibility flags use plan 2.9. How the interface treats Rent mode is still an open decision, so leave it configurable and say so.
+Photos are decided (plan 2.7; see Architecture rules), but cards must still read well without them. Ranking factors and default weights follow plan 2.8; implausibility flags use plan 2.9. Rent mode keeps its switch and searches and shows the label "Rent data may be incomplete" (plan 2.13). RentCast documents radius search but it is unverified: have the adapter declare it unsupported until a real radius request has been made, and say so.
 
 ## Sample data
 
