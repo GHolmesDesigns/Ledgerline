@@ -2,6 +2,7 @@ import type { SavedSearch, Store } from '../store.js';
 import { importProviderRecords, type ImportResult } from './import-listings.js';
 import type { ListingProvider, ProviderListing, SearchCriteria } from './listing-provider.js';
 import { RequestBudget, RequestCeilingError, type BudgetDecision } from './request-budget.js';
+import { redactCredential } from '../provider-credentials.js';
 
 export interface RefreshResult {
   searchId: number;
@@ -47,12 +48,26 @@ export class RefreshJob {
     private readonly store: Store,
     readonly provider: ListingProvider,
     readonly budget: RequestBudget = new RequestBudget(store),
+    private readonly providerCredential: () => string | null = () => null,
   ) {}
+
+  private safeErrorMessage(error: unknown) {
+    const message = error instanceof Error ? error.message : 'Refresh failed.';
+    return redactCredential(message, this.providerCredential());
+  }
 
   async refresh(searchId: number): Promise<RefreshResult> {
     if (this.running.has(searchId)) throw new Error('This saved search is already refreshing.');
     const search = this.store.getSavedSearch(searchId);
     if (!search) throw new Error('Saved search not found.');
+    if (
+      this.provider.name.toLocaleLowerCase('en-US') === 'rentcast' &&
+      !this.providerCredential()
+    ) {
+      const error = 'No RentCast key set';
+      this.store.markRefreshFailed(searchId, error);
+      return { searchId, error };
+    }
     const projected = this.budget.check(this.budget.projectedRefresh(searchId), 'Refresh');
     if (!projected.allowed) {
       // Show the reason on the search, without writing again on every scheduler tick.
@@ -84,7 +99,7 @@ export class RefreshJob {
           records.push(...batch);
           if (this.provider.pageSize != null && batch.length < this.provider.pageSize) break;
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Provider request failed.';
+          const message = this.safeErrorMessage(error);
           this.store.finishProviderRequest(logId, { status: 'failed', errorMessage: message });
           throw error;
         }
@@ -96,7 +111,7 @@ export class RefreshJob {
       });
       return { searchId, imported };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Refresh failed.';
+      const message = this.safeErrorMessage(error);
       this.store.markRefreshFailed(search.id, message);
       return {
         searchId,

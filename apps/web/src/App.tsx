@@ -189,6 +189,86 @@ function RequestBudgetPanel() {
   );
 }
 
+function ProviderCredentialsPanel() {
+  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    void fetch('/api/provider-credentials')
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = (await response.json()) as { configured: boolean };
+        setConfigured(data.configured);
+      })
+      .catch(() => setError('Provider credential settings are unavailable.'));
+  }, []);
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    try {
+      const response = await fetch('/api/provider-credentials', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ rentCastApiKey: formData.get('rentCastApiKey') }),
+      });
+      const data = (await response.json()) as { configured?: boolean; error?: string };
+      if (!response.ok) throw new Error(data.error ?? 'Could not save the key.');
+      setConfigured(data.configured === true);
+      setEditing(false);
+      form.reset();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not save the key.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section aria-labelledby="provider-credentials-heading" className="provider-credentials-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="screen-eyebrow">Local API only</p>
+          <h2 id="provider-credentials-heading">RentCast key</h2>
+        </div>
+        <strong role="status">
+          {configured === null ? 'Checking…' : configured ? 'Key set' : 'No key set'}
+        </strong>
+      </div>
+      <p className="panel-intro">
+        The key is stored on this computer by the local API. It is never returned to the browser.
+      </p>
+      {configured && !editing ? (
+        <button className="text-button" onClick={() => setEditing(true)} type="button">
+          Replace key
+        </button>
+      ) : (
+        <form className="provider-key-form" onSubmit={(event) => void save(event)}>
+          <label>
+            RentCast API key
+            <input autoComplete="new-password" name="rentCastApiKey" required type="password" />
+          </label>
+          <button disabled={busy} type="submit">
+            {busy ? 'Saving…' : configured ? 'Save new key' : 'Set key'}
+          </button>
+          {configured && (
+            <button className="text-button" onClick={() => setEditing(false)} type="button">
+              Cancel
+            </button>
+          )}
+        </form>
+      )}
+      {error && (
+        <p role="alert" className="search-error">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
 const routes: Route[] = [
   { title: 'Search', eyebrow: 'Find your next place', path: '/' },
   { title: 'Compare', eyebrow: 'Side by side', path: '/compare' },
@@ -2754,6 +2834,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
         {page.path === '/settings' ? (
           <div className="settings-panels">
             <RequestBudgetPanel />
+            <ProviderCredentialsPanel />
             <SavedSearchPanel />
             <MatchReviewPanel />
             <BackupPanel />

@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Store the RentCast key in a git-ignored API-local `.env` file; Ranking & data sends it once and displays only "Key set". Credential status and errors never echo the key, provider failures redact it from request logs, and the production web build scans assets against the configured key (Issue 20 / C20).
 - Show provider request usage in the header and Ranking & data, including measured saved-search request counts, rent-estimate usage, monthly projections, and over-ceiling tier guidance (Issue 19 / C19). Reading usage stays local and does not call the provider; the header updates after refreshes.
 
 - Enforce a monthly provider request ceiling (Issue 18 / C18): a local, configurable ceiling (default 45) and billing day (default the 1st, UTC) are checked in the API before every provider request. A refresh is blocked when used + projected (its last run's requests, or 1) would pass the ceiling, and each page of a long refresh is checked again; a rent estimate counts 1 and is blocked the same way. Blocked calls send nothing, return 429 naming used, ceiling, and projected, and show the reason on the saved search. Adds `GET/PUT /api/request-budget` and `POST /api/properties/:id/rent-estimate` (no usage display yet; that is C19). Every logged request counts, including the mock provider's.

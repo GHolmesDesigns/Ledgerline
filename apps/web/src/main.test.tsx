@@ -28,6 +28,13 @@ describe('app shell', () => {
     assert.match(html, /aria-current="page" class="nav-link" href="\/compare"/);
     assert.match(html, /id="main-content" tabindex="-1"/);
   });
+
+  it('provides a password field for the optional local RentCast key', () => {
+    const html = renderToStaticMarkup(<App initialPath="/settings" />);
+    assert.match(html, /RentCast key/);
+    assert.match(html, /name="rentCastApiKey"/);
+    assert.match(html, /type="password"/);
+  });
 });
 
 describe('request usage header', () => {
