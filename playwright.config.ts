@@ -6,6 +6,7 @@ const webPort = process.env.LEDGERLINE_TEST_WEB_PORT ?? '5173';
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  workers: 4,
   reporter: 'list',
   use: { ...devices['Desktop Chrome'], baseURL: `http://127.0.0.1:${webPort}` },
   webServer: [

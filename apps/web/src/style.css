@@ -1327,6 +1327,55 @@ h1 {
 .listing-card-heading {
   align-items: flex-start;
 }
+.ranking-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -8px 0 14px;
+  font-family: var(--font-label);
+}
+.provisional-tag {
+  border: 1px dashed currentColor;
+  border-radius: 999px;
+  display: inline-block;
+  padding: 2px 8px;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.score-breakdown {
+  flex-basis: 100%;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+}
+.score-breakdown summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.score-breakdown ul {
+  margin: 0 0 0 18px;
+  padding: 0;
+}
+.ranking-weight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.ranking-live-list {
+  padding-left: 28px;
+}
+.ranking-live-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line, #3b4852);
+}
 .listing-price {
   margin: 0;
   font-family: var(--font-display);

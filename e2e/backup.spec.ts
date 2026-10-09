@@ -60,6 +60,11 @@ test('export, delete the data folder, restart, and import restores personal data
     // The page talks to whichever API is running now.
     await routeApiTo(page, () => api!);
     await page.goto('/settings');
+    await page.evaluate(() => {
+      const stored = JSON.parse(localStorage.getItem('ledgerline-ranking-weights-v1') ?? '{}');
+      stored.sale = { ...stored.sale, price: 37 };
+      localStorage.setItem('ledgerline-ranking-weights-v1', JSON.stringify(stored));
+    });
     const backup = page.getByRole('region', { name: 'Backup and restore' });
     await expect(page.getByRole('heading', { name: 'Backup and restore' })).toBeVisible();
     await expect(backup.getByRole('button', { name: 'Import personal data' })).toBeDisabled();
@@ -75,6 +80,8 @@ test('export, delete the data folder, restart, and import restores personal data
     await expect(backup.getByRole('status')).toContainText('Exported your personal data to');
     const backupText = readFileSync(backupPath, 'utf8');
     expect(JSON.parse(backupText).formatVersion).toBe(4);
+    expect(JSON.parse(backupText).rankingWeights.sale.price).toBe(37);
+    expect(JSON.parse(backupText).rankingWeights.rent.price).toBe(40);
     expect(backupText).not.toContain('prop_');
     expect(backupText).not.toContain('849000');
 
@@ -82,6 +89,11 @@ test('export, delete the data folder, restart, and import restores personal data
     await api.stop();
     rmSync(dataDirectory, { recursive: true, force: true });
     api = await startApi(databasePath);
+    await page.evaluate(() => {
+      const stored = JSON.parse(localStorage.getItem('ledgerline-ranking-weights-v1') ?? '{}');
+      stored.sale = { ...stored.sale, price: 4 };
+      localStorage.setItem('ledgerline-ranking-weights-v1', JSON.stringify(stored));
+    });
     await page.reload();
     await expect(page.getByLabel('My Fort Lauderdale search name')).toHaveCount(0);
 
@@ -91,6 +103,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await expect(backup.getByRole('status')).toContainText(
       `Imported 3 cost records, 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 8 properties, ${searchNames.length} personal assumption sets, 1 local rate set. Already here: 2 local rate sets.`,
     );
+    await expect(page.getByLabel('price weight')).toHaveValue('37');
     await page.reload();
     await expect(page.getByLabel('My Fort Lauderdale search name')).toBeVisible();
 

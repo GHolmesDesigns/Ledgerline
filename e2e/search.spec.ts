@@ -97,6 +97,68 @@ test('price sorting changes the query and shows full photo-free result cards', a
   await expect(page.locator('.listing-facts').first()).toContainText('1,850 sq ft');
 });
 
+test('score ranks stay attached to listings when the display sort changes', async ({ page }) => {
+  const high = sale(800000, 'High price home') as {
+    property: { floodZone?: string | null };
+  };
+  const low = sale(200000, 'Low price home') as {
+    property: { floodZone?: string | null };
+  };
+  high.property.floodZone = 'X';
+  low.property.floodZone = 'X';
+  await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
+  await page.route('**/api/listings?**', (route) =>
+    route.fulfill({ json: { items: [high, low] } }),
+  );
+
+  await page.goto('/?sort=score');
+  const cards = page.locator('.listing-card');
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0).locator('.listing-price')).toHaveText('$200,000');
+  await expect(cards.nth(0).locator('.ranking-summary strong')).toContainText('#1');
+  await expect(cards.nth(1).locator('.ranking-summary strong')).toContainText('#2');
+
+  await page.getByLabel('Sort listings').selectOption('price');
+  await expect(page).toHaveURL(/sort=price/);
+  await expect(cards.nth(0).locator('.listing-price')).toHaveText('$200,000');
+  await expect(cards.nth(0).locator('.ranking-summary strong')).toContainText('#1');
+  await expect(cards.nth(1).locator('.ranking-summary strong')).toContainText('#2');
+});
+
+test('changing a ranking weight updates scores and rank order', async ({ page }) => {
+  const small = sale(200000, 'Smaller home') as {
+    property: { livingAreaSqft?: number; floodZone?: string | null };
+  };
+  const large = sale(800000, 'Larger home') as {
+    property: { livingAreaSqft?: number; floodZone?: string | null };
+  };
+  small.property.livingAreaSqft = 1000;
+  large.property.livingAreaSqft = 4000;
+  small.property.floodZone = 'X';
+  large.property.floodZone = 'X';
+  await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
+  await page.route('**/api/listings?**', (route) =>
+    route.fulfill({ json: { items: [small, large] } }),
+  );
+
+  await page.goto('/');
+  const cards = page.locator('.listing-card');
+  await expect(cards.first().getByRole('link', { name: 'Smaller home' })).toBeVisible();
+  await page.goto('/settings');
+  await page.getByLabel('price weight').fill('0');
+  await page.getByLabel('own-vs-rent cost weight').fill('0');
+  await page.getByLabel('flood weight').fill('0');
+  await page.getByLabel('HOA weight').fill('0');
+  await page.getByLabel('insurance weight').fill('0');
+  await page.getByLabel('living area weight').fill('100');
+  await page.goto('/?sort=score');
+  await expect(cards.first().getByRole('link', { name: 'Larger home' })).toBeVisible();
+  await expect(cards.first().locator('.ranking-summary strong')).toContainText('#1');
+  await cards.first().getByRole('button', { name: 'Select Larger home on map' }).click();
+  await cards.first().getByText('Score breakdown').click();
+  await expect(cards.first().getByText(/living area · 100 pts · 100\/100/)).toBeVisible();
+});
+
 test('purchase cards show cost, certainty, comparable-rent gap, and risk labels in grayscale', async ({
   page,
 }) => {
