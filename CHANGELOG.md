@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Expand Compare with every purchase cost line and its text state tag, total certainty, comparable rent and source, own-vs-rent gap, upfront cash, Florida risk rows, and a lowest complete total marker. Personal and local assumptions are summarized with separate edit links (Issue 31 / C31).
 - Show purchase cost lines, total certainty, own-vs-rent gaps, local-rate prompts, and property risk chips on search cards and property detail, with text labels that remain clear in grayscale (Issue 30 / C30).
 - Find comparable rent from an active rental listing on the same property or qualifying local Rent-mode listings. Persist the figure, source, comp IDs and rule set; show comp details and let the user edit matching rules locally. Lookups make no provider requests. (Issue 29 / C29).
 - Compute purchase cost lines, certainty, monthly totals or known subtotals, and upfront cash from local listing, evidence, and county/personal assumptions. Property detail API responses include the computed result; same-building HOA estimates use at least two recent unit listings. (Issue 28 / C28).

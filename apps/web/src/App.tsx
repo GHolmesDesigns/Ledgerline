@@ -1809,7 +1809,7 @@ type PropertyNote = {
   createdAt: string;
   updatedAt: string;
 };
-type PropertyDetailData = {
+export type PropertyDetailData = {
   property: SearchListing['property'] & {
     lotSizeSqft: number | null;
     bathsFull: number | null;
@@ -1879,6 +1879,50 @@ type PropertyDetailData = {
     sample: boolean;
   }>;
 };
+
+export function lowestCompleteCostPropertyId(items: PropertyDetailData[]) {
+  return items
+    .map((item) => ({
+      id: item.property.id,
+      estimate:
+        item.costEstimates?.find((estimate) =>
+          item.listings.some(
+            (listing) => listing.id === estimate.listingId && listing.mode === 'sale',
+          ),
+        ) ?? item.costEstimate,
+    }))
+    .filter(
+      (item): item is { id: string; estimate: CostEstimate } =>
+        item.estimate != null &&
+        item.estimate.totalStatus !== 'Incomplete' &&
+        item.estimate.monthlyTotal != null,
+    )
+    .reduce<{ id: string; amount: number } | null>(
+      (lowest, item) =>
+        lowest == null || item.estimate.monthlyTotal! < lowest.amount
+          ? { id: item.id, amount: item.estimate.monthlyTotal! }
+          : lowest,
+      null,
+    )?.id;
+}
+
+export function abbreviatedCostState(state: string) {
+  return (
+    (
+      {
+        Calculated: 'Calc',
+        'Not applicable': 'N/A',
+        'Not Applicable': 'N/A',
+        Estimate: 'Est.',
+        Document: 'Doc',
+      } as Record<string, string>
+    )[state] ?? state
+  );
+}
+
+function money(value: number | null | undefined) {
+  return value == null ? '—' : `$${Math.round(value).toLocaleString()}`;
+}
 
 const compareStorageKey = 'ledgerline.compare-properties';
 const compareChangedEvent = 'ledgerline:compare-changed';
@@ -3046,6 +3090,10 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
 function CompareScreen() {
   const compare = useCompareSet();
   const [properties, setProperties] = useState<PropertyDetailData[]>([]);
+  const [assumptionSummary, setAssumptionSummary] = useState<{
+    searches: AssumptionSearch[];
+    local: LocalAssumptions[];
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mobile, setMobile] = useState(
@@ -3080,6 +3128,16 @@ function CompareScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    void fetch('/api/assumptions')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Assumptions unavailable');
+        return (await response.json()) as {
+          searches: AssumptionSearch[];
+          local: LocalAssumptions[];
+        };
+      })
+      .then((value) => !cancelled && setAssumptionSummary(value))
+      .catch(() => !cancelled && setAssumptionSummary(null));
     if (compare.ids.length === 0) {
       setProperties([]);
       setLoading(false);
@@ -3146,6 +3204,106 @@ function CompareScreen() {
       .join(' · ') || 'No listings on file';
   const addressSearch = (item: PropertyDetailData) =>
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${addressOf(item)}, ${item.property.city}, FL ${item.property.zip}`)}`;
+  const costFor = (item: PropertyDetailData) =>
+    item.costEstimates?.find((estimate) =>
+      item.listings.some((listing) => listing.id === estimate.listingId && listing.mode === 'sale'),
+    ) ?? item.costEstimate;
+  const lowestId = lowestCompleteCostPropertyId(properties);
+  const selectedPersonal = assumptionSummary?.searches[0]?.personal;
+  const personalLabel = selectedPersonal
+    ? `${selectedPersonal.downPaymentPct}% down · ${selectedPersonal.mortgageRatePct.toFixed(2)}% ${selectedPersonal.termYears}-yr · maintenance ${selectedPersonal.maintenancePctPerYear}%/yr`
+    : 'Assumptions not set';
+  const counties = [...new Set(properties.map((item) => item.property.county).filter(Boolean))];
+  const localLabel = counties.length
+    ? counties
+        .map((county) => {
+          const local = assumptionSummary?.local.find(
+            (item) => item.county.toLocaleLowerCase() === county?.toLocaleLowerCase(),
+          );
+          return `${county}${local?.sample ? ' (sample)' : local?.set ? '' : ' (not set)'}`;
+        })
+        .join(' · ')
+    : 'Local rates not set';
+  const costLines = [
+    ['P&I', 'principalInterest'],
+    ['Property tax', 'propertyTax'],
+    ['Homeowners / HO-6', 'homeowners'],
+    ['Flood', 'flood'],
+    ['HOA', 'hoa'],
+    ['Non-ad valorem / CDD', 'nonAdValorem'],
+    ['Special assessment', 'specialAssessment'],
+    ['Maintenance', 'maintenance'],
+  ] as const;
+  const costLineCell = (item: PropertyDetailData, key: string): ReactNode => {
+    const line = costFor(item)?.lines.find((candidate) =>
+      key === 'homeowners'
+        ? candidate.key === 'homeowners' || candidate.key === 'ho6'
+        : candidate.key === key,
+    );
+    if (!line) return 'No purchase estimate';
+    return (
+      <span className="compare-cost-cell">
+        <strong>{money(line.monthly)}</strong>
+        <span className="cost-state-tag">{abbreviatedCostState(line.state)}</span>
+        {line.note && <small>{line.note}</small>}
+      </span>
+    );
+  };
+  const totalCell = (item: PropertyDetailData) => {
+    const estimate = costFor(item);
+    if (!estimate) return 'No purchase estimate';
+    return (
+      <span className="compare-cost-cell">
+        <strong>
+          {estimate.totalStatus === 'Incomplete'
+            ? `at least ${money(estimate.knownSubtotal)}`
+            : money(estimate.monthlyTotal)}
+        </strong>
+        <span className="total-status-tag">{estimate.statusLabel}</span>
+        {lowestId === item.property.id && (
+          <strong className="lowest-complete-tag">Lowest complete total</strong>
+        )}
+      </span>
+    );
+  };
+  const comparableRentCell = (item: PropertyDetailData) => {
+    const rent = item.comparableRent;
+    if (!rent) return 'Unavailable · no comparable rent';
+    return (
+      <span className="compare-cost-cell">
+        <strong>
+          {rent.figure.value == null ? 'Unavailable' : `${money(rent.figure.value)}/mo`}
+        </strong>
+        <span>
+          {rent.label}
+          {rent.stale ? ' · Stale' : ''}
+        </span>
+      </span>
+    );
+  };
+  const gapCell = (item: PropertyDetailData) => {
+    const estimate = costFor(item);
+    const rent = item.comparableRent;
+    if (!estimate) return 'No purchase estimate';
+    if (estimate.totalStatus === 'Incomplete') return `Hidden · ${estimate.statusLabel}`;
+    if (rent?.figure.value == null || estimate.monthlyTotal == null)
+      return `Hidden · ${rent?.label ?? 'Comparable rent unavailable'}`;
+    const difference = estimate.monthlyTotal - rent.figure.value;
+    return `${estimate.totalStatus === 'Estimate' ? '≈ ' : ''}${difference >= 0 ? '+' : '−'}${money(Math.abs(difference))}/mo`;
+  };
+  const riskDetails = (item: PropertyDetailData) =>
+    item.property.riskDetails ?? {
+      floodZoneSource: null,
+      floodZoneDate: null,
+      roofYear: null,
+      windMitigation: [],
+      insuranceSource: null,
+      insuranceDate: null,
+      milestoneInspection: null,
+      countyRecertification: null,
+      reserveStudy: null,
+      specialAssessment: null,
+    };
   const rows: Array<[string, (item: PropertyDetailData) => ReactNode]> = [
     ['Price', listingPrice],
     ['Status', listingStatus],
@@ -3156,6 +3314,40 @@ function CompareScreen() {
         `${item.property.beds ?? '—'} bd · ${item.property.bathsTotal ?? '—'} ba · ${item.property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft`,
     ],
     ['Year built', (item) => item.property.yearBuilt ?? 'Unknown'],
+    ...costLines.map(
+      ([label, key]) =>
+        [label, (item: PropertyDetailData) => costLineCell(item, key)] as [
+          string,
+          (item: PropertyDetailData) => ReactNode,
+        ],
+    ),
+    ['Total', totalCell],
+    ['Comparable rent', comparableRentCell],
+    ['Own vs. rent', gapCell],
+    ['Upfront cash', (item) => costFor(item)?.upfrontLabel ?? 'No purchase estimate'],
+    [
+      'Flood zone',
+      (item) => {
+        const details = riskDetails(item);
+        return `${item.property.floodZone ?? 'Unknown'} · ${details.floodZoneSource ?? 'source not recorded'} · ${details.floodZoneDate ?? 'date not recorded'}`;
+      },
+    ],
+    [
+      'Insurance & wind mitigation',
+      (item) => {
+        const details = riskDetails(item);
+        return `Roof ${details.roofYear ?? 'unknown'} · built ${item.property.yearBuilt ?? 'unknown'} · ${details.windMitigation.length ? details.windMitigation.join(', ') : 'wind mitigation not recorded'} · ${details.insuranceSource ?? 'source not recorded'} · ${details.insuranceDate ?? 'date not recorded'}`;
+      },
+    ],
+    [
+      'Condo & association',
+      (item) => {
+        const type = item.property.propertyType?.toLocaleLowerCase() ?? '';
+        if (!/(condo|co_op|townhome)/.test(type)) return 'Not a condo, co-op, or townhome';
+        const details = riskDetails(item);
+        return `Milestone ${details.milestoneInspection ?? 'not recorded'} · recertification ${details.countyRecertification ?? 'not recorded'} · reserves ${details.reserveStudy ?? 'not recorded'} · assessment ${details.specialAssessment ?? 'not recorded'}`;
+      },
+    ],
     [
       'Notes',
       (item) =>
@@ -3217,6 +3409,18 @@ function CompareScreen() {
         <p>{compare.ids.length} of 4 properties selected</p>
         <a href="/">Add properties from Search</a>
       </div>
+      <div className="compare-assumptions" aria-label="Cost assumptions">
+        <p>
+          <strong>Personal:</strong> {personalLabel}{' '}
+          <a href="/settings">Edit personal assumptions</a>
+        </p>
+        <p>
+          <strong>Local:</strong> {localLabel} <a href="/settings">Edit local rates</a>
+        </p>
+      </div>
+      <p className="compare-cost-legend" aria-label="Cost line tag legend">
+        Cost line tags: Listing · Calc · Quote · Doc · N/A · Est. · Unknown
+      </p>
       {mobile && (
         <div className="compare-selectors">
           <label>
