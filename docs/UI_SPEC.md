@@ -127,7 +127,7 @@ Line-by-line amounts and states are in the fixture file.
 
 ### Settings (`/settings`)
 - Sections, in order: Appearance, Ranking weights, Assumptions (personal and local rates plus comparable-rent rules), Saved searches, Personal tags, RentCast usage, Keys, Property match review, Backup and restore, About.
-- Every section is linked from the Settings section list and has a stable hash anchor. Search, Compare, and Property links open the relevant Settings section.
+- Every section is linked from the Settings section list and has a stable hash anchor. Search, Compare, and Property links open the relevant Settings section. Each section can be reordered by dragging its handle, with the keyboard (Enter/Space to pick up or drop, arrows to move, Escape to cancel), or on a phone with Move up/Move down buttons. The order is a local display preference, persists across reloads, and Reset order restores the listed default. New sections are merged at their default position. The order is not part of personal-data backups.
 - Appearance and Personal tags are placeholders for later issues. Existing setting behavior and storage remain unchanged.
 - **Ranking weights** with live ranking of all 7 listings in score order, provisional badges and short reasons.
 - **Personal assumptions** panel: down payment, rate, term, maintenance.

@@ -621,25 +621,72 @@ h1 {
   gap: 20px;
 }
 .settings-section-nav {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.settings-section-order-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 20px;
 }
-.settings-section-nav a {
+.settings-section-order-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+.settings-section-order-item a {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   padding: 8px 12px;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   color: var(--color-ink);
-  background: var(--color-surface);
   font-weight: 600;
   text-decoration: none;
 }
-.settings-section-nav a:hover {
+.settings-section-order-item a:hover {
   border-color: var(--color-cyan);
+}
+.settings-drag-handle,
+.settings-mobile-move button,
+.settings-reset-order {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: white;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: grab;
+}
+.settings-drag-handle {
+  touch-action: none;
+}
+.settings-drag-handle[aria-pressed='true'] {
+  border-color: var(--color-cyan);
+  background: #e9f8fb;
+  cursor: grabbing;
+}
+.settings-drag-handle span {
+  font-size: 20px;
+}
+.settings-mobile-move {
+  display: none;
+}
+.settings-mobile-move button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.settings-reset-order {
+  justify-self: start;
+  cursor: pointer;
 }
 .settings-section {
   display: grid;
@@ -2124,6 +2171,24 @@ h1 {
   .site-header {
     min-height: 64px;
     padding: 0 16px;
+  }
+
+  .settings-section-order-list {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .settings-section-order-item {
+    justify-content: space-between;
+  }
+  .settings-section-order-item a {
+    flex: 1;
+  }
+  .settings-mobile-move {
+    display: flex;
+    gap: 6px;
+  }
+  .settings-mobile-move button {
+    cursor: pointer;
   }
 
   .app-shell {
