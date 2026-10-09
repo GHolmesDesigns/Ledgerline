@@ -85,6 +85,37 @@ async function seedPersonalData(store: Store, decision: 'link' | 'keep_separate'
     mode: 'rent',
     location: 'Fort Lauderdale 33308',
   });
+  store.setPersonalAssumptions(buy.id, {
+    downPaymentPct: 25,
+    mortgageRatePct: 6.25,
+    termYears: 20,
+    maintenancePctPerYear: 1.2,
+    updatedAt: '2026-10-08T11:00:00.000Z',
+  });
+  store.setLocalAssumption({
+    county: 'Broward',
+    set: true,
+    millage: 19.5,
+    typicalNonAdValoremPerYear: 700,
+    homeownersDefaultMonthly: 520,
+    ho6DefaultMonthly: 110,
+    floodDefaultMonthly: { X: 50, AE: 180, VE: 420 },
+    source: 'county tax collector',
+    setOn: '2026-10-07',
+    sample: true,
+  });
+  store.setLocalAssumption({
+    county: 'Palm Beach',
+    set: false,
+    millage: null,
+    typicalNonAdValoremPerYear: null,
+    homeownersDefaultMonthly: null,
+    ho6DefaultMonthly: null,
+    floodDefaultMonthly: {},
+    source: null,
+    setOn: null,
+    sample: false,
+  });
   store.pairSavedSearches(buy.id, rent.id);
 
   const [review] = store.listPendingMatchReviews();
@@ -112,6 +143,8 @@ describe('personal-data backup', () => {
     assert.equal(report.added.dismissed, 1);
     assert.equal(report.added.savedSearches, 2);
     assert.equal(report.added.matchDecisions, 1);
+    assert.equal(report.added.personalAssumptions, 2);
+    assert.equal(report.added.localAssumptions, 2);
     // The restored database re-exports to exactly the same file.
     assert.deepEqual(
       exportBackup(target.store, exportedAt),
@@ -121,6 +154,8 @@ describe('personal-data backup', () => {
     const pair = target.store.listSavedSearches();
     assert.equal(pair[0]!.pairedSearchId, pair[1]!.id);
     assert.equal(pair[0]!.refreshIntervalDays, 7);
+    assert.equal(target.store.getPersonalAssumptions(pair[0]!.id)?.mortgageRatePct, 6.25);
+    assert.deepEqual(target.store.listLocalAssumptions(), source.store.listLocalAssumptions());
     const restoredBay = target.store.findPropertyByAddress({ ...bayRoad, unit: null })!;
     assert.deepEqual([restoredBay.latitude, restoredBay.longitude], [25.7907, -80.1423]);
     assert.equal(restoredBay.county, 'Miami-Dade');
@@ -153,6 +188,8 @@ describe('personal-data backup', () => {
       dismissed: 0,
       savedSearches: 0,
       matchDecisions: 0,
+      personalAssumptions: 0,
+      localAssumptions: 0,
     });
     assert.equal(second.alreadyPresent.notes, 3);
     assert.equal(second.alreadyPresent.savedSearches, 2);

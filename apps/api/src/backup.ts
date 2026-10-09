@@ -6,7 +6,10 @@ import type {
   ReviewDecision,
   SavedSearch,
   Store,
+  LocalAssumptions,
+  PersonalAssumptions,
 } from './store.js';
+import { defaultPersonalAssumptions } from './assumptions.js';
 
 // Personal-data backup (C14): notes, saves, dismissals, saved searches, and property
 // match decisions in one JSON file. Records are keyed by normalized address and unit,
@@ -15,7 +18,7 @@ import type {
 // are deliberately not part of a backup: refresh fetches listings again.
 
 export const BACKUP_FORMAT = 'ledgerline-personal-data';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 export interface AddressKey {
   street: string;
@@ -57,6 +60,7 @@ export interface BackupSavedSearch {
   updatedAt: string;
   /** Position in this file's savedSearches of the paired Buy/Rent search, if any. */
   pairedWith: number | null;
+  personalAssumptions: PersonalAssumptions | null;
 }
 
 export interface BackupMatchDecision {
@@ -77,6 +81,7 @@ export interface Backup {
   exportedAt: string;
   properties: BackupProperty[];
   savedSearches: BackupSavedSearch[];
+  localAssumptions: LocalAssumptions[];
   matchDecisions: BackupMatchDecision[];
 }
 
@@ -186,6 +191,7 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
     updatedAt: search.updatedAt,
     pairedWith:
       search.pairedSearchId === null ? null : (positions.get(search.pairedSearchId) ?? null),
+    personalAssumptions: store.getPersonalAssumptions(search.id),
   }));
 
   return {
@@ -196,6 +202,7 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
       idOf(left.key).localeCompare(idOf(right.key)),
     ),
     savedSearches,
+    localAssumptions: store.listLocalAssumptions(),
     matchDecisions,
   };
 }
@@ -210,7 +217,15 @@ export interface BackupMigrationOptions {
 
 // Format 1 is the first format, so no older format exists yet. When the format changes,
 // bump BACKUP_VERSION and add the step that upgrades the previous version here.
-const migrationSteps: Record<number, BackupMigration> = {};
+const migrationSteps: Record<number, BackupMigration> = {
+  1: (data) => ({
+    ...data,
+    savedSearches: (Array.isArray(data.savedSearches) ? data.savedSearches : []).map((item) =>
+      isRecord(item) ? { ...item, personalAssumptions: null } : item,
+    ),
+    localAssumptions: [],
+  }),
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -257,10 +272,12 @@ export interface ImportCounts {
   dismissed: number;
   savedSearches: number;
   matchDecisions: number;
+  personalAssumptions: number;
+  localAssumptions: number;
 }
 
 export interface SkippedRecord {
-  section: 'properties' | 'notes' | 'savedSearches' | 'matchDecisions';
+  section: 'properties' | 'notes' | 'savedSearches' | 'matchDecisions' | 'localAssumptions';
   label: string;
   reason: string;
 }
@@ -281,6 +298,8 @@ const emptyCounts = (): ImportCounts => ({
   dismissed: 0,
   savedSearches: 0,
   matchDecisions: 0,
+  personalAssumptions: 0,
+  localAssumptions: 0,
 });
 
 const isText = (value: unknown): value is string =>
@@ -330,7 +349,12 @@ export function importBackup(
   options: BackupMigrationOptions = {},
 ): ImportReport {
   const { data, fromVersion } = migrateBackup(raw, options);
-  for (const section of ['properties', 'savedSearches', 'matchDecisions'] as const) {
+  for (const section of [
+    'properties',
+    'savedSearches',
+    'matchDecisions',
+    'localAssumptions',
+  ] as const) {
     if (data[section] !== undefined && !Array.isArray(data[section])) {
       throw new BackupError(`The backup's ${section} section is not a list. Nothing was changed.`);
     }
@@ -488,6 +512,26 @@ export function importBackup(
       if (existing) {
         alreadyPresent.savedSearches += 1;
         localSearchIds.set(index, existing.id);
+        const personal = readPersonalAssumptions(record.personalAssumptions);
+        if (personal) {
+          const current = store.getPersonalAssumptions(existing.id);
+          const currentIsDefault =
+            current &&
+            current.downPaymentPct === defaultPersonalAssumptions.downPaymentPct &&
+            current.mortgageRatePct === defaultPersonalAssumptions.mortgageRatePct &&
+            current.termYears === defaultPersonalAssumptions.termYears &&
+            current.maintenancePctPerYear === defaultPersonalAssumptions.maintenancePctPerYear;
+          const sameAsBackup =
+            current &&
+            current.downPaymentPct === personal.downPaymentPct &&
+            current.mortgageRatePct === personal.mortgageRatePct &&
+            current.termYears === personal.termYears &&
+            current.maintenancePctPerYear === personal.maintenancePctPerYear;
+          if (!current || (currentIsDefault && !sameAsBackup)) {
+            store.setPersonalAssumptions(existing.id, personal);
+            added.personalAssumptions += 1;
+          } else alreadyPresent.personalAssumptions += 1;
+        }
         return;
       }
       const created = store.createSavedSearch(input, {
@@ -497,7 +541,32 @@ export function importBackup(
       existingSearches.set(identity, created);
       localSearchIds.set(index, created.id);
       added.savedSearches += 1;
+      const personal = readPersonalAssumptions(record.personalAssumptions);
+      if (personal) {
+        store.setPersonalAssumptions(created.id, personal);
+        added.personalAssumptions += 1;
+      }
     });
+    const localRows = store.listLocalAssumptions();
+    const existingLocal = new Set(localRows.map((item) => item.county.toLocaleLowerCase('en-US')));
+    for (const item of (data.localAssumptions as unknown[] | undefined) ?? []) {
+      const record = readLocalAssumptions(item);
+      if (!record) {
+        skipped.push({
+          section: 'localAssumptions',
+          label: 'Local rates',
+          reason: 'The county rates are unreadable.',
+        });
+        continue;
+      }
+      const key = record.county.toLocaleLowerCase('en-US');
+      const current = localRows.find((entry) => entry.county.toLocaleLowerCase('en-US') === key);
+      if (!current || (current.sample && !record.sample)) {
+        store.setLocalAssumption(record);
+        existingLocal.add(key);
+        added.localAssumptions += 1;
+      } else alreadyPresent.localAssumptions += 1;
+    }
     // Restore Buy/Rent pairs, but never break a pairing the database already has.
     searchItems.forEach((record, index) => {
       const partner = record.pairedWith;
@@ -579,5 +648,64 @@ export function importBackup(
     added,
     alreadyPresent,
     skipped,
+  };
+}
+
+function readPersonalAssumptions(value: unknown): PersonalAssumptions | null {
+  if (!isRecord(value)) return null;
+  const fields = [
+    value.downPaymentPct,
+    value.mortgageRatePct,
+    value.termYears,
+    value.maintenancePctPerYear,
+  ];
+  if (fields.some((item) => typeof item !== 'number' || !Number.isFinite(item))) return null;
+  return {
+    downPaymentPct: value.downPaymentPct as number,
+    mortgageRatePct: value.mortgageRatePct as number,
+    termYears: value.termYears as number,
+    maintenancePctPerYear: value.maintenancePctPerYear as number,
+    ...(isTimestamp(value.updatedAt) ? { updatedAt: value.updatedAt } : {}),
+  };
+}
+
+function readLocalAssumptions(value: unknown): LocalAssumptions | null {
+  if (!isRecord(value) || !isText(value.county) || typeof value.set !== 'boolean') return null;
+  const numberOrNull = (item: unknown) =>
+    item === null ? null : typeof item === 'number' && Number.isFinite(item) ? item : undefined;
+  const millage = numberOrNull(value.millage);
+  const typical = numberOrNull(value.typicalNonAdValoremPerYear);
+  const homeowners = numberOrNull(value.homeownersDefaultMonthly);
+  const ho6 = numberOrNull(value.ho6DefaultMonthly);
+  const flood = value.floodDefaultMonthly;
+  if (
+    millage === undefined ||
+    typical === undefined ||
+    homeowners === undefined ||
+    ho6 === undefined ||
+    !isRecord(flood)
+  )
+    return null;
+  if (Object.values(flood).some((item) => typeof item !== 'number' || !Number.isFinite(item)))
+    return null;
+  const source = nullableText(value.source);
+  const setOn = nullableText(value.setOn);
+  if (
+    source === undefined ||
+    setOn === undefined ||
+    (value.set && (!source || !setOn || millage === null))
+  )
+    return null;
+  return {
+    county: value.county.trim(),
+    set: value.set,
+    millage,
+    typicalNonAdValoremPerYear: typical,
+    homeownersDefaultMonthly: homeowners,
+    ho6DefaultMonthly: ho6,
+    floodDefaultMonthly: flood as Record<string, number>,
+    source,
+    setOn,
+    sample: value.sample === true,
   };
 }

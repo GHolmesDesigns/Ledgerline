@@ -144,5 +144,5 @@ test('empty Compare links to Search', async ({ page }) => {
   await page.goto('/compare');
   await expect(page.getByRole('heading', { name: 'No properties to compare yet' })).toBeVisible();
   await page.getByRole('link', { name: 'Go to Search' }).click();
-  await expect(page).toHaveURL(/127\.0\.0\.1:5173\/(?:\?.*)?$/);
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/');
 });

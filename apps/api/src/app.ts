@@ -6,6 +6,8 @@ import {
   createStore,
   type ListingSearchCriteria,
   type SavedSearchInput,
+  type LocalAssumptions,
+  type PersonalAssumptions,
   type ReviewListingInput,
   type Store,
 } from './store.js';
@@ -15,6 +17,7 @@ import { RefreshJob } from './providers/refresh-job.js';
 import { RequestCeilingError } from './providers/request-budget.js';
 import { RentEstimateUnavailableError, requestRentEstimate } from './providers/rent-estimate.js';
 import { ProviderCredentials } from './provider-credentials.js';
+import { defaultPersonalAssumptions, seedAssumptions } from './assumptions.js';
 
 const defaultCredentialPath = resolve(dirname(fileURLToPath(import.meta.url)), '../.env');
 
@@ -29,6 +32,15 @@ export function createApp(
       response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
       response.end(JSON.stringify(body));
     };
+    const readBody = async (): Promise<Record<string, unknown>> => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error('Request body must be a JSON object.');
+      }
+      return value as Record<string, unknown>;
+    };
     if (request.method === 'GET' && request.url === '/api/health') {
       let databaseReady = true;
       try {
@@ -37,6 +49,102 @@ export function createApp(
         databaseReady = false;
       }
       json(databaseReady ? 200 : 503, { status: databaseReady ? 'ok' : 'unavailable' });
+      return;
+    }
+
+    if (request.method === 'GET' && request.url === '/api/assumptions') {
+      seedAssumptions(store);
+      json(200, {
+        searches: store.listSavedSearches().map((search) => ({
+          id: search.id,
+          name: search.name,
+          mode: search.mode,
+          location: search.location,
+          personal: store.getPersonalAssumptions(search.id) ?? defaultPersonalAssumptions,
+        })),
+        local: store.listLocalAssumptions(),
+      });
+      return;
+    }
+    const personalAssumptionsAction = request.url?.match(
+      /^\/api\/saved-searches\/(\d+)\/assumptions$/,
+    );
+    if (personalAssumptionsAction && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        const value = body as unknown as PersonalAssumptions;
+        if (
+          [value.downPaymentPct, value.mortgageRatePct, value.maintenancePctPerYear].some(
+            (number) =>
+              typeof number !== 'number' || !Number.isFinite(number) || number < 0 || number > 100,
+          ) ||
+          typeof value.termYears !== 'number' ||
+          !Number.isInteger(value.termYears) ||
+          value.termYears < 1 ||
+          value.termYears > 100
+        ) {
+          throw new Error(
+            'Enter percentages from 0 to 100 and a whole mortgage term from 1 to 100 years.',
+          );
+        }
+        json(200, {
+          personal: store.setPersonalAssumptions(Number(personalAssumptionsAction[1]), value),
+        });
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to save personal assumptions.',
+        });
+      }
+      return;
+    }
+    const localAssumptionsAction = request.url?.match(/^\/api\/local-assumptions\/([^/]+)$/);
+    if (localAssumptionsAction && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        const county = decodeURIComponent(localAssumptionsAction[1]).trim();
+        const nonNegative = (key: string) => {
+          const value = body[key];
+          if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
+            throw new Error(`${key} must be a non-negative number.`);
+          return value;
+        };
+        const flood = body.floodDefaultMonthly;
+        if (
+          !flood ||
+          typeof flood !== 'object' ||
+          Array.isArray(flood) ||
+          Object.values(flood).some(
+            (value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0,
+          )
+        ) {
+          throw new Error('Flood defaults must be non-negative monthly amounts by zone.');
+        }
+        if (!county || typeof body.source !== 'string' || !body.source.trim())
+          throw new Error('County and source are required.');
+        if (
+          typeof body.setOn !== 'string' ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(body.setOn) ||
+          Number.isNaN(Date.parse(`${body.setOn}T00:00:00Z`))
+        )
+          throw new Error('Enter the date the local rates were set.');
+        const input: LocalAssumptions = {
+          county,
+          set: true,
+          millage: nonNegative('millage'),
+          typicalNonAdValoremPerYear: nonNegative('typicalNonAdValoremPerYear'),
+          homeownersDefaultMonthly: nonNegative('homeownersDefaultMonthly'),
+          ho6DefaultMonthly: nonNegative('ho6DefaultMonthly'),
+          floodDefaultMonthly: flood as Record<string, number>,
+          source: body.source.trim(),
+          setOn: body.setOn,
+          sample: false,
+        };
+        json(200, { local: store.setLocalAssumption(input) });
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to save local assumptions.',
+        });
+      }
       return;
     }
 
@@ -68,15 +176,6 @@ export function createApp(
       return;
     }
 
-    const readBody = async (): Promise<Record<string, unknown>> => {
-      const chunks: Buffer[] = [];
-      for await (const chunk of request) chunks.push(Buffer.from(chunk));
-      const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-        throw new Error('Request body must be a JSON object.');
-      }
-      return value as Record<string, unknown>;
-    };
     const savedSearchInput = (body: Record<string, unknown>, partial = false) => {
       const result: Partial<SavedSearchInput> = {};
       const has = (key: string) => Object.hasOwn(body, key);
