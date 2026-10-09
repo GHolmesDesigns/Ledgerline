@@ -89,7 +89,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await backup.getByLabel('Backup file (.json)').setInputFiles(backupPath);
     await backup.getByRole('button', { name: 'Import personal data' }).click();
     await expect(backup.getByRole('status')).toContainText(
-      `Imported 3 cost records, 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 2 properties, ${searchNames.length} personal assumption sets, 1 local rate set. Already here: 2 local rate sets.`,
+      `Imported 3 cost records, 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 8 properties, ${searchNames.length} personal assumption sets, 1 local rate set. Already here: 2 local rate sets.`,
     );
     await page.reload();
     await expect(page.getByLabel('My Fort Lauderdale search name')).toBeVisible();
@@ -125,7 +125,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await expect(backup.getByRole('alert')).toContainText('newer');
 
     database = await readDatabase(databasePath);
-    expect(database.rows('SELECT COUNT(*) AS n FROM properties')).toEqual([{ n: 2 }]);
+    expect(database.rows('SELECT COUNT(*) AS n FROM properties')).toEqual([{ n: 8 }]);
     expect(database.rows('SELECT COUNT(*) AS n FROM property_notes')).toEqual([{ n: 2 }]);
     expect(database.rows('SELECT COUNT(*) AS n FROM saved_searches')).toEqual([
       { n: searchNames.length },

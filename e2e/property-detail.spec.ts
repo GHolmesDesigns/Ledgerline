@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { routeApiTo, seedDatabase, startApi, type Api } from './support/api';
+import { readDatabase, routeApiTo, seedDatabase, startApi, type Api } from './support/api';
 
 test('property detail shows facts, separate history sources, and manual verification links', async ({
   page,
@@ -168,6 +168,68 @@ test('property checklist records a flood quote and includes it in backup', async
     ).toBeTruthy();
   } finally {
     await api?.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('property risk details display, edit, and survive a JSON backup restore', async ({ page }) => {
+  const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-risk-'));
+  let sourceApi: Api | undefined;
+  let targetApi: Api | undefined;
+  try {
+    const sourcePath = join(root, 'source.sqlite');
+    const targetPath = join(root, 'target.sqlite');
+    seedDatabase(sourcePath);
+    sourceApi = await startApi(sourcePath);
+    const listingResponse = await fetch(sourceApi.url('/api/listings?mode=sale'));
+    const listings = (await listingResponse.json()) as {
+      items: Array<{ property: { id: string; street: string; city: string } }>;
+    };
+    const hollywood = listings.items.find(({ property }) => property.street === '2801 N Ocean Dr')!;
+    const fortLauderdale = listings.items.find(
+      ({ property }) => property.street === '2207 NE 32nd Ct',
+    )!;
+    await routeApiTo(page, () => sourceApi!);
+
+    await page.goto(`/property/${hollywood.property.id}`);
+    await expect(page.getByText('filed', { exact: true })).toBeVisible();
+    await expect(page.getByText('40-year in progress', { exact: true })).toBeVisible();
+    await expect(page.getByText('pending, amount unknown', { exact: true })).toBeVisible();
+    await page.getByLabel('Association details source').fill('Association disclosure');
+    await page.getByRole('button', { name: 'Save association details' }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Property details saved.' }),
+    ).toBeVisible();
+
+    await page.goto(`/property/${fortLauderdale.property.id}`);
+    await expect(page.getByText('Roof 2020 · built 1964')).toBeVisible();
+    await expect(page.getByText('Wind mitigation: impact windows')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Condo & association' })).toHaveCount(0);
+    await page.getByLabel('Carrier review age limit (years)').fill('5');
+    await expect(page.getByText('Roof 2020 · built 1964 · may limit carriers')).toBeVisible();
+
+    const exported = await fetch(sourceApi.url('/api/backup/export'));
+    const backup = await exported.json();
+    targetApi = await startApi(targetPath);
+    const targetImport = await fetch(targetApi.url('/api/backup/import'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(backup),
+    });
+    expect(targetImport.ok).toBeTruthy();
+    const database = await readDatabase(targetPath);
+    const restored = database.rows("SELECT id FROM properties WHERE street = '2801 N Ocean Dr'")[0];
+    database.close();
+    expect(restored).toBeTruthy();
+    const details = await fetch(targetApi.url(`/api/properties/${restored!.id}`));
+    const restoredProperty = (await details.json()) as {
+      property: { riskDetails: { associationSource: string; specialAssessment: string } };
+    };
+    expect(restoredProperty.property.riskDetails.associationSource).toBe('Association disclosure');
+    expect(restoredProperty.property.riskDetails.specialAssessment).toBe('pending, amount unknown');
+  } finally {
+    await sourceApi?.stop();
+    await targetApi?.stop();
     rmSync(root, { recursive: true, force: true });
   }
 });

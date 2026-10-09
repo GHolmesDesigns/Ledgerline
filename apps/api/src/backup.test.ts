@@ -185,6 +185,12 @@ describe('personal-data backup', () => {
     const fortLauderdale = target.store
       .listProperties()
       .find((property) => property.street.includes('32nd'))!;
+    assert.equal(fortLauderdale.riskDetails.roofYear, 2020);
+    assert.deepEqual(fortLauderdale.riskDetails.windMitigation, ['impact windows']);
+    const hollywood = target.store.listProperties().find((property) => property.unit === '9B')!;
+    assert.equal(hollywood.riskDetails.milestoneInspection, 'filed');
+    assert.equal(hollywood.riskDetails.countyRecertification, '40-year in progress');
+    assert.equal(hollywood.riskDetails.specialAssessment, 'pending, amount unknown');
     assert.equal(target.store.isFavorite(fortLauderdale.id), true);
     assert.deepEqual(
       target.store.listNotes(fortLauderdale.id).map((note) => note.body),

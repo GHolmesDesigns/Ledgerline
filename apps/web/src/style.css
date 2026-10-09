@@ -643,6 +643,46 @@ h1 {
   margin: 0;
   font: 600 1.2rem var(--font-display);
 }
+.risk-detail-card {
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-surface) 78%, white);
+}
+.risk-detail-card > p {
+  margin: 0;
+  color: var(--color-muted);
+}
+.risk-detail-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.risk-detail-form > label,
+.risk-detail-form fieldset {
+  display: grid;
+  gap: 6px;
+}
+.risk-detail-form fieldset {
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+.risk-detail-form fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.risk-detail-form input[type='checkbox'] {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex: 0 0 44px;
+}
+.risk-detail-form .field-help {
+  grid-column: 1 / -1;
+}
 .property-listing-list,
 .property-notes-list {
   display: grid;

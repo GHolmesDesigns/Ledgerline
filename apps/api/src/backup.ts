@@ -1,4 +1,5 @@
 import { normalizeAddress } from './providers/normalize-address.js';
+import { emptyRiskDetails } from './store.js';
 import type {
   ListingMode,
   Property,
@@ -9,6 +10,7 @@ import type {
   LocalAssumptions,
   PersonalAssumptions,
   PropertyCostEntry,
+  PropertyRiskDetails,
 } from './store.js';
 import { defaultPersonalAssumptions } from './assumptions.js';
 
@@ -44,6 +46,7 @@ export interface BackupProperty {
   latitude: number | null;
   longitude: number | null;
   floodZone: string | null;
+  riskDetails: PropertyRiskDetails;
   sample: boolean;
   saved: { at: string } | null;
   dismissed: { at: string } | null;
@@ -121,6 +124,7 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
       latitude: property.latitude,
       longitude: property.longitude,
       floodZone: property.floodZone,
+      riskDetails: property.riskDetails,
       sample: property.sample,
       saved: null,
       dismissed: null,
@@ -147,7 +151,13 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
   };
 
   for (const property of store.listProperties()) {
-    if (store.listNotes(property.id).length > 0 || store.listCostEntries(property.id).length > 0)
+    if (
+      store.listNotes(property.id).length > 0 ||
+      store.listCostEntries(property.id).length > 0 ||
+      Object.values(property.riskDetails).some((value) =>
+        Array.isArray(value) ? value.length > 0 : value !== null,
+      )
+    )
       include(property.id);
   }
   for (const favorite of store.listFavorites()) {
@@ -255,6 +265,45 @@ const migrationSteps: Record<number, BackupMigration> = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
+
+function readRiskDetails(value: unknown): PropertyRiskDetails {
+  if (!isRecord(value)) return { ...emptyRiskDetails };
+  const nullableText = (key: string) => (isText(value[key]) ? value[key].trim() || null : null);
+  const roofYear = value.roofYear;
+  const assessmentAmount = value.assessmentAmount;
+  const mitigation = Array.isArray(value.windMitigation)
+    ? value.windMitigation.filter((item): item is string => typeof item === 'string')
+    : [];
+  return {
+    floodZoneSource: nullableText('floodZoneSource'),
+    floodZoneDate: nullableText('floodZoneDate'),
+    roofYear:
+      typeof roofYear === 'number' && Number.isInteger(roofYear) && roofYear >= 1800
+        ? roofYear
+        : null,
+    windMitigation: [...new Set(mitigation)],
+    insuranceSource: nullableText('insuranceSource'),
+    insuranceDate: nullableText('insuranceDate'),
+    milestoneInspection: nullableText('milestoneInspection'),
+    countyRecertification: nullableText('countyRecertification'),
+    reserveStudy: nullableText('reserveStudy'),
+    specialAssessment: nullableText('specialAssessment'),
+    assessmentAmount:
+      typeof assessmentAmount === 'number' &&
+      Number.isFinite(assessmentAmount) &&
+      assessmentAmount >= 0
+        ? assessmentAmount
+        : null,
+    assessmentPaymentType:
+      value.assessmentPaymentType === 'one_time' || value.assessmentPaymentType === 'installments'
+        ? value.assessmentPaymentType
+        : null,
+    rentalRestrictions: nullableText('rentalRestrictions'),
+    approvalRestrictions: nullableText('approvalRestrictions'),
+    associationSource: nullableText('associationSource'),
+    associationDate: nullableText('associationDate'),
+  };
+}
 
 /**
  * Checks the file's format and brings an older version up to the current one.
@@ -436,6 +485,24 @@ export function importBackup(
       let property = local.get(idOf(key));
       if (property) {
         alreadyPresent.properties += 1;
+        const restoredRisk = readRiskDetails(record.riskDetails);
+        const mergedRisk = { ...property.riskDetails } as PropertyRiskDetails;
+        for (const [key, value] of Object.entries(restoredRisk) as Array<
+          [keyof PropertyRiskDetails, PropertyRiskDetails[keyof PropertyRiskDetails]]
+        >) {
+          const current = mergedRisk[key];
+          if (current == null || (Array.isArray(current) && current.length === 0)) {
+            (mergedRisk as unknown as Record<string, unknown>)[key] = value;
+          }
+        }
+        const floodZone = property.floodZone ?? nullableText(record.floodZone) ?? null;
+        if (
+          JSON.stringify(mergedRisk) !== JSON.stringify(property.riskDetails) ||
+          floodZone !== property.floodZone
+        ) {
+          property = store.updateRiskDetails(property.id, floodZone, mergedRisk);
+          local.set(idOf(key), property);
+        }
       } else {
         property = store.createProperty({
           ...address,
@@ -443,6 +510,7 @@ export function importBackup(
           latitude,
           longitude,
           floodZone: nullableText(record.floodZone) ?? null,
+          riskDetails: readRiskDetails(record.riskDetails),
           sample: record.sample === true,
         });
         local.set(idOf(key), property);
