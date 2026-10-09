@@ -876,6 +876,25 @@ h1 {
   border-radius: var(--radius-control);
   background: white;
 }
+
+.implausible-flags {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+
+.implausible-flags form {
+  display: grid;
+  gap: 0.5rem;
+  border-left: 3px solid var(--accent-yellow, #f3c969);
+  padding: 0.75rem;
+  background: rgba(243, 201, 105, 0.08);
+}
+
+.implausible-flags label {
+  display: grid;
+  gap: 0.25rem;
+}
 .compare-shortcut,
 .compare-heading-row {
   display: flex;

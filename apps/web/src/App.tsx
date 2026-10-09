@@ -100,6 +100,7 @@ function RequestBudgetPanel() {
       setError('Request usage is unavailable. Start the local API and try again.');
     }
   };
+
   useEffect(() => {
     void refresh();
   }, []);
@@ -284,6 +285,8 @@ type LocalAssumptions = {
   homeownersDefaultMonthly: number | null;
   ho6DefaultMonthly: number | null;
   floodDefaultMonthly: Record<string, number>;
+  pricePerSqftMin: number | null;
+  pricePerSqftMax: number | null;
   source: string | null;
   setOn: string | null;
   sample: boolean;
@@ -617,6 +620,18 @@ function AssumptionsPanel() {
                     'HO-6 default (condo) / mo',
                     item.ho6DefaultMonthly,
                     (value) => setAmount('ho6DefaultMonthly', value),
+                    '$',
+                  )}
+                  {amountField(
+                    'Price / sq ft minimum',
+                    item.pricePerSqftMin,
+                    (value) => updateLocal(item.county, { pricePerSqftMin: value }),
+                    '$',
+                  )}
+                  {amountField(
+                    'Price / sq ft maximum',
+                    item.pricePerSqftMax,
+                    (value) => updateLocal(item.county, { pricePerSqftMax: value }),
                     '$',
                   )}
                   {['X', 'X500', 'AE', 'AH', 'AO', 'V', 'VE'].map((zone) =>
@@ -1837,6 +1852,10 @@ export type PropertyDetailData = {
       associationSource: string | null;
       associationDate: string | null;
     };
+    valueOverrides: Record<
+      string,
+      { value: number | string | null; source: string; updatedAt: string }
+    >;
   };
   listings: Array<
     SearchListing['listing'] & {
@@ -1854,6 +1873,12 @@ export type PropertyDetailData = {
       firstFetchedAt: string;
       lastFetchedAt: string;
       fieldQuality: Record<string, string>;
+      implausibleFlags: Array<{
+        field: string;
+        value: number | string | null;
+        reason: string;
+        resolved?: boolean;
+      }>;
       providerHistory: Array<{ date: string; price: number | null; status: string | null }>;
       localSnapshots: Array<{
         id: number;
@@ -2210,6 +2235,32 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
     } finally {
       setRiskBusy(false);
     }
+  };
+
+  const resolveImplausible = async (event: FormEvent<HTMLFormElement>, listingId: string) => {
+    event.preventDefault();
+    const form = new FormData(
+      event.currentTarget,
+      (event.nativeEvent as SubmitEvent).submitter as HTMLElement,
+    );
+    const action = String(form.get('action'));
+    const payload: Record<string, unknown> = { field: form.get('field'), action };
+    if (action === 'correct') {
+      payload.value = Number(form.get('value'));
+      payload.source = String(form.get('source') ?? '');
+    }
+    const response = await fetch(`/api/listings/${listingId}/implausible`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(result.error ?? 'Could not update the flagged value.');
+      return;
+    }
+    setError('Flag cleared.');
+    await refresh();
   };
 
   const lookupFloodZone = async () => {
@@ -2589,7 +2640,12 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           </div>
           <div>
             <dt>Living area</dt>
-            <dd>{property.livingAreaSqft?.toLocaleString() ?? 'Unknown'} sq ft</dd>
+            <dd>
+              {property.livingAreaSqft?.toLocaleString() ?? 'Unknown'} sq ft
+              {property.valueOverrides?.livingAreaSqft && (
+                <small> · corrected from {property.valueOverrides.livingAreaSqft.source}</small>
+              )}
+            </dd>
           </div>
           <div>
             <dt>Lot size</dt>
@@ -3094,6 +3150,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           const flagged = Object.entries(listing.fieldQuality ?? {}).filter(
             ([, value]) => value && value !== 'ok',
           );
+          const implausible = (listing.implausibleFlags ?? []).filter((flag) => !flag.resolved);
           return (
             <div className="freshness-row" key={listing.id}>
               <strong>{listing.mode === 'sale' ? 'Buy' : 'Rent'}</strong>
@@ -3107,10 +3164,44 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
                   ? new Date(listing.lastFetchedAt).toLocaleString()
                   : 'unknown'}
               </span>
-              {flagged.length > 0 && (
-                <span>
-                  Check fields: {flagged.map(([field, value]) => `${field} (${value})`).join(', ')}
-                </span>
+              {(flagged.length > 0 || implausible.length > 0) && (
+                <div className="implausible-flags">
+                  {implausible.map((flag) => (
+                    <form
+                      key={flag.field}
+                      onSubmit={(event) => void resolveImplausible(event, listing.id)}
+                    >
+                      <strong>Check {flag.field}</strong>
+                      <span>{flag.reason}</span>
+                      <input type="hidden" name="field" value={flag.field} />
+                      <label>
+                        Correct value
+                        <input
+                          aria-label={`Correct ${flag.field}`}
+                          name="value"
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          defaultValue={typeof flag.value === 'number' ? flag.value : ''}
+                        />
+                      </label>
+                      <label>
+                        Source
+                        <input
+                          aria-label={`Source for ${flag.field}`}
+                          name="source"
+                          placeholder="e.g. listing disclosure"
+                        />
+                      </label>
+                      <button name="action" value="confirm" type="submit">
+                        Confirm listed value
+                      </button>
+                      <button name="action" value="correct" type="submit">
+                        Correct value
+                      </button>
+                    </form>
+                  ))}
+                </div>
               )}
             </div>
           );

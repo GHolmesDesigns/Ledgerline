@@ -74,7 +74,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await download.saveAs(backupPath);
     await expect(backup.getByRole('status')).toContainText('Exported your personal data to');
     const backupText = readFileSync(backupPath, 'utf8');
-    expect(JSON.parse(backupText).formatVersion).toBe(3);
+    expect(JSON.parse(backupText).formatVersion).toBe(4);
     expect(backupText).not.toContain('prop_');
     expect(backupText).not.toContain('849000');
 

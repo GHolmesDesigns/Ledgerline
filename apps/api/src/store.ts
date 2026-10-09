@@ -70,6 +70,7 @@ export interface PropertyInput {
 
 export interface Property extends Required<PropertyInput> {
   id: string;
+  valueOverrides?: Record<string, PropertyValueOverride>;
   createdAt: string;
   updatedAt: string;
 }
@@ -97,8 +98,22 @@ export interface ListingInput {
   providerLastSeenDate?: string | null;
   /** Per-field quality flags, for example { hoaFee: 'missing' }. */
   fieldQuality?: Record<string, string>;
+  implausibleFlags?: ImplausibleFlag[];
   providerHistory?: ProviderHistory[];
   sample?: boolean;
+}
+
+export interface ImplausibleFlag {
+  field: string;
+  value: number | string | null;
+  reason: string;
+  resolved?: boolean;
+}
+
+export interface PropertyValueOverride {
+  value: number | string | null;
+  source: string;
+  updatedAt: string;
 }
 
 export interface ProviderHistory {
@@ -160,6 +175,8 @@ export interface LocalAssumptions {
   source: string | null;
   setOn: string | null;
   sample: boolean;
+  pricePerSqftMin?: number | null;
+  pricePerSqftMax?: number | null;
 }
 
 export interface ComparableRentRules {
@@ -302,12 +319,13 @@ type Row = Record<string, SqlValue>;
 
 const propertyColumns = `id, street, unit, city, zip, county, latitude, longitude, property_type, flood_zone,
   beds, baths_total, baths_full, baths_half, living_area_sqft, lot_size_sqft, year_built,
-  parcel_id, sample, created_at, updated_at, risk_details`;
+  parcel_id, sample, created_at, updated_at, risk_details, value_overrides`;
 
 const listingColumns = `id, property_id, provider, provider_id, mls_name, mls_number, mode, price,
   price_period, status, hoa_fee, image_urls, source_url, agent_name, agent_phone, agent_email,
   office_name, office_phone, office_email, provider_listed_date, provider_removed_date,
-  provider_last_seen_date, first_fetched_at, last_fetched_at, field_quality, provider_history, sample`;
+  provider_last_seen_date, first_fetched_at, last_fetched_at, field_quality, provider_history, sample,
+  implausible_flags`;
 
 const searchColumns = `id, name, mode, location, filters, price_min, price_max, paired_search_id,
   refresh_interval_days, last_successful_refresh_at, last_refresh_attempt_at, last_refresh_error,
@@ -393,6 +411,10 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       propertyType: text(row.property_type),
       floodZone: text(row.flood_zone),
       riskDetails: { ...emptyRiskDetails, ...JSON.parse(String(row.risk_details ?? '{}')) },
+      valueOverrides: JSON.parse(String(row.value_overrides ?? '{}')) as Record<
+        string,
+        PropertyValueOverride
+      >,
       beds: number(row.beds),
       bathsTotal: number(row.baths_total),
       bathsFull: number(row.baths_full),
@@ -436,6 +458,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       fieldQuality: JSON.parse(String(row.field_quality)) as Record<string, string>,
       providerHistory: JSON.parse(String(row.provider_history)) as ProviderHistory[],
       sample: row.sample === 1,
+      implausibleFlags: JSON.parse(String(row.implausible_flags ?? '[]')) as ImplausibleFlag[],
     };
   }
 
@@ -474,7 +497,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
   function insertListing(propertyId: string, input: ListingInput, at: string): Listing {
     const id = `lst_${randomUUID()}`;
-    run(`INSERT INTO listings (${listingColumns}) VALUES (${Array(27).fill('?').join(', ')})`, [
+    run(`INSERT INTO listings (${listingColumns}) VALUES (${Array(28).fill('?').join(', ')})`, [
       id,
       propertyId,
       input.provider,
@@ -502,6 +525,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       JSON.stringify(input.fieldQuality ?? {}),
       JSON.stringify(input.providerHistory ?? []),
       input.sample ? 1 : 0,
+      JSON.stringify(input.implausibleFlags ?? []),
     ]);
     return getListing(id)!;
   }
@@ -524,7 +548,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         const id = `prop_${randomUUID()}`;
         const at = now();
         run(
-          `INSERT INTO properties (${propertyColumns}) VALUES (${Array(22).fill('?').join(', ')})`,
+          `INSERT INTO properties (${propertyColumns}) VALUES (${Array(23).fill('?').join(', ')})`,
           [
             id,
             input.street,
@@ -548,6 +572,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             at,
             at,
             JSON.stringify({ ...emptyRiskDetails, ...(input.riskDetails ?? {}) }),
+            '{}',
           ],
         );
         return store.getProperty(id)!;
@@ -557,6 +582,88 @@ export function createStore(database: Database, options: StoreOptions = {}) {
     getProperty(propertyId: string): Property | null {
       const row = one(`SELECT ${propertyColumns} FROM properties WHERE id = ?`, [propertyId]);
       return row ? toProperty(row) : null;
+    },
+
+    setImplausibleFlags(listingId: string, flags: ImplausibleFlag[]) {
+      return transaction(() => {
+        requireListing(listingId);
+        run('UPDATE listings SET implausible_flags = ? WHERE id = ?', [
+          JSON.stringify(flags),
+          listingId,
+        ]);
+        return store.getListing(listingId)!;
+      });
+    },
+
+    setPropertyValueOverrides(
+      propertyId: string,
+      overrides: Record<string, PropertyValueOverride>,
+    ) {
+      return transaction(() => {
+        requireProperty(propertyId);
+        run('UPDATE properties SET value_overrides = ? WHERE id = ?', [
+          JSON.stringify(overrides),
+          propertyId,
+        ]);
+        return store.getProperty(propertyId)!;
+      });
+    },
+
+    resolveImplausibleFlag(
+      listingId: string,
+      field: string,
+      input: { correct?: number; source?: string },
+    ) {
+      return transaction(() => {
+        const listing = store.getListing(listingId);
+        if (!listing) throw new Error('Listing not found.');
+        const flags = listing.implausibleFlags.map((flag) =>
+          flag.field === field ? { ...flag, resolved: true } : flag,
+        );
+        if (!listing.implausibleFlags.some((flag) => flag.field === field && !flag.resolved))
+          throw new Error('Flag not found.');
+        const property = store.getProperty(listing.propertyId)!;
+        if (input.correct !== undefined) {
+          const source = input.source?.trim();
+          if (!source || source.length > 200)
+            throw new Error('Enter a source for the corrected value.');
+          const propertyFields: Record<string, string> = {
+            livingAreaSqft: 'living_area_sqft',
+            beds: 'beds',
+            latitude: 'latitude',
+            longitude: 'longitude',
+          };
+          const column = propertyFields[field];
+          if (column) {
+            run(`UPDATE properties SET ${column} = ?, updated_at = ? WHERE id = ?`, [
+              input.correct,
+              now(),
+              property.id,
+            ]);
+            const overrides = {
+              ...(property.valueOverrides ?? {}),
+              [field]: { value: input.correct, source, updatedAt: now() },
+            };
+            run('UPDATE properties SET value_overrides = ? WHERE id = ?', [
+              JSON.stringify(overrides),
+              property.id,
+            ]);
+          } else if (field === 'price') {
+            run('UPDATE listings SET price = ? WHERE id = ?', [input.correct, listingId]);
+            const overrides = {
+              ...(property.valueOverrides ?? {}),
+              [`${listingId}:price`]: { value: input.correct, source, updatedAt: now() },
+            };
+            run('UPDATE properties SET value_overrides = ? WHERE id = ?', [
+              JSON.stringify(overrides),
+              property.id,
+            ]);
+          } else {
+            throw new Error('This field cannot be corrected here.');
+          }
+        }
+        return store.setImplausibleFlags(listingId, flags);
+      });
     },
 
     updateRiskDetails(
@@ -817,7 +924,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
              status = ?, hoa_fee = ?, image_urls = ?, source_url = ?, agent_name = ?, agent_phone = ?,
              agent_email = ?, office_name = ?, office_phone = ?, office_email = ?,
              provider_listed_date = ?, provider_removed_date = ?, provider_last_seen_date = ?,
-             last_fetched_at = ?, field_quality = ?, provider_history = ?, sample = ?
+             last_fetched_at = ?, field_quality = ?, provider_history = ?, sample = ?, implausible_flags = ?
            WHERE id = ?`,
           [
             input.mlsName ?? null,
@@ -842,6 +949,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             JSON.stringify(input.fieldQuality ?? {}),
             JSON.stringify(input.providerHistory ?? []),
             input.sample ? 1 : 0,
+            JSON.stringify(input.implausibleFlags ?? []),
             String(existing.id),
           ],
         );
@@ -1150,6 +1258,8 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         source: text(row.source),
         setOn: text(row.set_on),
         sample: row.sample === 1,
+        pricePerSqftMin: number(row.price_per_sqft_min),
+        pricePerSqftMax: number(row.price_per_sqft_max),
       }));
     },
 
@@ -1158,14 +1268,15 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         run(
           `INSERT INTO local_assumptions
           (county, is_set, millage, typical_non_ad_valorem_per_year, homeowners_default_monthly,
-           ho6_default_monthly, flood_default_monthly, source, set_on, sample)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ho6_default_monthly, flood_default_monthly, source, set_on, sample, price_per_sqft_min, price_per_sqft_max)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (county) DO UPDATE SET is_set = excluded.is_set, millage = excluded.millage,
            typical_non_ad_valorem_per_year = excluded.typical_non_ad_valorem_per_year,
            homeowners_default_monthly = excluded.homeowners_default_monthly,
            ho6_default_monthly = excluded.ho6_default_monthly,
            flood_default_monthly = excluded.flood_default_monthly, source = excluded.source,
-           set_on = excluded.set_on, sample = excluded.sample`,
+           set_on = excluded.set_on, sample = excluded.sample, price_per_sqft_min = excluded.price_per_sqft_min,
+           price_per_sqft_max = excluded.price_per_sqft_max`,
           [
             input.county,
             input.set ? 1 : 0,
@@ -1177,6 +1288,8 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             input.source,
             input.setOn,
             input.sample ? 1 : 0,
+            input.pricePerSqftMin ?? null,
+            input.pricePerSqftMax ?? null,
           ],
         ),
       );
