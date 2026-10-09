@@ -46,8 +46,8 @@
       "county": "Miami-Dade",
       "set": true,
       "sample": true,
-      "pricePerSqftMin": 450,
-      "pricePerSqftMax": 650,
+      "pricePerSqftMin": 250,
+      "pricePerSqftMax": 750,
       "millage": 20.0,
       "typicalNonAdValoremPerYear": 650,
       "homeownersDefaultMonthly": 560,
@@ -523,7 +523,7 @@
       "flags": [
         {
           "field": "livingAreaSqft",
-          "message": "$98/sq ft; this area runs about $450–$650 (sample). The living area or price may be wrong."
+          "message": "$98/sq ft; this area runs about $250–$750 (sample). The living area or price may be wrong."
         }
       ],
       "listings": [

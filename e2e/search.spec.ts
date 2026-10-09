@@ -228,17 +228,6 @@ test('sample listings show computed ranks and provisional reasons from local dat
     const card = (name: string) =>
       page.locator('.listing-card').filter({ has: page.getByRole('link', { name }) });
 
-    // The sample Miami-Dade range ($450–$650/sq ft) also flags North Miami at $400/sq ft.
-    // Until that is confirmed, its living area is Unknown too.
-    const northMiami = card('1460 NE 135th St');
-    await expect(northMiami.locator('.provisional-tag')).toHaveText(
-      'Provisional · 2 factors unknown: comparable rent, living area · check price per sq ft',
-    );
-    await northMiami.getByRole('link', { name: '1460 NE 135th St' }).click();
-    await page.getByRole('button', { name: 'Confirm listed value' }).click();
-    await expect(page.getByText(/\$400\/sq ft/)).toHaveCount(0);
-    await page.goBack();
-
     // Acceptance 3.8 and 3.9: the reasons appear on the card, not only in the breakdown.
     await expect(card('1460 NE 135th St').locator('.provisional-tag')).toHaveText(
       'Provisional · 1 factor unknown: comparable rent',

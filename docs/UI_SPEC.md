@@ -73,7 +73,7 @@ Keep "Sample data — not real listings" visible on every screen.
 
 | Rank · score | Listing | County | Total | Rent | Gap |
 |---|---|---|---|---|---|
-| #1 · 81 provisional | $285,000 · Miami 33137 · condo 2/2 · listed 2,900 sf · 1981 · zone X · HOA Est. $640 (median of 3 units in this building) · flag "$98/sq ft; this area runs about $450–$650 (sample)…" | Miami-Dade | $3,018 · Estimate · needs HOA confirmation, HO-6 quote +3 | $3,300 · 3 local comps | ≈ −$282 |
+| #1 · 81 provisional | $285,000 · Miami 33137 · condo 2/2 · listed 2,900 sf · 1981 · zone X · HOA Est. $640 (median of 3 units in this building) · flag "$98/sq ft; this area runs about $250–$750 (sample)…" | Miami-Dade | $3,018 · Estimate · needs HOA confirmation, HO-6 quote +3 | $3,300 · 3 local comps | ≈ −$282 |
 | #2 · 74 | $465,000 · Miramar 33027 · townhome 3/2.5 · 1,700 sf · 2016 · zone X · HOA $260 (Listing) · CDD Doc $2,400/yr | Broward | $4,525 · Estimate · needs insurance quote, assessments not checked +1 | $3,600 · 3 local comps · within 0.9 mi | ≈ +$925 |
 | #3 · 55 provisional | $560,000 · North Miami 33161 · single-family 3/2 · 1,400 sf · 1955 · roof 2006 (may limit carriers) · zone X · HOA Est. $0 not confirmed | Miami-Dade | $4,896 · Estimate · needs insurance quote, flood quote +3 | Unavailable · only 2 local comps | hidden |
 | #4 · 53 provisional | $615,000 · Boca Raton 33432 · single-family 3/2 · 1,600 sf · 1978 · picked up by radius at Broward line | Palm Beach (not configured) | at least $3,623 · Incomplete · no Palm Beach rates (tax, insurance, flood, and CDD Unknown) + "Set local rates for Palm Beach County" prompt | Unavailable · no Rent search covers this area | hidden |

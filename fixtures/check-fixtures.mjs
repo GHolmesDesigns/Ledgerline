@@ -225,6 +225,19 @@ byPrice.forEach((p, i) => {
 });
 ok('ranks follow score order under score and price sorts');
 
+// A living-area flag appears exactly when price per sq ft is outside the county's range.
+for (const p of data.properties) {
+  const range = local[p.county];
+  if (range?.pricePerSqftMin == null) continue;
+  const ppsf = Math.round(salePrice(p) / p.livingAreaSqft);
+  const outside = ppsf < range.pricePerSqftMin || ppsf > range.pricePerSqftMax;
+  const flag = p.flags.find((f) => f.field === 'livingAreaSqft');
+  const want = `$${ppsf}/sq ft; this area runs about $${range.pricePerSqftMin}–$${range.pricePerSqftMax}${range.sample ? ' (sample)' : ''}.`;
+  if (outside !== Boolean(flag)) fail(`${p.id} at $${ppsf}/sq ft ${outside ? 'needs' : 'must not have'} a living-area flag`);
+  else if (flag && !flag.message.startsWith(want)) fail(`${p.id} flag "${flag.message}" doesn't start "${want}"`);
+}
+ok('price-per-sq-ft flags follow each county range');
+
 // Exercise the Incomplete wording for the two triggers not present in the
 // sample properties, plus the order and de-duplicated county reason.
 const boca = data.properties.find((p) => p.id === 'boc-618-ne-7th-st');
