@@ -5,7 +5,7 @@ const routes = [
   { path: '/', title: 'Search' },
   { path: '/compare', title: 'Compare' },
   { path: '/property/sample-property', title: 'Property detail' },
-  { path: '/settings', title: 'Ranking & data' },
+  { path: '/settings', title: 'Settings' },
 ];
 
 for (const viewport of [

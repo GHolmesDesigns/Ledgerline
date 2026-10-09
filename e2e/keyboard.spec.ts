@@ -46,7 +46,7 @@ for (const viewport of viewports) {
       ['Search', '/', 'Search'],
       ['Compare', '/compare', 'Compare'],
       ['Property detail', '/property/{id}', 'Property facts'],
-      ['Ranking & data', '/settings', 'Backup and restore'],
+      ['Settings', '/settings', 'Backup and restore'],
     ]) {
       test(`${name}: every control is reachable and shows focus`, async ({ page }) => {
         await page.goto(path.replace('{id}', propertyId));

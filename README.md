@@ -54,7 +54,7 @@ Vite serves the placeholder web client at <http://127.0.0.1:5173> and proxies `/
 
 On first API start, a SQLite database and migration ledger are created under `apps/api/data/`. That folder is ignored by Git. Remove it to reset the local database; the API recreates it on the next start. `LEDGERLINE_DATA_PATH` can point the API at a different SQLite file.
 
-The mock provider is selected by default. To use RentCast, set `LISTING_PROVIDER=rentcast` in the ignored `apps/api/.env` file and restart the API. Set the key in Ranking & data; the local API keeps it in that same file. Set `LISTING_PROVIDER=mock` to return to the fictional sample provider.
+The mock provider is selected by default. To use RentCast, set `LISTING_PROVIDER=rentcast` in the ignored `apps/api/.env` file and restart the API. Set the key in Settings; the local API keeps it in that same file. Set `LISTING_PROVIDER=mock` to return to the fictional sample provider.
 
 The API health endpoint is <http://127.0.0.1:4174/api/health>. The current screen is only the Wave 1 scaffold placeholder; later cards add the dashboard behavior.
 

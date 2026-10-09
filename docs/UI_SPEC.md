@@ -2,7 +2,7 @@
 
 *Oct 9, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.9, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
 
-Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Ranking & data**. Visual reference: `design/` (see `design/README.md` for which screens are current).
+Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, and **Settings**. Visual reference: `design/` (see `design/README.md` for which screens are current).
 
 ## 1. Rules on every screen
 
@@ -94,7 +94,7 @@ Line-by-line amounts and states are in the fixture file.
 - Boca Raton card shows the "Set local rates for Palm Beach County" prompt inline.
 - Map and list stay in sync; map shows county borders. Map: Google Maps (Maps JavaScript API) when a key is set. Without a key: a plain map of county borders and pins from local data, with the note "Add a Google Maps key to show the street map."
 - Footer text: "Monthly costs use your personal assumptions (20% down, 6.50% 30-yr fixed, maintenance 1%/yr) and each county's local rates. Local rates shown are sample placeholders. Photos are ones you upload; the listing provider supplies none."
-- Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Compare, Ranking & data).
+- Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Compare, Settings).
 
 ### Compare (desktop `Compare`, mobile `MobileCompare`)
 - Shortlist: Fort Lauderdale (#5), Miramar (#2), North Miami (#3, provisional), Hollywood (#7, provisional).
@@ -125,7 +125,10 @@ Line-by-line amounts and states are in the fixture file.
 - **"Open Street View"** link: opens Google Maps Street View at the property's coordinates in a new tab (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG`; no key, no request from the app).
 - Price history (provider history vs. local snapshots labeled), verification links (MLS #, agent, address search; the app never fetches these pages), notes, data quality.
 
-### Ranking & data (desktop `Settings`, mobile `MobileSettings`)
+### Settings (`/settings`)
+- Sections, in order: Appearance, Ranking weights, Assumptions (personal and local rates plus comparable-rent rules), Saved searches, Personal tags, RentCast usage, Keys, Property match review, Backup and restore, About.
+- Every section is linked from the Settings section list and has a stable hash anchor. Search, Compare, and Property links open the relevant Settings section.
+- Appearance and Personal tags are placeholders for later issues. Existing setting behavior and storage remain unchanged.
 - **Ranking weights** with live ranking of all 7 listings in score order, provisional badges and short reasons.
 - **Personal assumptions** panel: down payment, rate, term, maintenance.
 - **Local assumptions** table, one row per county: Miami-Dade, Broward, and Palm Beach ("Not set · Set local rates"). Columns: millage; typical non-ad valorem $/yr; homeowners default (house); HO-6 default (condo); flood default X / AE / VE; source and date. Every value tagged "sample".
@@ -137,7 +140,7 @@ Line-by-line amounts and states are in the fixture file.
 - Backup: export/import personal data as JSON.
 
 ## 4. Mobile layout
-390 px phone frames; bottom tab bar; 44 px minimum targets; no fake status bar. Compare is two-up with selectors. Property detail has a fixed bottom bar (Save, Compare, Search this address). Ranking & data uses collapsible sections. Same data and rules as desktop.
+390 px phone frames; bottom tab bar; 44 px minimum targets; no fake status bar. Compare is two-up with selectors. Property detail has a fixed bottom bar (Save, Compare, Search this address). Settings sections have direct links and stable anchors. Same data and rules as desktop.
 
 ## 5. Decisions (Oct 7–8, 2026)
 1. **CDD line in a county without local rates:** "Unknown · no [county] rates" unless the tax bill has been checked (then Doc). Adds no new Incomplete trigger; the county trigger already applies. Setting the county's rates turns it into "Est. · CDD not checked".

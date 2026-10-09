@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Rename Ranking & data to Settings and organize its panels into the plan's default order, with section navigation, stable anchors, and contextual links from Search, Compare, and Property. Appearance and Personal tags appear as placeholders (Issue 76 / C38).
 - Replace desktop top navigation with a collapsible, keyboard-operable sidebar whose state persists locally; show the package version in the sidebar and Settings About, and keep the mobile bottom tabs (Issue 75 / C37).
 - Fix contrast for the Property page's "Search this address" button in every interaction state. The global sample-data banner now follows the active provider (and stays visible while provider status is unknown), while mock-provider listings keep a "Sample data" tag on Search, Property, and Compare after a provider switch (Issue 58 / C36).
 - Fix `npm run dev`: the web server now forwards `/api` requests to the local API. The Vite config moved to `apps/web`, where npm runs the web workspace's scripts; from the repository root it was never loaded, so the app could not reach the API. Browser tests now use their own ports (4175, 5174), database, and settings file, and check that `/api` reaches the API through the web server.
