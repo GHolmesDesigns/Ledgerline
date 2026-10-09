@@ -1,6 +1,68 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { defaultRankingWeights, rankListings, type RankingInput } from './ranking.js';
+
+type FixtureProperty = {
+  id: string;
+  type: string;
+  livingAreaSqft: number;
+  floodZone: string | null;
+  flags: Array<{ field: string; message: string }>;
+  listings: Array<{ mode: string; price: number }>;
+  costLines: Array<{ line: string; state: string; monthly?: number | null }>;
+  rent: { value: number | null } | null;
+  expected: { totalStatus: string; monthlyTotal?: number };
+};
+
+const lineStates: Record<string, string> = {
+  calc: 'Calc',
+  quote: 'Quote',
+  est: 'Est.',
+  na: 'N/A',
+  doc: 'Doc',
+  listing: 'Listing',
+  unknown: 'Unknown',
+};
+
+// The fixture's seven sample homes in the shape Search receives from the local API.
+const fixtureInputs = (
+  JSON.parse(
+    readFileSync(new URL('../../../fixtures/sample-data.json', import.meta.url), 'utf8'),
+  ) as { properties: FixtureProperty[] }
+).properties.map((home): RankingInput => {
+  const totalStatus =
+    home.expected.totalStatus === 'incomplete'
+      ? 'Incomplete'
+      : home.expected.totalStatus === 'estimate'
+        ? 'Estimate'
+        : 'Calculated';
+  return {
+    property: {
+      id: home.id,
+      propertyType: home.type,
+      livingAreaSqft: home.livingAreaSqft,
+      floodZone: home.floodZone,
+    },
+    listing: {
+      id: home.id,
+      mode: 'sale',
+      price: home.listings.find((listing) => listing.mode === 'sale')!.price,
+      pricePeriod: 'total',
+      implausibleFlags: home.flags.map((flag) => ({ field: flag.field, reason: flag.message })),
+    },
+    comparableRent: { figure: { value: home.rent?.value ?? null } },
+    costEstimate: {
+      totalStatus,
+      monthlyTotal: totalStatus === 'Incomplete' ? null : (home.expected.monthlyTotal ?? null),
+      lines: home.costLines.map((line) => ({
+        key: line.line,
+        monthly: line.monthly ?? null,
+        state: lineStates[line.state]!,
+      })),
+    },
+  };
+});
 
 type RankingPatch = Omit<Partial<RankingInput>, 'property' | 'listing'> & {
   property?: Partial<RankingInput['property']>;
@@ -89,5 +151,33 @@ describe('computed ranking', () => {
     assert.equal(result.factors.flood?.score, 10);
     assert.equal(result.factors.lease?.unknown, true);
     assert.equal(result.provisional, true);
+  });
+
+  it('explains provisional scores for the fixture homes and ranks them in score order', () => {
+    const results = rankListings(fixtureInputs, 'sale');
+    const reason = (id: string) => results.get(id)!.provisionalReason;
+    assert.equal(reason('nmi-1460-ne-135th-st'), '1 factor unknown: comparable rent');
+    assert.equal(
+      reason('mia-3250-ne-2nd-ave-507'),
+      '1 factor unknown: living area · check price per sq ft',
+    );
+    assert.equal(results.get('mia-3250-ne-2nd-ave-507')!.factors.size?.unknown, true);
+    assert.equal(
+      reason('boc-618-ne-7th-st'),
+      '2 factors unknown: own-vs-rent gap (incomplete total), insurance',
+    );
+    assert.equal(
+      reason('hol-2801-n-ocean-dr-9b'),
+      '1 factor unknown: own-vs-rent gap (incomplete total)',
+    );
+    assert.equal(results.get('ftl-2207-ne-32nd-ct')!.provisional, false);
+
+    const byRank = [...results.values()].sort((left, right) => left.rank - right.rank);
+    assert.deepEqual(
+      byRank.map((result) => result.rank),
+      [1, 2, 3, 4, 5, 6, 7],
+    );
+    for (let index = 1; index < byRank.length; index += 1)
+      assert.ok(byRank[index - 1]!.score >= byRank[index]!.score);
   });
 });

@@ -71,8 +71,14 @@ export type Api = Awaited<ReturnType<typeof startApi>>;
 export async function routeApiTo(page: Page, getApi: () => Api) {
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
-    const response = await route.fetch({ url: getApi().url(`${url.pathname}${url.search}`) });
-    await route.fulfill({ response });
+    try {
+      const response = await route.fetch({ url: getApi().url(`${url.pathname}${url.search}`) });
+      await route.fulfill({ response });
+    } catch {
+      // The API restarted or the test ended while this request was in flight. The page sees
+      // the network error a stopped local API would give; the test itself doesn't fail here.
+      await route.abort().catch(() => {});
+    }
   });
 }
 

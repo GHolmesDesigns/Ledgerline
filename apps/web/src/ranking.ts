@@ -2,6 +2,13 @@ export type RankingMode = 'sale' | 'rent';
 export type RankingFactor = 'price' | 'cost' | 'flood' | 'hoa' | 'ins' | 'lease' | 'size';
 export type RankingWeights = Record<RankingFactor, number>;
 
+// The factors each mode scores, in breakdown order (plan 2.8).
+export const rankingFactors: Record<RankingMode, RankingFactor[]> = {
+  sale: ['price', 'cost', 'flood', 'hoa', 'ins', 'size'],
+  rent: ['price', 'flood', 'lease', 'size'],
+};
+
+// The plan's defaults. The local API stores the weights in use; these are the same values.
 export const defaultRankingWeights: Record<RankingMode, RankingWeights> = {
   sale: { price: 25, cost: 20, flood: 20, hoa: 15, ins: 10, lease: 0, size: 10 },
   rent: { price: 40, cost: 0, flood: 25, hoa: 0, ins: 0, lease: 20, size: 15 },
@@ -16,34 +23,6 @@ export const rankingFactorLabels: Record<RankingFactor, string> = {
   lease: 'lease fit',
   size: 'living area',
 };
-
-export function readBackupRankingWeights(
-  value: unknown,
-): Record<RankingMode, RankingWeights> | null {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  const readMode = (mode: RankingMode): RankingWeights | null => {
-    const candidate = record[mode];
-    if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate))
-      return null;
-    const values = candidate as Record<string, unknown>;
-    const result = { ...defaultRankingWeights[mode] };
-    const activeFactors: RankingFactor[] =
-      mode === 'sale'
-        ? ['price', 'cost', 'flood', 'hoa', 'ins', 'size']
-        : ['price', 'flood', 'lease', 'size'];
-    for (const factor of activeFactors) {
-      const amount = values[factor];
-      if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 || amount > 100)
-        return null;
-      result[factor] = amount;
-    }
-    return result;
-  };
-  const sale = readMode('sale');
-  const rent = readMode('rent');
-  return sale && rent ? { sale, rent } : null;
-}
 
 export type RankingInput = {
   property: {
@@ -99,10 +78,7 @@ export function rankListings<T extends RankingInput>(
   mode: RankingMode,
   weights: RankingWeights = defaultRankingWeights[mode],
 ): Map<string, ListingRanking> {
-  const factors: RankingFactor[] =
-    mode === 'sale'
-      ? ['price', 'cost', 'flood', 'hoa', 'ins', 'size']
-      : ['price', 'flood', 'lease', 'size'];
+  const factors = rankingFactors[mode];
   const raw = items.map((item) => {
     const price = normalizedRent(item.listing.price, item.listing.pricePeriod);
     const rent = item.comparableRent?.figure.value ?? null;
@@ -116,11 +92,7 @@ export function rankListings<T extends RankingInput>(
     );
     const sizeIsFlagged =
       item.listing.implausibleFlags?.some(
-        (flag) =>
-          !flag.resolved &&
-          ['livingareasqft', 'living_area_sqft', 'livingareasqft'].includes(
-            flag.field.toLowerCase(),
-          ),
+        (flag) => !flag.resolved && flag.field === 'livingAreaSqft',
       ) ?? false;
     return {
       item,

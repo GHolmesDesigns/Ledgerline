@@ -60,11 +60,10 @@ test('export, delete the data folder, restart, and import restores personal data
     // The page talks to whichever API is running now.
     await routeApiTo(page, () => api!);
     await page.goto('/settings');
-    await page.evaluate(() => {
-      const stored = JSON.parse(localStorage.getItem('ledgerline-ranking-weights-v1') ?? '{}');
-      stored.sale = { ...stored.sale, price: 37 };
-      localStorage.setItem('ledgerline-ranking-weights-v1', JSON.stringify(stored));
-    });
+    const ranking = page.getByRole('region', { name: 'Ranking weights' });
+    await ranking.getByLabel('price weight').fill('37');
+    await ranking.getByRole('button', { name: 'Save Buy weights' }).click();
+    await expect(ranking.getByRole('status')).toHaveText('Saved');
     const backup = page.getByRole('region', { name: 'Backup and restore' });
     await expect(page.getByRole('heading', { name: 'Backup and restore' })).toBeVisible();
     await expect(backup.getByRole('button', { name: 'Import personal data' })).toBeDisabled();
@@ -79,9 +78,10 @@ test('export, delete the data folder, restart, and import restores personal data
     await download.saveAs(backupPath);
     await expect(backup.getByRole('status')).toContainText('Exported your personal data to');
     const backupText = readFileSync(backupPath, 'utf8');
-    expect(JSON.parse(backupText).formatVersion).toBe(4);
+    expect(JSON.parse(backupText).formatVersion).toBe(5);
     expect(JSON.parse(backupText).rankingWeights.sale.price).toBe(37);
-    expect(JSON.parse(backupText).rankingWeights.rent.price).toBe(40);
+    // Rent weights were never changed, so the file leaves them to the defaults.
+    expect(JSON.parse(backupText).rankingWeights.rent).toBeNull();
     expect(backupText).not.toContain('prop_');
     expect(backupText).not.toContain('849000');
 
@@ -89,23 +89,19 @@ test('export, delete the data folder, restart, and import restores personal data
     await api.stop();
     rmSync(dataDirectory, { recursive: true, force: true });
     api = await startApi(databasePath);
-    await page.evaluate(() => {
-      const stored = JSON.parse(localStorage.getItem('ledgerline-ranking-weights-v1') ?? '{}');
-      stored.sale = { ...stored.sale, price: 4 };
-      localStorage.setItem('ledgerline-ranking-weights-v1', JSON.stringify(stored));
-    });
     await page.reload();
     await expect(page.getByLabel('My Fort Lauderdale search name')).toHaveCount(0);
+    await expect(ranking.getByLabel('price weight')).toHaveValue('25');
 
     // Import.
     await backup.getByLabel('Backup file (.json)').setInputFiles(backupPath);
     await backup.getByRole('button', { name: 'Import personal data' }).click();
     await expect(backup.getByRole('status')).toContainText(
-      `Imported 3 cost records, 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 8 properties, ${searchNames.length} personal assumption sets, 1 local rate set. Already here: 2 local rate sets.`,
+      `Imported 3 cost records, 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 8 properties, ${searchNames.length} personal assumption sets, 1 local rate set, 1 ranking weight set. Already here: 2 local rate sets.`,
     );
-    await expect(page.getByLabel('price weight')).toHaveValue('37');
     await page.reload();
     await expect(page.getByLabel('My Fort Lauderdale search name')).toBeVisible();
+    await expect(ranking.getByLabel('price weight')).toHaveValue('37');
 
     let database = await readDatabase(databasePath);
     expect(
@@ -122,6 +118,11 @@ test('export, delete the data folder, restart, and import restores personal data
     ).toEqual(searchNames);
     // Listings are not part of a backup; they come back with the next refresh.
     expect(database.rows('SELECT COUNT(*) AS n FROM listings')).toEqual([{ n: 0 }]);
+    expect(
+      database
+        .rows('SELECT mode, weights FROM ranking_weights')
+        .map((row) => ({ mode: row.mode, price: JSON.parse(String(row.weights)).price })),
+    ).toEqual([{ mode: 'sale', price: 37 }]);
     database.close();
 
     // Importing the same file again adds nothing.

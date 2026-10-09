@@ -1333,31 +1333,34 @@ h1 {
   flex-wrap: wrap;
   gap: 8px;
   margin: -8px 0 14px;
+}
+.ranking-summary strong {
   font-family: var(--font-label);
 }
 .provisional-tag {
   border: 1px dashed currentColor;
-  border-radius: 999px;
+  border-radius: 12px;
   display: inline-block;
   padding: 2px 8px;
   font-family: var(--font-body);
   font-size: 0.75rem;
   font-weight: 600;
 }
-.score-breakdown {
-  flex-basis: 100%;
-  font-family: var(--font-body);
+.score-factor-list {
+  display: grid;
+  gap: 4px;
+  margin: -6px 0 14px;
+  padding: 0;
+  list-style: none;
   font-size: 0.85rem;
 }
-.score-breakdown summary {
-  cursor: pointer;
-  min-height: 44px;
+.score-factor-list li {
   display: flex;
-  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.score-breakdown ul {
-  margin: 0 0 0 18px;
-  padding: 0;
+.score-factor-list li span:last-child {
+  font-family: var(--font-label);
 }
 .ranking-weight-grid {
   display: grid;
@@ -1366,7 +1369,9 @@ h1 {
   margin: 16px 0;
 }
 .ranking-live-list {
-  padding-left: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .ranking-live-list li {
   display: flex;
@@ -1374,7 +1379,10 @@ h1 {
   align-items: baseline;
   gap: 6px 12px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--line, #3b4852);
+  border-bottom: 1px solid var(--color-border);
+}
+.ranking-live-list .ranking-summary {
+  margin: 0;
 }
 .listing-price {
   margin: 0;
@@ -1883,6 +1891,11 @@ h1 {
 }
 
 @media (max-width: 700px) {
+  /* Scrolling a card or focused control into view stops above the sticky tab bar. */
+  html {
+    scroll-padding-bottom: 80px;
+  }
+
   .site-header {
     min-height: 64px;
     padding: 0 16px;
