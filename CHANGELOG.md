@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Add Light, Dark, and System appearance choices with local persistence and live OS theme updates; define dark counterparts for the design color tokens and keep the preference out of personal-data backups (Issue 78 / C40).
 - Let every Settings section be reordered by pointer drag, keyboard, or phone Move up/Move down controls. Save the order as a local display preference, merge sections added later, announce keyboard positions, and provide Reset order; the preference is excluded from JSON backups (Issue 77 / C39).
 - Rename Ranking & data to Settings and organize its panels into the plan's default order, with section navigation, stable anchors, and contextual links from Search, Compare, and Property. Appearance and Personal tags appear as placeholders (Issue 76 / C38).
 - Replace desktop top navigation with a collapsible, keyboard-operable sidebar whose state persists locally; show the package version in the sidebar and Settings About, and keep the mobile bottom tabs (Issue 75 / C37).
