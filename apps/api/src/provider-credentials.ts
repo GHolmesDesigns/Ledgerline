@@ -2,6 +2,9 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname } from 'node:path';
 
 const keyLine = /^\s*RENTCAST_API_KEY\s*=\s*(.*?)\s*$/;
+const providerLine = /^\s*LISTING_PROVIDER\s*=\s*(.*?)\s*$/;
+
+export type ListingProviderChoice = 'mock' | 'rentcast';
 
 function decodeValue(value: string) {
   if (value.startsWith('"')) {
@@ -31,6 +34,34 @@ export class ProviderCredentials {
 
   isRentCastConfigured() {
     return this.getRentCastKey() !== null;
+  }
+
+  getListingProvider(): ListingProviderChoice {
+    if (!existsSync(this.filePath)) return 'mock';
+    const value = readFileSync(this.filePath, 'utf8')
+      .split(/\r?\n/)
+      .map((line) => line.match(providerLine)?.[1])
+      .find((entry) => entry !== undefined);
+    const choice = value === undefined ? '' : decodeValue(value).trim().toLocaleLowerCase('en-US');
+    if (!choice) return 'mock';
+    if (choice === 'mock' || choice === 'rentcast') return choice;
+    throw new Error('LISTING_PROVIDER must be either mock or rentcast.');
+  }
+
+  setListingProvider(value: unknown) {
+    if (value !== 'mock' && value !== 'rentcast') {
+      throw new Error('LISTING_PROVIDER must be either mock or rentcast.');
+    }
+    const lines = existsSync(this.filePath)
+      ? readFileSync(this.filePath, 'utf8').split(/\r?\n/)
+      : [];
+    const retained = lines.filter((line) => !providerLine.test(line));
+    while (retained.at(-1) === '') retained.pop();
+    retained.push(`LISTING_PROVIDER=${value}`);
+    mkdirSync(dirname(this.filePath), { recursive: true });
+    const temporaryPath = `${this.filePath}.tmp`;
+    writeFileSync(temporaryPath, `${retained.join('\n')}\n`, { encoding: 'utf8', mode: 0o600 });
+    renameSync(temporaryPath, this.filePath);
   }
 
   setRentCastKey(value: unknown) {

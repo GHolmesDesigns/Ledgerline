@@ -35,6 +35,7 @@ const requiredCoverage = [
   'status_and_price_changes',
   'missing_fields',
   'implausible_values',
+  'unknown_property_type',
   'duplicate_address',
   'ambiguous_unit_match',
   'flood_x',
