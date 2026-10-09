@@ -1,7 +1,13 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { App, RequestUsageHeader } from './App';
+import {
+  abbreviatedCostState,
+  App,
+  lowestCompleteCostPropertyId,
+  RequestUsageHeader,
+  type PropertyDetailData,
+} from './App';
 
 describe('app shell', () => {
   const routes = [
@@ -63,5 +69,51 @@ describe('request usage header', () => {
     assert.match(html, /Last refresh/);
     assert.match(html, /Browsing uses no requests/);
     assert.match(html, /aria-label="23 of 45 provider requests used"/);
+  });
+});
+
+describe('Compare cost display rules', () => {
+  const item = (
+    id: string,
+    totalStatus: 'Calculated' | 'Estimate' | 'Incomplete',
+    monthlyTotal: number | null,
+  ) =>
+    ({
+      property: { id },
+      listings: [{ id: `${id}-sale`, mode: 'sale' }],
+      costEstimate: {
+        lines: [],
+        totalStatus,
+        statusLabel: totalStatus,
+        totalLabel: '',
+        monthlyTotal,
+        knownSubtotal: monthlyTotal ?? 0,
+        upfrontCash: 0,
+        upfrontLabel: '$0',
+      },
+    }) as unknown as PropertyDetailData;
+
+  it('marks the lowest complete total and ignores Incomplete totals', () => {
+    assert.equal(
+      lowestCompleteCostPropertyId([
+        item('incomplete-low', 'Incomplete', null),
+        item('estimate', 'Estimate', 4600),
+        item('calculated', 'Calculated', 4525),
+      ]),
+      'calculated',
+    );
+    assert.equal(
+      lowestCompleteCostPropertyId([item('a', 'Incomplete', null), item('b', 'Incomplete', null)]),
+      undefined,
+    );
+  });
+
+  it('uses the compact text state tags in the table legend', () => {
+    assert.deepEqual(
+      ['Listing', 'Calculated', 'Quote', 'Doc', 'Not applicable', 'Est.', 'Unknown'].map(
+        abbreviatedCostState,
+      ),
+      ['Listing', 'Calc', 'Quote', 'Doc', 'N/A', 'Est.', 'Unknown'],
+    );
   });
 });

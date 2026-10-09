@@ -140,6 +140,109 @@ test('property detail can add and remove its property from Compare', async ({ pa
   await expect(page.getByRole('heading', { name: 'No properties to compare yet' })).toBeVisible();
 });
 
+test('Compare shows tagged cost rows and marks only the lowest complete total', async ({
+  page,
+}) => {
+  const names = ['Fort Lauderdale', 'Miramar', 'North Miami', 'Hollywood'];
+  const totals = [7171, 4525, null, null];
+  const upfront = ['$169,800', '$93,000', '$112,000', '$77,800 + assessment (amount unknown)'];
+  await page.route('**/api/properties/prop_*', (route) => {
+    const id = new URL(route.request().url()).pathname.split('/').at(-1)!;
+    const index = Number(id.slice('prop_'.length)) - 1;
+    const totalStatus = index >= 2 ? 'Incomplete' : 'Estimate';
+    const lineKeys = [
+      'principalInterest',
+      'propertyTax',
+      'homeowners',
+      'flood',
+      'hoa',
+      'nonAdValorem',
+      'specialAssessment',
+      'maintenance',
+    ];
+    return route.fulfill({
+      json: {
+        property: {
+          id,
+          street: names[index],
+          unit: null,
+          city: names[index],
+          zip: `3330${index + 1}`,
+          county: 'Broward',
+          propertyType: 'single_family',
+          beds: 3,
+          bathsTotal: 2,
+          livingAreaSqft: 1800,
+          yearBuilt: 1980,
+          floodZone: 'X',
+          riskDetails: {
+            roofYear: 2020,
+            windMitigation: ['impact windows'],
+            insuranceSource: 'Quote',
+            milestoneInspection: null,
+            countyRecertification: null,
+            reserveStudy: null,
+            specialAssessment: index === 3 ? 'pending' : null,
+          },
+        },
+        listings: [{ id: `listing_${index + 1}`, mode: 'sale', price: 500000, status: 'active' }],
+        notes: [],
+        saved: false,
+        dismissed: false,
+        comparableRent: {
+          figure: { value: 5200, source: 'local_comps' },
+          label: '4 local comps · median · within 1 mi',
+          stale: false,
+        },
+        costEstimate: {
+          lines: lineKeys.map((key) => ({
+            key,
+            label: key,
+            monthly: 100,
+            state: key === 'flood' ? 'Est.' : 'Calculated',
+            note: null,
+          })),
+          totalStatus,
+          statusLabel:
+            totalStatus === 'Incomplete'
+              ? 'Incomplete · amount unknown'
+              : 'Estimate · needs flood quote',
+          totalLabel:
+            totalStatus === 'Incomplete'
+              ? `at least $${(index === 2 ? 4896 : 4661).toLocaleString()}`
+              : `$${totals[index]}/mo`,
+          monthlyTotal: totals[index],
+          knownSubtotal: index === 2 ? 4896 : index === 3 ? 4661 : totals[index],
+          upfrontCash: 0,
+          upfrontLabel: upfront[index],
+        },
+      },
+    });
+  });
+  await page.goto('/compare?properties=prop_1%2Cprop_2%2Cprop_3%2Cprop_4');
+  const table = page.locator('.compare-table');
+  await expect(table.getByText('P&I', { exact: true })).toBeVisible();
+  await expect(
+    table.locator('tbody tr:has(th:text-is("P&I")) td[data-property-id="prop_1"]'),
+  ).toContainText('$100');
+  await expect(
+    table.locator('tbody tr:has(th:text-is("P&I")) td[data-property-id="prop_1"]'),
+  ).toContainText('Calc');
+  await expect(table.getByText('Non-ad valorem / CDD', { exact: true })).toBeVisible();
+  await expect(table.getByText('Comparable rent', { exact: true })).toBeVisible();
+  await expect(table.getByText('Upfront cash', { exact: true })).toBeVisible();
+  await expect(table.getByText('$7,171')).toBeVisible();
+  await expect(table.getByText('4 local comps · median · within 1 mi').first()).toBeVisible();
+  await expect(table.getByText('Lowest complete total')).toHaveCount(1);
+  await expect(
+    table.locator('tbody tr:has(th:text-is("Total")) td[data-property-id="prop_2"]'),
+  ).toContainText('Lowest complete total');
+  for (const amount of upfront)
+    await expect(table.getByText(amount, { exact: true })).toBeVisible();
+  await expect(table.getByText('Calc', { exact: true }).first()).toBeVisible();
+  await expect(table.getByText('Est.', { exact: true }).first()).toBeVisible();
+});
+
 test('empty Compare links to Search', async ({ page }) => {
   await page.goto('/compare');
   await expect(page.getByRole('heading', { name: 'No properties to compare yet' })).toBeVisible();

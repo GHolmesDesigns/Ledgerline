@@ -901,6 +901,30 @@ h1 {
   margin: 0;
   color: var(--color-muted);
 }
+.compare-assumptions {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: white;
+}
+.compare-assumptions p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+.compare-assumptions a {
+  margin-left: auto;
+  color: var(--color-link);
+  font-weight: 600;
+}
+.compare-cost-legend {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
 .compare-selectors {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -963,6 +987,31 @@ h1 {
   color: var(--color-muted);
   font-size: 0.84rem;
   font-weight: 400;
+}
+.compare-cost-cell {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+}
+.compare-cost-cell small {
+  color: var(--color-muted);
+}
+.cost-state-tag,
+.lowest-complete-tag {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 3px 7px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  color: var(--color-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.lowest-complete-tag {
+  border-color: #087e8b;
+  background: #e6f8fa;
 }
 .compare-property-heading button {
   min-height: 44px;
