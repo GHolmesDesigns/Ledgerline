@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Replace the fixture's hand-set ranking factor values with ones computed by the plan's formulas, and update the expected scores and ranks in the fixture, `docs/UI_SPEC.md` (§1, §2 table, Compare shortlist), and acceptance check 3.10. `fixtures/check-fixtures.mjs` now recomputes each factor score, and the web ranking tests check the app reproduces the fixture (Issue 35 / C35).
 - Calculate weighted Buy and Rent scores from current local results, show provisional reasons on every card and per-factor breakdowns on the selected card and property detail, and keep score ranks stable across Search sorts. Ranking weights are edited on Ranking & data, saved per mode in the local database, and included in personal-data backups (backup format 5; a restore keeps weights the database already saved). Search results now carry each listing's implausible-value flags, so a flagged score is provisional before its property page is opened (Issue 35 / C35).
 - Flag implausible and missing listing values using configurable county price-per-square-foot ranges; let the user confirm or correct a value with its source, and preserve flags and overrides in backups (Issue 34 / C34).
 - Look up a saved property's FEMA flood zone from the NFHL on request, save the result with source and date, and show the Zone X flood-risk note on Search, Property, and Compare. Manual zone entry and override remain available (Issue 33 / C33).

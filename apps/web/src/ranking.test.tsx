@@ -12,7 +12,14 @@ type FixtureProperty = {
   listings: Array<{ mode: string; price: number }>;
   costLines: Array<{ line: string; state: string; monthly?: number | null }>;
   rent: { value: number | null } | null;
-  expected: { totalStatus: string; monthlyTotal?: number };
+  factors: Record<string, number | null>;
+  expected: {
+    totalStatus: string;
+    monthlyTotal?: number;
+    score: number;
+    rank: number;
+    provisional: boolean;
+  };
 };
 
 const lineStates: Record<string, string> = {
@@ -25,12 +32,14 @@ const lineStates: Record<string, string> = {
   unknown: 'Unknown',
 };
 
+const fixture = JSON.parse(
+  readFileSync(new URL('../../../fixtures/sample-data.json', import.meta.url), 'utf8'),
+) as { properties: FixtureProperty[]; priceSortExpectedRanks: Array<[string, number]> };
+const salePrice = (home: FixtureProperty) =>
+  home.listings.find((listing) => listing.mode === 'sale')!.price;
+
 // The fixture's seven sample homes in the shape Search receives from the local API.
-const fixtureInputs = (
-  JSON.parse(
-    readFileSync(new URL('../../../fixtures/sample-data.json', import.meta.url), 'utf8'),
-  ) as { properties: FixtureProperty[] }
-).properties.map((home): RankingInput => {
+const fixtureInputs = fixture.properties.map((home): RankingInput => {
   const totalStatus =
     home.expected.totalStatus === 'incomplete'
       ? 'Incomplete'
@@ -47,7 +56,7 @@ const fixtureInputs = (
     listing: {
       id: home.id,
       mode: 'sale',
-      price: home.listings.find((listing) => listing.mode === 'sale')!.price,
+      price: salePrice(home),
       pricePeriod: 'total',
       implausibleFlags: home.flags.map((flag) => ({ field: flag.field, reason: flag.message })),
     },
@@ -153,7 +162,7 @@ describe('computed ranking', () => {
     assert.equal(result.provisional, true);
   });
 
-  it('explains provisional scores for the fixture homes and ranks them in score order', () => {
+  it('explains provisional scores for the fixture homes', () => {
     const results = rankListings(fixtureInputs, 'sale');
     const reason = (id: string) => results.get(id)!.provisionalReason;
     assert.equal(reason('nmi-1460-ne-135th-st'), '1 factor unknown: comparable rent');
@@ -171,13 +180,31 @@ describe('computed ranking', () => {
       '1 factor unknown: own-vs-rent gap (incomplete total)',
     );
     assert.equal(results.get('ftl-2207-ne-32nd-ct')!.provisional, false);
+  });
 
-    const byRank = [...results.values()].sort((left, right) => left.rank - right.rank);
+  it("matches the fixture's factor scores, scores, ranks, and price-sort ranks", () => {
+    const results = rankListings(fixtureInputs, 'sale');
+    for (const home of fixture.properties) {
+      const result = results.get(home.id)!;
+      assert.deepEqual(
+        Object.fromEntries(
+          Object.entries(result.factors).map(([factor, value]) => [
+            factor,
+            value!.unknown ? null : value!.score,
+          ]),
+        ),
+        home.factors,
+        home.id,
+      );
+      assert.equal(result.score, home.expected.score, home.id);
+      assert.equal(result.rank, home.expected.rank, home.id);
+      assert.equal(result.provisional, home.expected.provisional, home.id);
+    }
     assert.deepEqual(
-      byRank.map((result) => result.rank),
-      [1, 2, 3, 4, 5, 6, 7],
+      [...fixture.properties]
+        .sort((left, right) => salePrice(left) - salePrice(right))
+        .map((home) => [home.id, results.get(home.id)!.rank]),
+      fixture.priceSortExpectedRanks,
     );
-    for (let index = 1; index < byRank.length; index += 1)
-      assert.ok(byRank[index - 1]!.score >= byRank[index]!.score);
   });
 });

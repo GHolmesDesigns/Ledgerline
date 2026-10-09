@@ -1,6 +1,6 @@
 # Design reference
 
-Screens from the design canvas "Florida Home Dashboard UI" (claude.ai artifact). They're visual reference for layout, type, and color. **Numbers and labels come from `docs/UI_SPEC.md` and `fixtures/sample-data.json`, not from these files.**
+Screens from the design canvas "Florida Home Dashboard UI" (claude.ai artifact). They're visual reference for layout, type, and color. **Numbers and labels come from `docs/UI_SPEC.md` and `fixtures/sample-data.json`, not from these files.** In particular, rank and score figures in these screens (for example Fort Lauderdale "#1 · 84") are the earlier hand-set examples; the computed ones are in `docs/UI_SPEC.md` §2.
 
 ## Status (Oct 8, 2026)
 
