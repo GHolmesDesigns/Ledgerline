@@ -10,7 +10,10 @@
     "import:mock": "tsx apps/api/src/providers/import-cli.ts",
     "lint": "eslint .",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,json,html}\" \"*.{json,js,mjs,ts}\" \"e2e/**/*.ts\"",
-    "test:unit": "npm run test --workspaces --if-present",
+    "test:unit": "npm run test --workspaces --if-present && npm run test:launcher",
+    "test:launcher": "node --test \"tools/desktop-launcher/**/*.test.mjs\"",
+    "launcher:icon": "node tools/desktop-launcher/build-icon.mjs",
+    "launcher:shortcut": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop-launcher/create-shortcut.ps1",
     "test:e2e": "playwright test",
     "test": "npm run lint && npm run format:check && npm run test:unit && npm run test:e2e && node fixtures/check-fixtures.mjs"
   },
