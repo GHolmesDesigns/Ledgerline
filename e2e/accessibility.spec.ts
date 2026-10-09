@@ -56,7 +56,7 @@ const routes = (id: string) => [
   { name: 'Search', path: '/', ready: 'Search' },
   { name: 'Compare', path: `/compare?properties=${id}`, ready: 'Compare' },
   { name: 'Property detail', path: `/property/${id}`, ready: 'Property facts' },
-  { name: 'Ranking & data', path: '/settings', ready: 'Backup and restore' },
+  { name: 'Settings', path: '/settings', ready: 'Backup and restore' },
 ];
 
 async function open(page: Page, path: string, ready: string) {
@@ -138,7 +138,7 @@ for (const viewport of viewports) {
       await page.mouse.up();
     });
 
-    for (const route of ['Search', 'Compare', 'Property detail', 'Ranking & data']) {
+    for (const route of ['Search', 'Compare', 'Property detail', 'Settings']) {
       test(`axe reports no serious or critical issues on ${route}`, async ({ page }) => {
         const entry = routes(propertyId).find((item) => item.name === route)!;
         await open(page, entry.path, entry.ready);

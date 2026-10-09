@@ -234,7 +234,7 @@ function RequestBudgetPanel() {
       <div className="panel-heading">
         <div>
           <p className="screen-eyebrow">Data source &amp; request budget</p>
-          <h2 id="request-budget-heading">Provider usage</h2>
+          <h2 id="request-budget-heading">RentCast usage</h2>
         </div>
         <strong>{usage ? `${usage.used} / ${usage.ceiling} this month` : 'Loading usage…'}</strong>
       </div>
@@ -290,7 +290,7 @@ function RequestBudgetPanel() {
                         {buyOnly && (
                           <span>
                             No Rent search · local comps unavailable ·{' '}
-                            <a href="/settings">Add Rent search</a>
+                            <a href="/settings#saved-searches">Add Rent search</a>
                           </span>
                         )}
                       </p>
@@ -348,7 +348,7 @@ function ProviderCredentialsPanel() {
       <div className="panel-heading">
         <div>
           <p className="screen-eyebrow">Local API only</p>
-          <h2 id="provider-credentials-heading">RentCast key</h2>
+          <h2 id="provider-credentials-heading">Keys</h2>
         </div>
         <strong role="status">
           {configured === null ? 'Checking…' : configured ? 'Key set' : 'No key set'}
@@ -357,6 +357,7 @@ function ProviderCredentialsPanel() {
       <p className="panel-intro">
         The key is stored on this computer by the local API. It is never returned to the browser.
       </p>
+      <h3>RentCast key</h3>
       {configured && !editing ? (
         <button className="text-button" onClick={() => setEditing(true)} type="button">
           Replace key
@@ -938,7 +939,7 @@ function ComparableRentRulesPanel() {
 const routes: Route[] = [
   { title: 'Search', eyebrow: 'Find your next place', path: '/', icon: '⌂' },
   { title: 'Compare', eyebrow: 'Side by side', path: '/compare', icon: '⇄' },
-  { title: 'Ranking & data', eyebrow: 'Make it yours', path: '/settings', icon: '⚙' },
+  { title: 'Settings', eyebrow: 'Make it yours', path: '/settings', icon: '⚙' },
 ];
 
 const appVersion = packageJson.version;
@@ -1189,6 +1190,81 @@ function AboutPanel() {
       <p>Ledgerline version</p>
       <strong>v{appVersion}</strong>
     </section>
+  );
+}
+
+function AppearancePlaceholder() {
+  return (
+    <section aria-labelledby="appearance-heading" className="settings-placeholder">
+      <h2 id="appearance-heading">Appearance</h2>
+      <p>Appearance options will be available here.</p>
+    </section>
+  );
+}
+
+function PersonalTagsPlaceholder() {
+  return (
+    <section aria-labelledby="personal-tags-heading" className="settings-placeholder">
+      <h2 id="personal-tags-heading">Personal tags</h2>
+      <p>Personal tags will be available here.</p>
+    </section>
+  );
+}
+
+function AssumptionsSettingsSection() {
+  return (
+    <div className="settings-section-panels">
+      <AssumptionsPanel />
+      <ComparableRentRulesPanel />
+    </div>
+  );
+}
+
+const settingsSections = [
+  { id: 'appearance', title: 'Appearance', component: AppearancePlaceholder },
+  { id: 'ranking-weights', title: 'Ranking weights', component: RankingPanel },
+  { id: 'assumptions', title: 'Assumptions', component: AssumptionsSettingsSection },
+  { id: 'saved-searches', title: 'Saved searches', component: SavedSearchPanel },
+  { id: 'personal-tags', title: 'Personal tags', component: PersonalTagsPlaceholder },
+  { id: 'rentcast-usage', title: 'RentCast usage', component: RequestBudgetPanel },
+  { id: 'keys', title: 'Keys', component: ProviderCredentialsPanel },
+  { id: 'property-match-review', title: 'Property match review', component: MatchReviewPanel },
+  { id: 'backup-restore', title: 'Backup and restore', component: BackupPanel },
+  { id: 'about', title: 'About', component: AboutPanel },
+] as const;
+
+function SettingsPage() {
+  useEffect(() => {
+    const focusHashTarget = () => {
+      const id = window.location.hash.slice(1);
+      if (!id) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'start', behavior: 'instant' });
+    };
+    focusHashTarget();
+    window.addEventListener('hashchange', focusHashTarget);
+    return () => window.removeEventListener('hashchange', focusHashTarget);
+  }, []);
+
+  return (
+    <>
+      <nav aria-label="Settings sections" className="settings-section-nav">
+        {settingsSections.map(({ id, title }) => (
+          <a href={`/settings#${id}`} key={id}>
+            {title}
+          </a>
+        ))}
+      </nav>
+      <div className="settings-panels">
+        {settingsSections.map(({ id, component: SectionComponent }) => (
+          <section className="settings-section" id={id} key={id} tabIndex={-1}>
+            <SectionComponent />
+          </section>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -2856,7 +2932,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               (line) => line.state === 'Unknown' && line.note === 'Local rates not set',
             ) && (
               <p className="local-rates-prompt">
-                <a href="/settings">Set local rates for {property.county} County</a>
+                <a href="/settings#assumptions">Set local rates for {property.county} County</a>
               </p>
             )}
           </>
@@ -4082,10 +4158,10 @@ function CompareScreen() {
       <div className="compare-assumptions" aria-label="Cost assumptions">
         <p>
           <strong>Personal:</strong> {personalLabel}{' '}
-          <a href="/settings">Edit personal assumptions</a>
+          <a href="/settings#assumptions">Edit personal assumptions</a>
         </p>
         <p>
-          <strong>Local:</strong> {localLabel} <a href="/settings">Edit local rates</a>
+          <strong>Local:</strong> {localLabel} <a href="/settings#assumptions">Edit local rates</a>
         </p>
       </div>
       <p className="compare-cost-legend" aria-label="Cost line tag legend">
@@ -4553,7 +4629,7 @@ function SearchScreen() {
                 ) : (
                   <>
                     No Rent search · local comps unavailable ·{' '}
-                    <a href="/settings">Add Rent search</a>
+                    <a href="/settings#saved-searches">Add Rent search</a>
                   </>
                 )}
               </p>
@@ -4911,7 +4987,7 @@ function SearchScreen() {
                             (line) =>
                               line.state === 'Unknown' && line.note === 'Local rates not set',
                           ) && (
-                            <a className="local-rates-prompt" href="/settings">
+                            <a className="local-rates-prompt" href="/settings#assumptions">
                               Set local rates for {property.county} County
                             </a>
                           )}
@@ -5054,17 +5130,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
             <h1>{page.title}</h1>
           </div>
           {page.path === '/settings' ? (
-            <div className="settings-panels">
-              <RankingPanel />
-              <AssumptionsPanel />
-              <ComparableRentRulesPanel />
-              <RequestBudgetPanel />
-              <ProviderCredentialsPanel />
-              <SavedSearchPanel />
-              <MatchReviewPanel />
-              <BackupPanel />
-              <AboutPanel />
-            </div>
+            <SettingsPage />
           ) : page.path === '/' ? (
             <SearchScreen />
           ) : page.path === '/compare' ? (
