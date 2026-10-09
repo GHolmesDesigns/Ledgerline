@@ -39,7 +39,7 @@ Run it after any change to cost, score, or rank logic. It exits 0 when every che
 npm test
 ```
 
-This runs lint, formatting checks, unit tests for the web and API, the Playwright browser check, and the fixture checker. `npm install` installs the Chromium browser used by Playwright.
+This runs lint, formatting checks, unit tests for the web and API, the Playwright browser check, and the fixture checker. `npm install` installs the Chromium browser used by Playwright. The browser tests start their own API and web server on ports 4175 and 5174 with a throwaway database and settings file in the system temp folder, so they never reach a running app, your database, or a saved provider key. Set `LEDGERLINE_TEST_API_PORT` and `LEDGERLINE_TEST_WEB_PORT` to use other ports.
 
 ## Run it
 
