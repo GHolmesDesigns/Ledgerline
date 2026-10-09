@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Resolve ranking factor defaults and weights for Buy and Rent; document each factor's inputs, score formula, and Unknown behavior (Issue 24 / C24). Existing fixture scores are hand-set examples until Issue 35.
 - Define Incomplete status reasons for special assessments, known CDDs, missing association fees, and missing county rates, including ordered, de-duplicated wording for multiple triggers (Issue 23 / C23).
 - Add the RentCast sale and long-term rental listing adapter behind `ListingProvider`; configure it with `LISTING_PROVIDER=rentcast`. The adapter maps provider fields and history into normalized records and uses the existing refresh budget and request log (Issue 22 / C22).
 - Add 34 clearly labeled synthetic Miami-Dade, Broward, and outside-market listings shaped like RentCast listing responses, with a scenario coverage map for adapter mapping tests (Issue 21 / C21).

@@ -4,7 +4,7 @@ A personal, local-only web app to find, rank, and compare Florida homes to rent 
 
 ## Source of truth (in priority order)
 
-1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.7, Oct 8, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
+1. `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` — the plan (version 2.8, Oct 8, 2026). Product scope, cost rules, data model, milestones. **Wins every conflict.**
 2. `docs/UI_SPEC.md` — screen-by-screen UI requirements and labels.
 3. `docs/ACCEPTANCE_CHECKS.md` — testable checks for Milestones 1–3.
 4. `fixtures/sample-data.json` — fictional sample data with every expected number. `node fixtures/check-fixtures.mjs` must pass.
@@ -58,14 +58,14 @@ These come from the plan, section 5; the fixtures exercise every one.
 - "Doc $0" means verified none. An unchecked $0 is "Est. $0 · not checked". A single-family home in a configured county is never Incomplete.
 - Own-vs-rent gap: shown with "≈" when the total is an Estimate; **hidden** when the total is Incomplete or rent is Unavailable. Incomplete totals show "at least $X" and never get "Lowest".
 - Comparable rent always shows its source; fewer than 3 comps → "Unavailable". Never invent a rent figure.
-- **Rank numbers follow score order under every sort.** Unknown factors score 0. Any unknown factor or flagged value makes a score provisional, with the reason shown.
+- **Rank numbers follow score order under every sort.** Factor formulas and default weights are in plan § Interface scope, item 4. Unknown factors score 0. Any unknown factor or flagged value makes a score provisional, with the reason shown.
 - **No statewide rates.** Tax, insurance, flood, and non-ad valorem defaults come from per-county local assumptions. Outside configured counties those lines are Unknown and the UI prompts "Set local rates for [county]".
 
 ## Build order
 
 Follow the plan's milestones. Milestone 0 (provider data check) is done (plan, "Decisions made"; `docs/PROVIDER_EVALUATION.md`): RentCast is a go for purchase listings, and Rent-mode search is not relied on for finding rentals. Don't call RentCast unless asked. Start at Milestone 1 on mock data built from `fixtures/sample-data.json`.
 
-Photos are decided (plan 2.7; see Architecture rules), but cards must still read well without them. How the interface treats Rent mode is still an open decision, so leave it configurable and say so.
+Photos are decided (plan 2.7; see Architecture rules), but cards must still read well without them. Ranking factors and default weights follow plan 2.8. How the interface treats Rent mode is still an open decision, so leave it configurable and say so.
 
 ## Sample data
 
