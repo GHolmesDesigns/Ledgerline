@@ -24,6 +24,7 @@ import { normalizeAddress } from './providers/normalize-address.js';
 import { defaultComparableRentRules } from './store.js';
 import { findComparableRent } from './comparable-rent.js';
 import { createFemaNfhlLookup, type FloodZoneLookup } from './fema-nfhl.js';
+import { findImplausibleFlags } from './implausible.js';
 
 function costEstimateFor(
   store: Store,
@@ -95,6 +96,7 @@ export function createApp(
   credentials: ProviderCredentials = new ProviderCredentials(defaultCredentialPath),
   floodZoneLookup: FloodZoneLookup = createFemaNfhlLookup(),
 ) {
+  seedAssumptions(store);
   return createServer(async (request: IncomingMessage, response: ServerResponse) => {
     const json = (status: number, body: unknown) => {
       response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -303,7 +305,14 @@ export function createApp(
           source: body.source.trim(),
           setOn: body.setOn,
           sample: false,
+          pricePerSqftMin: body.pricePerSqftMin == null ? null : nonNegative('pricePerSqftMin'),
+          pricePerSqftMax: body.pricePerSqftMax == null ? null : nonNegative('pricePerSqftMax'),
         };
+        if (
+          (input.pricePerSqftMin == null) !== (input.pricePerSqftMax == null) ||
+          (input.pricePerSqftMin != null && input.pricePerSqftMin >= input.pricePerSqftMax!)
+        )
+          throw new Error('Enter both price-per-square-foot bounds, with minimum below maximum.');
         json(200, { local: store.setLocalAssumption(input) });
       } catch (error) {
         json(400, {
@@ -519,6 +528,32 @@ export function createApp(
     const propertyAction = request.url?.match(
       /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal|risk-details))?(?:\?.*)?$/,
     );
+    const implausibleAction = request.url?.match(
+      /^\/api\/listings\/(lst_[A-Za-z0-9_-]+)\/implausible$/,
+    );
+    if (implausibleAction && request.method === 'POST') {
+      try {
+        const body = await readBody();
+        if (typeof body.field !== 'string' || !body.field)
+          throw new Error('Choose a flagged field.');
+        if (body.action !== 'confirm' && body.action !== 'correct')
+          throw new Error('Choose Confirm or Correct.');
+        const correct = body.action === 'correct' ? body.value : undefined;
+        if (
+          correct !== undefined &&
+          (typeof correct !== 'number' || !Number.isFinite(correct) || correct <= 0)
+        )
+          throw new Error('Enter a positive corrected value.');
+        const listing = store.resolveImplausibleFlag(implausibleAction[1], body.field, {
+          ...(correct === undefined ? {} : { correct }),
+          ...(typeof body.source === 'string' ? { source: body.source } : {}),
+        });
+        json(200, { listing });
+      } catch (error) {
+        json(400, { error: error instanceof Error ? error.message : 'Unable to resolve flag.' });
+      }
+      return;
+    }
     const costEntriesAction = request.url?.match(
       /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/cost-entries$/,
     );
@@ -632,7 +667,33 @@ export function createApp(
         json(404, { error: 'Property not found.' });
         return;
       }
-      const listings = store.listListings(propertyId);
+      let listings = store.listListings(propertyId);
+      const assumptions = store
+        .listLocalAssumptions()
+        .find(
+          (item) =>
+            item.county?.toLocaleLowerCase('en-US') === property.county?.toLocaleLowerCase('en-US'),
+        );
+      listings = listings.map((listing) => {
+        const detected = findImplausibleFlags(
+          property,
+          listing,
+          assumptions
+            ? {
+                min: assumptions.pricePerSqftMin ?? null,
+                max: assumptions.pricePerSqftMax ?? null,
+                sample: assumptions.sample,
+              }
+            : undefined,
+        );
+        const resolved = new Set(
+          listing.implausibleFlags.filter((flag) => flag.resolved).map((flag) => flag.field),
+        );
+        return store.setImplausibleFlags(
+          listing.id,
+          detected.map((flag) => ({ ...flag, resolved: resolved.has(flag.field) })),
+        );
+      });
       const comparableRent = findComparableRent(store, propertyId, store.getComparableRentRules());
       const saleListings = listings
         .filter((listing) => listing.mode === 'sale')

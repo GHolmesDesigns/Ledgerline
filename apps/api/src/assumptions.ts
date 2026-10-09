@@ -13,6 +13,8 @@ const fixtures = JSON.parse(
     county: string;
     set: boolean;
     sample?: boolean;
+    pricePerSqftMin?: number;
+    pricePerSqftMax?: number;
     millage?: number;
     typicalNonAdValoremPerYear?: number;
     homeownersDefaultMonthly?: number;
@@ -26,14 +28,21 @@ const fixtures = JSON.parse(
 export const defaultPersonalAssumptions = fixtures.personalAssumptions;
 
 export function seedAssumptions(store: Store) {
-  for (const search of store.listSavedSearches()) {
+  let searches: ReturnType<Store['listSavedSearches']>;
+  let localRows: ReturnType<Store['listLocalAssumptions']>;
+  try {
+    searches = store.listSavedSearches();
+    localRows = store.listLocalAssumptions();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('no such table')) return;
+    throw error;
+  }
+  for (const search of searches) {
     if (!store.getPersonalAssumptions(search.id)) {
       store.setPersonalAssumptions(search.id, defaultPersonalAssumptions);
     }
   }
-  const existing = new Set(
-    store.listLocalAssumptions().map((item) => item.county.toLocaleLowerCase('en-US')),
-  );
+  const existing = new Map(localRows.map((item) => [item.county.toLocaleLowerCase('en-US'), item]));
   for (const row of fixtures.localAssumptions) {
     const assumption: LocalAssumptions = {
       county: row.county,
@@ -46,8 +55,24 @@ export function seedAssumptions(store: Store) {
       source: row.source ?? null,
       setOn: row.setOn ?? null,
       sample: row.sample === true,
+      pricePerSqftMin: row.pricePerSqftMin ?? null,
+      pricePerSqftMax: row.pricePerSqftMax ?? null,
     };
-    if (!existing.has(assumption.county.toLocaleLowerCase('en-US')))
+    const current = existing.get(assumption.county.toLocaleLowerCase('en-US'));
+    if (!current) {
       store.setLocalAssumption(assumption);
+    } else if (
+      current.sample &&
+      current.pricePerSqftMin == null &&
+      current.pricePerSqftMax == null &&
+      assumption.pricePerSqftMin != null &&
+      assumption.pricePerSqftMax != null
+    ) {
+      store.setLocalAssumption({
+        ...current,
+        pricePerSqftMin: assumption.pricePerSqftMin,
+        pricePerSqftMax: assumption.pricePerSqftMax,
+      });
+    }
   }
 }

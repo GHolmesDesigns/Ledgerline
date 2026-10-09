@@ -2,6 +2,7 @@ import { normalizeAddress } from './providers/normalize-address.js';
 import { emptyRiskDetails } from './store.js';
 import type {
   ListingMode,
+  Listing,
   Property,
   PropertyInput,
   ReviewDecision,
@@ -11,6 +12,7 @@ import type {
   PersonalAssumptions,
   PropertyCostEntry,
   PropertyRiskDetails,
+  PropertyValueOverride,
 } from './store.js';
 import { defaultPersonalAssumptions } from './assumptions.js';
 
@@ -21,7 +23,7 @@ import { defaultPersonalAssumptions } from './assumptions.js';
 // are deliberately not part of a backup: refresh fetches listings again.
 
 export const BACKUP_FORMAT = 'ledgerline-personal-data';
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 4;
 
 export interface AddressKey {
   street: string;
@@ -52,6 +54,8 @@ export interface BackupProperty {
   dismissed: { at: string } | null;
   notes: Array<{ body: string; createdAt: string; updatedAt: string }>;
   costEntries: Array<Omit<PropertyCostEntry, 'id' | 'propertyId'>>;
+  valueOverrides: Record<string, PropertyValueOverride>;
+  listingFlags: Array<{ provider: string; providerId: string; flags: Listing['implausibleFlags'] }>;
 }
 
 export interface BackupSavedSearch {
@@ -144,6 +148,15 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
         amountUnknown: entry.amountUnknown,
         sample: entry.sample,
       })),
+      valueOverrides: property.valueOverrides ?? {},
+      listingFlags: store
+        .listListings(propertyId)
+        .filter((listing) => listing.implausibleFlags.length > 0)
+        .map(({ provider, providerId, implausibleFlags }) => ({
+          provider,
+          providerId,
+          flags: implausibleFlags,
+        })),
     };
     properties.set(idOf(record.key), record);
     byLocalId.set(propertyId, record);
@@ -154,6 +167,8 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
     if (
       store.listNotes(property.id).length > 0 ||
       store.listCostEntries(property.id).length > 0 ||
+      Object.keys(property.valueOverrides ?? {}).length > 0 ||
+      store.listListings(property.id).some((listing) => listing.implausibleFlags.length > 0) ||
       Object.values(property.riskDetails).some((value) =>
         Array.isArray(value) ? value.length > 0 : value !== null,
       )
@@ -258,6 +273,14 @@ const migrationSteps: Record<number, BackupMigration> = {
           isRecord(item)
             ? { ...item, costEntries: Array.isArray(item.costEntries) ? item.costEntries : [] }
             : item,
+        )
+      : data.properties,
+  }),
+  3: (data) => ({
+    ...data,
+    properties: Array.isArray(data.properties)
+      ? data.properties.map((item) =>
+          isRecord(item) ? { ...item, valueOverrides: {}, listingFlags: [] } : item,
         )
       : data.properties,
   }),
@@ -517,6 +540,40 @@ export function importBackup(
         added.properties += 1;
       }
       resolved.set(idOf(key), property);
+
+      if (isRecord(record.valueOverrides)) {
+        const overrides = { ...(property.valueOverrides ?? {}) };
+        for (const [field, item] of Object.entries(record.valueOverrides)) {
+          if (
+            !isRecord(item) ||
+            typeof item.source !== 'string' ||
+            typeof item.updatedAt !== 'string'
+          )
+            continue;
+          overrides[field] = {
+            value:
+              typeof item.value === 'number' || typeof item.value === 'string' ? item.value : null,
+            source: item.source,
+            updatedAt: item.updatedAt,
+          };
+        }
+        property = store.setPropertyValueOverrides(property.id, overrides);
+        resolved.set(idOf(key), property);
+      }
+      for (const entry of Array.isArray(record.listingFlags) ? record.listingFlags : []) {
+        if (
+          !isRecord(entry) ||
+          typeof entry.provider !== 'string' ||
+          typeof entry.providerId !== 'string' ||
+          !Array.isArray(entry.flags)
+        )
+          continue;
+        const listing = store
+          .listListings(property.id)
+          .find((item) => item.provider === entry.provider && item.providerId === entry.providerId);
+        if (listing)
+          store.setImplausibleFlags(listing.id, entry.flags as Listing['implausibleFlags']);
+      }
 
       const saved = isRecord(record.saved) ? record.saved : null;
       if (saved) {

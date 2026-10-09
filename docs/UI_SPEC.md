@@ -1,6 +1,6 @@
 # UI specification — Florida Home Dashboard
 
-*Oct 8, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.8, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
+*Oct 9, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.9, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
 
 Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Ranking & data**. Visual reference: `design/` (see `design/README.md` for which screens are current).
 
@@ -140,5 +140,5 @@ Line-by-line amounts and states are in the fixture file.
 1. **CDD line in a county without local rates:** "Unknown · no [county] rates" unless the tax bill has been checked (then Doc). Adds no new Incomplete trigger; the county trigger already applies. Setting the county's rates turns it into "Est. · CDD not checked".
 2. **Townhome insurance:** uses the county's house homeowners default.
 3. **Status chip wording:** always "+n" for Est. lines beyond the two named; Miramar reads "Estimate · needs insurance quote, assessments not checked +1".
-4. **Ranking factors (Oct 8, plan 2.8):** Buy and Rent factors and weights are fixed as listed above; formulas and unknown behavior are in plan § Interface scope, item 4. Fixture scores remain hand-set until Issue 35.
+4. **Ranking factors (Oct 8, plan 2.8):** Buy and Rent factors and weights are fixed as listed above; formulas and unknown behavior are in plan § Interface scope, item 4. Fixture scores remain hand-set until Issue 35. Implausibility flags follow plan 2.9 and remain visible until confirmed or corrected.
 5. **Map and photos (Oct 8, plan 2.7):** Google Maps with a plain-map fallback when no key is set; photos are ones the user uploads; Street View is a link out to Google Maps, never an image shown in the app.

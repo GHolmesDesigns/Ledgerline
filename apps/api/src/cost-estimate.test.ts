@@ -62,6 +62,7 @@ const listing = (patch: Partial<Listing> = {}): Listing => ({
   firstFetchedAt: '2026-10-01T00:00:00.000Z',
   lastFetchedAt: '2026-10-01T00:00:00.000Z',
   fieldQuality: {},
+  implausibleFlags: [],
   providerHistory: [],
   sample: true,
   ...patch,

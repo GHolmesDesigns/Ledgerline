@@ -1,6 +1,6 @@
 # Acceptance checks — Milestones 1–3
 
-_Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.8._
+_Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.9._
 
 Run against the mock provider loaded from `fixtures/sample-data.json`. Each check names its expected result. A milestone is done when all of its checks pass and `node fixtures/check-fixtures.mjs` exits 0.
 
@@ -46,7 +46,7 @@ Run against the mock provider loaded from `fixtures/sample-data.json`. Each chec
 | 3.6  | Boca Raton (Palm Beach, no rates)                                          | Tax, homeowners, flood, CDD Unknown · "at least $3,623" · "Set local rates for Palm Beach County" prompt                                                                                    |
 | 3.7  | Set Palm Beach local rates                                                 | Boca total recomputes and leaves Incomplete (if no other trigger)                                                                                                                           |
 | 3.8  | North Miami rent (2 comps)                                                 | "Unavailable · only 2 local comps" · no gap · score provisional "1 factor unknown: comparable rent"                                                                                         |
-| 3.9  | Miami 33137 ($98/sq ft)                                                    | Implausible-value flag · score provisional "check price per sq ft" · size factor "Unknown · scored 0"                                                                                       |
+| 3.9  | Miami 33137 ($98/sq ft; C34) | 3250 NE 2nd Ave, Unit 507 shows the $98/sq ft flag with the sample $450–$650 range; Confirm clears it and keeps the listed value; Correcting living area clears it and shows the new value with its source; an ordinary property has no flag |
 | 3.10 | Sort by Price                                                              | Order $285k, $389k, $465k, $529k, $560k, $615k, $849k; ranks #4, #7, #2, #3, #5, #6, #1                                                                                                     |
 | 3.11 | Change a weight                                                            | Results reorder by score; ranks update; breakdown shows new points                                                                                                                          |
 | 3.12 | Compare shortlist                                                          | "Lowest complete total" on Miramar ($4,525), not Hollywood                                                                                                                                  |

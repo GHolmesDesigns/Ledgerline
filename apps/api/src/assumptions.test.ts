@@ -22,7 +22,7 @@ describe('assumptions API', () => {
       CREATE TABLE provider_request_logs (id INTEGER PRIMARY KEY, provider TEXT, saved_search_id INTEGER, property_id TEXT, requested_at TEXT, purpose TEXT, page INTEGER, status TEXT, result_count INTEGER, error_message TEXT);
       CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT);
       CREATE TABLE personal_assumptions (saved_search_id INTEGER PRIMARY KEY, down_payment_pct REAL, mortgage_rate_pct REAL, term_years INTEGER, maintenance_pct_per_year REAL, updated_at TEXT);
-      CREATE TABLE local_assumptions (county TEXT PRIMARY KEY, is_set INTEGER, millage REAL, typical_non_ad_valorem_per_year REAL, homeowners_default_monthly REAL, ho6_default_monthly REAL, flood_default_monthly TEXT, source TEXT, set_on TEXT, sample INTEGER);`);
+      CREATE TABLE local_assumptions (county TEXT PRIMARY KEY, is_set INTEGER, millage REAL, typical_non_ad_valorem_per_year REAL, homeowners_default_monthly REAL, ho6_default_monthly REAL, flood_default_monthly TEXT, source TEXT, set_on TEXT, sample INTEGER, price_per_sqft_min REAL, price_per_sqft_max REAL);`);
     const store = createStore(database);
     const server = createApp(database, store);
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -53,12 +53,19 @@ describe('assumptions API', () => {
 
       const response = await fetch(`${root}/api/assumptions`);
       const data = (await response.json()) as {
-        local: Array<{ county: string; set: boolean; millage: number | null; sample: boolean }>;
+        local: Array<{
+          county: string;
+          set: boolean;
+          millage: number | null;
+          sample: boolean;
+          pricePerSqftMin: number | null;
+        }>;
       };
       const broward = data.local.find((entry) => entry.county === 'Broward')!;
       const palmBeach = data.local.find((entry) => entry.county === 'Palm Beach')!;
       assert.equal(broward.sample, true);
       assert.equal(broward.millage, 19.5);
+      assert.equal(data.local.find((entry) => entry.county === 'Miami-Dade')?.pricePerSqftMin, 450);
       assert.equal(palmBeach.set, false);
       assert.equal(palmBeach.millage, null);
 
@@ -71,6 +78,8 @@ describe('assumptions API', () => {
           homeownersDefaultMonthly: 520,
           ho6DefaultMonthly: 110,
           floodDefaultMonthly: { X: 50, AE: 180, VE: 420 },
+          pricePerSqftMin: 400,
+          pricePerSqftMax: 800,
           source: 'Broward tax collector',
           setOn: '2026-10-09',
         }),
@@ -81,6 +90,7 @@ describe('assumptions API', () => {
       assert.equal(updated.source, 'Broward tax collector');
       assert.equal(updated.setOn, '2026-10-09');
       assert.equal(updated.sample, false);
+      assert.equal(updated.pricePerSqftMax, 800);
     } finally {
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),

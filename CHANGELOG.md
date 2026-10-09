@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Flag implausible and missing listing values using configurable county price-per-square-foot ranges; let the user confirm or correct a value with its source, and preserve flags and overrides in backups (Issue 34 / C34).
 - Look up a saved property's FEMA flood zone from the NFHL on request, save the result with source and date, and show the Zone X flood-risk note on Search, Property, and Compare. Manual zone entry and override remain available (Issue 33 / C33).
 - Request and store a budgeted RentCast long-term rent estimate for saved properties when same-home and local comps are unavailable. Estimates include their range, date, and normalized comps, and become stale after 30 days (Issue 32 / C32).
 - Expand Compare with every purchase cost line and its text state tag, total certainty, comparable rent and source, own-vs-rent gap, upfront cash, Florida risk rows, and a lowest complete total marker. Personal and local assumptions are summarized with separate edit links (Issue 31 / C31).

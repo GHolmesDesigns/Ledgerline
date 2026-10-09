@@ -1,6 +1,6 @@
 # Personal Florida Real Estate Dashboard — Planning Document
 
-*Version 2.8 · October 8, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
+*Version 2.9 · October 9, 2026 · Intended use: one person, running locally · Changes and bump rule: [Version history](#version-history)*
 
 ## Goal
 
@@ -108,7 +108,7 @@ These are first-version features. If they don't hold up in use, the fallback is 
 
    **Assumptions come in two sets:**
    - **Personal**, one set saved with the search profile: down payment, mortgage rate and term, maintenance reserve percentage.
-   - **Local**, one set per county or ZIP group, set up for each market I search: millage rate (from the county property appraiser or tax collector), typical non-ad valorem assessments, homeowners insurance default (house, also used for townhomes), HO-6 default (condo), and flood insurance defaults by flood zone.
+   - **Local**, one set per county or ZIP group, set up for each market I search: millage rate (from the county property appraiser or tax collector), typical non-ad valorem assessments, homeowners insurance default (house, also used for townhomes), HO-6 default (condo), flood insurance defaults by flood zone, and an optional price-per-square-foot range used for implausibility checks.
 
    There are **no statewide defaults** for local figures. For a property outside every configured market, the tax, insurance, and flood lines are Unknown and the total is Incomplete, with a prominent "Set local rates for [county]" prompt. Sample values in design drafts (such as 18.5 mills) are layout placeholders only.
 6. **Comparable rent:** shown beside each purchase listing's cost to own, from the first available source in this order:
@@ -125,7 +125,7 @@ These are first-version features. If they don't hold up in use, the fallback is 
    - **Property tax estimate** based on the purchase price and the local millage rate, not the current owner's bill (see County property appraiser below).
    - **Non-ad valorem assessments, including CDD fees:** charges billed with property taxes but not based on millage, such as Community Development District fees, which are common in newer Florida communities and can be substantial. Taken from the property's tax bill or disclosures; until then, the county's typical amount is used as an Estimate labeled "CDD not checked" (see the rules by cost line).
 8. **Trust cues:**
-   - Flag missing fields and implausible values (for example: price per square foot far outside the area's range, 0 bedrooms on a single-family house, coordinates outside Florida). A flagged listing's score is provisional until I confirm or correct the value.
+   - Flag missing fields and implausible values (for example: price per square foot far outside the area's range, 0 bedrooms on a single-family house, coordinates outside Florida). A flagged listing's score is provisional until I confirm or correct the value. Flags are stored per listing field. Confirm keeps the provider value and clears its flag; Correct stores a property-level override with its source and clears its flag. Flags and overrides are included in personal-data backups.
    - Label stale results using two timestamps: the provider's last-seen date (stale after 7 days by default) and my last local refresh (stale after the saved search's refresh interval).
    - **Verification links:** the provider's source URL when supplied; otherwise the MLS number and listing agent/office contact when supplied, plus an address search link I can click to check availability manually. The app never fetches those pages itself.
 9. **Observed price and status history:** each refresh stores a snapshot of price and status, plus the provider's own history when supplied (RentCast includes a `history` field). Stored within the provider's retention terms.
@@ -308,6 +308,8 @@ The data source is the biggest risk, and the free tier makes testing it cost not
 - **Rent mode in the interface:** the Milestone 0 result means Rent-mode search is not relied on for finding rentals, but the interface scope still has a Buy/Rent switch, Rent-mode saved searches, and Buy/Rent search pairs. What Rent mode shows, and how it is labelled, is not decided. Rent-mode refreshes still supply local comps.
 
 ## Version history
+
+- **2.9** · Oct 9, 2026 · Defines listing-field implausibility flags, confirmation and sourced property overrides, backup persistence, and optional per-county price-per-square-foot ranges. Minor bump because it adds local-assumption and trust-cue rules.
 
 The version line at the top is `MAJOR.MINOR`. Decide the bump for every change to this document:
 

@@ -371,3 +371,51 @@ test('comparable rent uses same-home priority, shows stored comps, and saves min
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('C34 flags suspicious values and accepts a sourced correction', async ({ page }) => {
+  const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-quality-'));
+  let api: Api | undefined;
+  try {
+    const databasePath = join(root, 'ledgerline.sqlite');
+    seedDatabase(databasePath);
+    api = await startApi(databasePath);
+    const response = await fetch(api.url('/api/listings?mode=sale'));
+    const results = (await response.json()) as {
+      items: Array<{ property: { id: string; street: string; unit: string | null } }>;
+    };
+    const sample = results.items.find(
+      ({ property }) => property.street === '3250 NE 2nd Ave' && property.unit === '507',
+    )!;
+    await routeApiTo(page, () => api!);
+    await page.goto(`/property/${sample.property.id}`);
+    await expect(
+      page.getByText(/\$98\/sq ft; this area runs about \$450–\$650 \(sample\)/),
+    ).toBeVisible();
+    await page.getByLabel('Correct livingAreaSqft').fill('700');
+    await page.getByLabel('Source for livingAreaSqft').fill('county property record');
+    await page.getByRole('button', { name: 'Correct value' }).click();
+    await expect(page.getByText('700 sq ft · corrected from county property record')).toBeVisible();
+    await expect(page.getByText(/\$98\/sq ft/)).toHaveCount(0);
+    const exported = (await (await fetch(api.url('/api/backup/export'))).json()) as {
+      properties: Array<{
+        address: { street: string; unit: string | null };
+        valueOverrides: Record<string, { value: number; source: string }>;
+        listingFlags: Array<{ flags: Array<{ field: string; resolved?: boolean }> }>;
+      }>;
+    };
+    const saved = exported.properties.find(
+      (item) => item.address.street === '3250 NE 2nd Ave' && item.address.unit === '507',
+    )!;
+    expect(saved.valueOverrides.livingAreaSqft).toEqual(
+      expect.objectContaining({ value: 700, source: 'county property record' }),
+    );
+    expect(saved.listingFlags[0].flags).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'livingAreaSqft', resolved: true }),
+      ]),
+    );
+  } finally {
+    await api?.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
