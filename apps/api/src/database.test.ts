@@ -219,6 +219,64 @@ describe('property cost-entry API', () => {
   });
 });
 
+describe('FEMA flood-zone lookup API', () => {
+  it('looks up only on request, stores FEMA source and date, and preserves the old zone on failure', async () => {
+    const database = await temporaryDatabase();
+    const store = createStore(database);
+    const property = store.createProperty({
+      street: '1 Flood Way',
+      city: 'Fort Lauderdale',
+      zip: '33308',
+      latitude: 26.1224,
+      longitude: -80.1373,
+      floodZone: 'X',
+    });
+    let calls = 0;
+    let shouldFail = false;
+    const server = createApp(database, store, undefined, undefined, async (latitude, longitude) => {
+      calls += 1;
+      assert.equal(latitude, 26.1224);
+      assert.equal(longitude, -80.1373);
+      if (shouldFail) throw new Error('FEMA is unavailable.');
+      return 'AE';
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    const root = `http://127.0.0.1:${address.port}`;
+    try {
+      await fetch(`${root}/api/properties/${property.id}`);
+      assert.equal(calls, 0, 'reading saved property data must not call FEMA');
+      const response = await fetch(`${root}/api/properties/${property.id}/flood-zone-lookup`, {
+        method: 'POST',
+      });
+      assert.equal(response.status, 200);
+      const body = (await response.json()) as {
+        property: {
+          floodZone: string;
+          riskDetails: { floodZoneSource: string; floodZoneDate: string };
+        };
+      };
+      assert.equal(body.property.floodZone, 'AE');
+      assert.equal(body.property.riskDetails.floodZoneSource, 'FEMA NFHL');
+      assert.match(body.property.riskDetails.floodZoneDate, /^\d{4}-\d{2}-\d{2}$/);
+
+      shouldFail = true;
+      const failed = await fetch(`${root}/api/properties/${property.id}/flood-zone-lookup`, {
+        method: 'POST',
+      });
+      assert.equal(failed.status, 502);
+      assert.match(((await failed.json()) as { error: string }).error, /FEMA is unavailable/);
+      assert.equal(store.getProperty(property.id)?.floodZone, 'AE');
+      assert.equal(calls, 2);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  });
+});
+
 describe('saved-search API', () => {
   it('creates, updates, pairs, lists, and deletes profiles in SQLite', async () => {
     const database = await temporaryDatabase();
