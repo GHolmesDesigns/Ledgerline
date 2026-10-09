@@ -51,6 +51,7 @@ describe('request usage header', () => {
           ceiling: 45,
           used: 23,
           remaining: 22,
+          nextReset: '2026-11-01T00:00:00.000Z',
           provider: 'RentCast',
           tier: 'Developer',
           lastSuccessfulRefreshAt: '2026-10-08T12:00:00.000Z',

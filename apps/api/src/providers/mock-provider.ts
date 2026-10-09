@@ -128,7 +128,7 @@ export const mockProviderCapabilities: ProviderCapabilities = {
   bathSplit: false,
   history: true,
   hoaFee: true,
-  rentEstimates: false,
+  rentEstimates: true,
 };
 
 interface SyntheticRentCastListing {
@@ -461,5 +461,9 @@ export class MockListingProvider implements ListingProvider {
 
   async getListing(sourceId: string) {
     return this.listings.find((record) => record.sourceId === sourceId) ?? null;
+  }
+
+  async estimateRent() {
+    return { value: 2300, low: 2000, high: 2600, comps: [] };
   }
 }

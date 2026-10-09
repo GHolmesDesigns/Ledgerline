@@ -174,7 +174,7 @@ export interface ComparableRentRules {
 
 export interface ComparableRentFigure {
   propertyId: string;
-  source: 'same_home' | 'local_comps' | 'unavailable';
+  source: 'same_home' | 'local_comps' | 'rent_estimate' | 'unavailable';
   value: number | null;
   low: number | null;
   high: number | null;
@@ -182,6 +182,7 @@ export interface ComparableRentFigure {
   compCount: number;
   maxDistanceMi: number | null;
   compIds: string[];
+  estimateComps?: Array<{ address: string; rent: number; distanceMi: number | null }>;
   computedAt: string;
 }
 
@@ -657,11 +658,12 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         requireProperty(input.propertyId);
         run(
           `INSERT INTO comparable_rent_figures
-            (property_id, source, value, low, high, reason, comp_count, max_distance_mi, comp_ids, computed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (property_id, source, value, low, high, reason, comp_count, max_distance_mi, comp_ids, estimate_comps, computed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(property_id) DO UPDATE SET source=excluded.source, value=excluded.value,
              low=excluded.low, high=excluded.high, reason=excluded.reason, comp_count=excluded.comp_count,
-             max_distance_mi=excluded.max_distance_mi, comp_ids=excluded.comp_ids, computed_at=excluded.computed_at`,
+             max_distance_mi=excluded.max_distance_mi, comp_ids=excluded.comp_ids,
+             estimate_comps=excluded.estimate_comps, computed_at=excluded.computed_at`,
           [
             input.propertyId,
             input.source,
@@ -672,6 +674,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             input.compCount,
             input.maxDistanceMi,
             JSON.stringify(input.compIds),
+            JSON.stringify(input.estimateComps ?? []),
             input.computedAt,
           ],
         );
@@ -692,6 +695,9 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             compCount: Number(row.comp_count),
             maxDistanceMi: number(row.max_distance_mi),
             compIds: JSON.parse(String(row.comp_ids)) as string[],
+            estimateComps: JSON.parse(
+              String(row.estimate_comps),
+            ) as ComparableRentFigure['estimateComps'],
             computedAt: String(row.computed_at),
           }
         : null;

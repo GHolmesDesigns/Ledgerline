@@ -41,6 +41,45 @@ const rental = (providerId: string, price: number, lastSeen: string): ListingInp
 });
 
 describe('comparable rent', () => {
+  it('uses a saved RentCast estimate only after same-home and local comp sources', () => {
+    const home = store.createProperty({
+      street: '1 Estimate St',
+      city: 'Miami',
+      zip: '33131',
+      propertyType: 'condo',
+      beds: 2,
+      livingAreaSqft: 1000,
+      latitude: 25.76,
+      longitude: -80.19,
+    });
+    store.saveComparableRentFigure({
+      propertyId: home.id,
+      source: 'rent_estimate',
+      value: 3250,
+      low: 3000,
+      high: 3500,
+      reason: null,
+      compCount: 1,
+      maxDistanceMi: 0.4,
+      compIds: ['rent-comp-1'],
+      estimateComps: [{ address: '2 Estimate St', rent: 3200, distanceMi: 0.4 }],
+      computedAt: now.toISOString(),
+    });
+    const estimate = findComparableRent(store, home.id, store.getComparableRentRules(), now)!;
+    assert.equal(estimate.figure.source, 'rent_estimate');
+    assert.equal(estimate.figure.value, 3250);
+    assert.match(estimate.label, /RentCast estimate · range \$3,000–\$3,500 · Oct 9/);
+    assert.deepEqual(estimate.estimateComps, [
+      { address: '2 Estimate St', rent: 3200, distanceMi: 0.4 },
+    ]);
+
+    store.replaceListings(home.id, [rental('same-home-after-estimate', 3400, '2026-10-08')]);
+    assert.equal(
+      findComparableRent(store, home.id, store.getComparableRentRules(), now)?.figure.source,
+      'same_home',
+    );
+  });
+
   it('prefers an active rental on the same property and records its source date', () => {
     const home = store.createProperty({
       street: '1 Main St',

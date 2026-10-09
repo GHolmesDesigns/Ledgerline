@@ -451,11 +451,25 @@ export function createApp(
     );
     if (rentEstimateAction && request.method === 'POST') {
       try {
+        const propertyId = rentEstimateAction[1];
+        if (!store.getProperty(propertyId)) throw new Error('Property not found.');
+        if (!store.isFavorite(propertyId))
+          throw new Error('Save this property before requesting a rent estimate.');
+        const currentRent = findComparableRent(store, propertyId, store.getComparableRentRules());
+        if (
+          currentRent?.figure.source === 'same_home' ||
+          currentRent?.figure.source === 'local_comps'
+        ) {
+          json(409, {
+            error: 'A same-home listing or qualifying local comps already provide comparable rent.',
+          });
+          return;
+        }
         const estimate = await requestRentEstimate(
           store,
           refreshJob.provider,
           refreshJob.budget,
-          rentEstimateAction[1],
+          propertyId,
         );
         json(200, { estimate });
       } catch (error) {
@@ -464,6 +478,7 @@ export function createApp(
           json(429, { error: message, blocked: error.decision });
         else if (error instanceof RentEstimateUnavailableError) json(501, { error: message });
         else if (message === 'Property not found.') json(404, { error: message });
+        else if (message.startsWith('Save this property')) json(403, { error: message });
         else json(502, { error: message });
       }
       return;

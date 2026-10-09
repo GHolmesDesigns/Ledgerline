@@ -1,12 +1,14 @@
 import type { ProviderHistory } from '../store.js';
 import type {
   ListingProvider,
+  RentEstimateRequest,
   ProviderCapabilities,
   ProviderListing,
   SearchCriteria,
 } from './listing-provider.js';
 
 const API_ROOT = 'https://api.rentcast.io/v1/listings';
+const RENT_ESTIMATE_URL = 'https://api.rentcast.io/v1/avm/rent/long-term';
 const PAGE_SIZE = 500;
 
 type FetchResponse = {
@@ -299,5 +301,52 @@ export class RentCastListingProvider implements ListingProvider {
     const encodedId = encodeURIComponent(id);
     const response = await this.request(`${API_ROOT}/${endpoint}/${encodedId}`, true);
     return response == null ? null : toProviderListing(mode, response);
+  }
+
+  async estimateRent({ property }: RentEstimateRequest) {
+    const params = new URLSearchParams();
+    if (property.latitude != null && property.longitude != null) {
+      params.set('latitude', String(property.latitude));
+      params.set('longitude', String(property.longitude));
+    } else {
+      params.set(
+        'address',
+        [property.street, property.unit, property.city, 'FL', property.zip]
+          .filter(Boolean)
+          .join(', '),
+      );
+    }
+    const propertyTypes: Record<string, string> = {
+      single_family: 'Single Family',
+      condo: 'Condo',
+      townhome: 'Townhouse',
+      manufactured: 'Manufactured',
+      multi_family: 'Multi-Family',
+      apartment: 'Apartment',
+    };
+    const propertyType = propertyTypes[property.propertyType ?? ''];
+    if (propertyType) params.set('propertyType', propertyType);
+    if (property.beds != null) params.set('bedrooms', String(property.beds));
+    if (property.bathsTotal != null) params.set('bathrooms', String(property.bathsTotal));
+    if (property.livingAreaSqft != null)
+      params.set('squareFootage', String(property.livingAreaSqft));
+    const response = asRecord(await this.request(`${RENT_ESTIMATE_URL}?${params.toString()}`));
+    const value = number(response?.rent);
+    const low = number(response?.rentRangeLow);
+    const high = number(response?.rentRangeHigh);
+    if (value == null || low == null || high == null || low > value || value > high)
+      throw new Error('RentCast returned an invalid rent estimate.');
+    const rawComps = response?.comparables;
+    if (rawComps != null && !Array.isArray(rawComps))
+      throw new Error('RentCast returned invalid rent estimate comparables.');
+    const comps = (Array.isArray(rawComps) ? rawComps : []).flatMap((candidate) => {
+      const comp = asRecord(candidate);
+      const id = text(comp?.id);
+      const rent = number(comp?.price);
+      const address = text(comp?.formattedAddress) ?? text(comp?.addressLine1);
+      if (!id || rent == null || !address) return [];
+      return [{ id, address, rent, distanceMi: number(comp?.distance) }];
+    });
+    return { value, low, high, comps };
   }
 }

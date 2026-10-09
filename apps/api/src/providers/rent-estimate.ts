@@ -29,6 +29,27 @@ export async function requestRentEstimate(
   try {
     const estimate = await provider.estimateRent({ property });
     store.finishProviderRequest(logId, { status: 'succeeded', resultCount: 1 });
+    const computedAt = new Date().toISOString();
+    store.saveComparableRentFigure({
+      propertyId,
+      source: 'rent_estimate',
+      value: estimate.value,
+      low: estimate.low,
+      high: estimate.high,
+      reason: null,
+      compCount: estimate.comps.length,
+      maxDistanceMi:
+        estimate.comps.length && estimate.comps.every((comp) => comp.distanceMi != null)
+          ? Math.max(...estimate.comps.map((comp) => comp.distanceMi!))
+          : null,
+      compIds: estimate.comps.map((comp) => comp.id),
+      estimateComps: estimate.comps.map(({ address, rent, distanceMi }) => ({
+        address,
+        rent,
+        distanceMi,
+      })),
+      computedAt,
+    });
     return estimate;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Rent estimate failed.';

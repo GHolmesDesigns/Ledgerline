@@ -33,6 +33,13 @@ export interface RentEstimateRequest {
   property: PropertyInput;
 }
 
+export interface RentEstimateResult {
+  value: number;
+  low: number;
+  high: number;
+  comps: Array<{ id: string; address: string; rent: number; distanceMi: number | null }>;
+}
+
 export interface ListingProvider {
   readonly name: string;
   /** When known, a short page signals that the provider has no more results. */
@@ -40,5 +47,5 @@ export interface ListingProvider {
   readonly capabilities: ProviderCapabilities;
   search(criteria: SearchCriteria, page: number): Promise<ProviderListing[]>;
   getListing(sourceId: string): Promise<ProviderListing | null>;
-  estimateRent?(property: RentEstimateRequest): Promise<{ low: number; high: number }>;
+  estimateRent?(property: RentEstimateRequest): Promise<RentEstimateResult>;
 }

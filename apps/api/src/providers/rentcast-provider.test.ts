@@ -163,6 +163,63 @@ describe('RentCast listing provider', () => {
     assert.equal('bedrooms' in missing.property, false);
   });
 
+  it('requests one normalized long-term rent estimate and keeps its returned rental comps', async () => {
+    const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+    const provider = new RentCastListingProvider(
+      () => 'test-key',
+      async (url, init) => {
+        calls.push({ url, headers: init.headers });
+        return fakeResponse({
+          rent: 3250,
+          rentRangeLow: 3000,
+          rentRangeHigh: 3500,
+          comparables: [
+            {
+              id: 'rent-comp-1',
+              formattedAddress: '1 Sample Ave, Miami, FL 33131',
+              price: 3200,
+              distance: 0.4,
+            },
+          ],
+        });
+      },
+    );
+    const estimate = await provider.estimateRent!({
+      property: {
+        street: '200 Sample Ave',
+        unit: '5',
+        city: 'Miami',
+        zip: '33131',
+        propertyType: 'condo',
+        beds: 2,
+        bathsTotal: 2,
+        livingAreaSqft: 1000,
+        latitude: 25.76,
+        longitude: -80.19,
+      },
+    });
+    const request = new URL(calls[0]!.url);
+    assert.equal(request.pathname, '/v1/avm/rent/long-term');
+    assert.equal(request.searchParams.get('latitude'), '25.76');
+    assert.equal(request.searchParams.get('propertyType'), 'Condo');
+    assert.equal(request.searchParams.get('bedrooms'), '2');
+    assert.deepEqual(estimate, {
+      value: 3250,
+      low: 3000,
+      high: 3500,
+      comps: [
+        {
+          id: 'rent-comp-1',
+          address: '1 Sample Ave, Miami, FL 33131',
+          rent: 3200,
+          distanceMi: 0.4,
+        },
+      ],
+    });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0]?.headers['X-Api-Key'], 'test-key');
+  });
+
   it('loads one listing by its mode-qualified ID and returns null for a missing listing', async () => {
     const calls: string[] = [];
     const provider = new RentCastListingProvider(

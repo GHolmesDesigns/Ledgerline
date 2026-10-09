@@ -308,6 +308,7 @@ test('comparable rent uses same-home priority, shows stored comps, and saves min
     const northMiami = listings.items.find(
       ({ property }) => property.street === '1460 NE 135th St',
     )!;
+    const bocaRaton = listings.items.find(({ property }) => property.street === '618 NE 7th St')!;
     await routeApiTo(page, () => api!);
 
     await page.goto('/');
@@ -321,6 +322,28 @@ test('comparable rent uses same-home priority, shows stored comps, and saves min
 
     await page.goto(`/property/${northMiami.property.id}`);
     await expect(page.getByText('Unavailable · only 2 local comps')).toBeVisible();
+    const budgetAfterOpeningDetail = (await (
+      await fetch(api.url('/api/request-budget'))
+    ).json()) as {
+      used: number;
+      remaining: number;
+    };
+    expect(budgetAfterOpeningDetail.used).toBe(budgetBefore.used);
+    await page.getByRole('button', { name: 'Save property' }).click();
+    const estimateButton = page.getByRole('button', {
+      name: /Get RentCast rent estimate · 1 request · \d+ left this month/,
+    });
+    await expect(estimateButton).toBeVisible();
+    await estimateButton.click();
+    await expect(
+      page.getByText(/\$2,300\/mo · RentCast estimate · range \$2,000–\$2,600 ·/),
+    ).toBeVisible();
+    const budgetAfterEstimate = (await (await fetch(api.url('/api/request-budget'))).json()) as {
+      used: number;
+      rentEstimatesUsed: number;
+    };
+    expect(budgetAfterEstimate.used).toBe(budgetBefore.used + 1);
+    expect(budgetAfterEstimate.rentEstimatesUsed).toBe(1);
     await page.goto('/settings');
     await page.getByLabel('Minimum comps').fill('2');
     await page.getByRole('button', { name: 'Save comparable-rent rules' }).click();
@@ -329,10 +352,20 @@ test('comparable rent uses same-home priority, shows stored comps, and saves min
     await expect(
       page.getByText('$3,100/mo · 2 local comps · median · within 0.6 mi'),
     ).toBeVisible();
+    await fetch(api.url('/api/request-budget'), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ceiling: budgetAfterEstimate.used }),
+    });
+    await page.goto(`/property/${bocaRaton.property.id}`);
+    await page.getByRole('button', { name: 'Save property' }).click();
+    const blockedEstimate = page.getByRole('button', { name: /Get RentCast rent estimate/ });
+    await expect(blockedEstimate).toBeDisabled();
+    await expect(page.getByText(/Request ceiling reached/)).toBeVisible();
     const budgetAfter = (await (await fetch(api.url('/api/request-budget'))).json()) as {
       used: number;
     };
-    expect(budgetAfter.used).toBe(budgetBefore.used);
+    expect(budgetAfter.used).toBe(budgetAfterEstimate.used);
   } finally {
     await api?.stop();
     rmSync(root, { recursive: true, force: true });
