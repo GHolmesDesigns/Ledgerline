@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Add a Windows desktop launcher: `npm run launcher:shortcut` puts a Ledgerline shortcut on the desktop that starts the local API and web server if they are not running and opens the app in the browser, or only opens the browser if they are. It says which port is in use or which server failed to start, and leaves the servers running afterwards (there is no stop shortcut). The shortcut uses a new multi-size Ledgerline icon, `design/brand/ledgerline.ico` (16, 32, 48, 64, 128, and 256 px), which `npm run launcher:icon` rebuilds from the brand PNGs without redrawing them. The brand artwork folder `design/brand/` is now tracked in Git (Issue 79 / C41).
 - Add Light, Dark, and System appearance choices with local persistence and live OS theme updates; define dark counterparts for the design color tokens and keep the preference out of personal-data backups (Issue 78 / C40).
 - Let every Settings section be reordered by pointer drag, keyboard, or phone Move up/Move down controls. Save the order as a local display preference, merge sections added later, announce keyboard positions, and provide Reset order; the preference is excluded from JSON backups (Issue 77 / C39).
 - Rename Ranking & data to Settings and organize its panels into the plan's default order, with section navigation, stable anchors, and contextual links from Search, Compare, and Property. Appearance and Personal tags appear as placeholders (Issue 76 / C38).
