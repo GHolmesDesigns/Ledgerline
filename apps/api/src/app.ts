@@ -1,5 +1,7 @@
 import type { Database } from 'sql.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   createStore,
   type ListingSearchCriteria,
@@ -12,11 +14,15 @@ import { BackupError, exportBackup, importBackup } from './backup.js';
 import { RefreshJob } from './providers/refresh-job.js';
 import { RequestCeilingError } from './providers/request-budget.js';
 import { RentEstimateUnavailableError, requestRentEstimate } from './providers/rent-estimate.js';
+import { ProviderCredentials } from './provider-credentials.js';
+
+const defaultCredentialPath = resolve(dirname(fileURLToPath(import.meta.url)), '../.env');
 
 export function createApp(
   database: Database,
   store: Store = createStore(database),
   refreshJob: RefreshJob = new RefreshJob(store, new MockListingProvider()),
+  credentials: ProviderCredentials = new ProviderCredentials(defaultCredentialPath),
 ) {
   return createServer(async (request: IncomingMessage, response: ServerResponse) => {
     const json = (status: number, body: unknown) => {
@@ -43,6 +49,7 @@ export function createApp(
       response.end(JSON.stringify(backup, null, 2));
       return;
     }
+
     if (request.method === 'POST' && request.url === '/api/backup/import') {
       try {
         const chunks: Buffer[] = [];
@@ -125,6 +132,23 @@ export function createApp(
       }
       return result;
     };
+
+    if (request.url === '/api/provider-credentials' && request.method === 'GET') {
+      json(200, { configured: credentials.isRentCastConfigured() });
+      return;
+    }
+    if (request.url === '/api/provider-credentials' && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        credentials.setRentCastKey(body.rentCastApiKey);
+        json(200, { configured: true });
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to save the RentCast key.',
+        });
+      }
+      return;
+    }
 
     if (request.url === '/api/request-budget' && request.method === 'GET') {
       const budget = refreshJob.budget.status();

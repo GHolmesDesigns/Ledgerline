@@ -204,6 +204,60 @@ a {
   border-radius: var(--radius-card);
   background: var(--color-surface);
 }
+.provider-credentials-panel {
+  display: grid;
+  width: min(100%, 1120px);
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+.provider-credentials-panel .panel-heading h2 {
+  margin: 0;
+  font: 600 22px var(--font-display);
+}
+.provider-key-form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.provider-key-form label {
+  display: grid;
+  min-width: min(100%, 320px);
+  flex: 1;
+  gap: 6px;
+  color: var(--color-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+.provider-key-form input,
+.provider-key-form button {
+  min-height: 44px;
+}
+.provider-key-form input {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: white;
+  color: var(--color-ink);
+  font: inherit;
+}
+.provider-key-form button {
+  padding: 9px 14px;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background: var(--color-ink);
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.provider-key-form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
 .request-budget-panel .panel-heading h2 {
   margin: 0;
   font: 600 22px var(--font-display);

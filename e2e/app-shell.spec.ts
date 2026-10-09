@@ -45,7 +45,12 @@ for (const viewport of [
 test('screen navigation keeps the sample data local', async ({ page }) => {
   const providerRequests: string[] = [];
   page.on('request', (request) => {
-    if (/rentcast|realty|provider/i.test(request.url())) providerRequests.push(request.url());
+    if (
+      /rentcast|realty|provider/i.test(request.url()) &&
+      !request.url().endsWith('/api/provider-credentials')
+    ) {
+      providerRequests.push(request.url());
+    }
   });
 
   await page.goto('/');
