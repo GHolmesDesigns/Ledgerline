@@ -54,6 +54,74 @@ for (const viewport of viewports) {
   test.describe(`${viewport.name} viewport`, () => {
     test.use({ viewport: viewport.size });
 
+    test('Search this address keeps readable contrast in every interaction state', async ({
+      page,
+    }) => {
+      await open(page, `/property/${propertyId}`, 'Property facts');
+      const link = page.locator(
+        viewport.name === 'desktop'
+          ? '.property-desktop-actions a.button-link.secondary-button'
+          : '.property-mobile-actions a',
+      );
+      const contrastViolations = (
+        await new AxeBuilder({ page }).withRules(['color-contrast']).analyze()
+      ).violations
+        .flatMap((violation) => violation.nodes)
+        .filter((node) =>
+          node.target.some(
+            (target) =>
+              target.includes('.button-link.secondary-button') ||
+              target.includes('.property-mobile-actions a'),
+          ),
+        );
+      expect(contrastViolations).toEqual([]);
+
+      const contrastRatio = async () =>
+        link.evaluate((element) => {
+          const parse = (color: string) =>
+            color
+              .match(/[\d.]+/g)!
+              .slice(0, 3)
+              .map(Number);
+          const luminance = (color: string) => {
+            const rgb = parse(color).map((channel) => {
+              const normalized = channel / 255;
+              return normalized <= 0.04045
+                ? normalized / 12.92
+                : ((normalized + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * rgb[0]! + 0.7152 * rgb[1]! + 0.0722 * rgb[2]!;
+          };
+          const style = getComputedStyle(element);
+          const foreground = luminance(style.color);
+          const background = luminance(style.backgroundColor);
+          return (
+            (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05)
+          );
+        });
+
+      const secondaryButtonColors = await page
+        .locator('.property-desktop-actions button.secondary-button')
+        .first()
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return { color: style.color, backgroundColor: style.backgroundColor };
+        });
+      expect(secondaryButtonColors).toEqual({
+        color: 'rgb(255, 255, 255)',
+        backgroundColor: 'rgb(16, 24, 32)',
+      });
+
+      expect(await contrastRatio()).toBeGreaterThanOrEqual(4.5);
+      await link.hover();
+      expect(await contrastRatio()).toBeGreaterThanOrEqual(4.5);
+      await link.focus();
+      expect(await contrastRatio()).toBeGreaterThanOrEqual(4.5);
+      await page.mouse.down();
+      expect(await contrastRatio()).toBeGreaterThanOrEqual(4.5);
+      await page.mouse.up();
+    });
+
     for (const route of ['Search', 'Compare', 'Property detail', 'Ranking & data']) {
       test(`axe reports no serious or critical issues on ${route}`, async ({ page }) => {
         const entry = routes(propertyId).find((item) => item.name === route)!;
