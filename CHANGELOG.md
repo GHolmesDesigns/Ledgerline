@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Record property-level quote and document evidence for insurance, tax bills, association fees, assessments, confirmed HOA absence, and flood-policy choices. Property detail shows a verification checklist, rejects no-flood entries in FEMA A/V zones, and backups preserve these records (Issue 26 / C26).
 - Add editable personal assumptions per saved search and per-county local rates, seeded from the fictional fixtures with Palm Beach left unset. Assumptions are stored in SQLite and included in version 2 personal-data backups (Issue 25 / C25).
 - Resolve ranking factor defaults and weights for Buy and Rent; document each factor's inputs, score formula, and Unknown behavior (Issue 24 / C24). Existing fixture scores are hand-set examples until Issue 35.
 - Define Incomplete status reasons for special assessments, known CDDs, missing association fees, and missing county rates, including ordered, de-duplicated wording for multiple triggers (Issue 23 / C23).

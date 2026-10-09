@@ -68,6 +68,28 @@ async function seedPersonalData(store: Store, decision: 'link' | 'keep_separate'
   )!;
   store.addNote(fortLauderdale.id, 'Quiet street, check flood zone');
   store.addNote(fortLauderdale.id, 'Roof is from 2020');
+  store.addCostEntry(fortLauderdale.id, {
+    kind: 'tax_bill',
+    amount: 0,
+    state: 'Doc',
+    source: 'Tax bill · no CDD',
+    date: '2026-10-05',
+    assessmentStatus: null,
+    paymentType: null,
+    amountUnknown: false,
+    sample: false,
+  });
+  store.addCostEntry(fortLauderdale.id, {
+    kind: 'homeowners_quote',
+    amount: 610,
+    state: 'Quote',
+    source: 'Carrier quote',
+    date: '2026-10-05',
+    assessmentStatus: null,
+    paymentType: null,
+    amountUnknown: false,
+    sample: false,
+  });
   store.setFavorite(fortLauderdale.id, true);
   store.setDismissed(other.id, true);
 
@@ -145,6 +167,7 @@ describe('personal-data backup', () => {
     assert.equal(report.added.matchDecisions, 1);
     assert.equal(report.added.personalAssumptions, 2);
     assert.equal(report.added.localAssumptions, 2);
+    assert.equal(report.added.costEntries, 2);
     // The restored database re-exports to exactly the same file.
     assert.deepEqual(
       exportBackup(target.store, exportedAt),
@@ -190,6 +213,7 @@ describe('personal-data backup', () => {
       matchDecisions: 0,
       personalAssumptions: 0,
       localAssumptions: 0,
+      costEntries: 0,
     });
     assert.equal(second.alreadyPresent.notes, 3);
     assert.equal(second.alreadyPresent.savedSearches, 2);

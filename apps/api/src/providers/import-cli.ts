@@ -1,7 +1,11 @@
 import { closeDatabase, openDatabase } from '../database.js';
 import { createStore } from '../store.js';
 import { importProviderListings } from './import-listings.js';
-import { MockListingProvider, seedMockSavedSearches } from './mock-provider.js';
+import {
+  MockListingProvider,
+  seedMockCostEntries,
+  seedMockSavedSearches,
+} from './mock-provider.js';
 
 const database = await openDatabase();
 try {
@@ -13,6 +17,7 @@ try {
       : {};
   const result = await importProviderListings(new MockListingProvider(), store, matchOptions);
   seedMockSavedSearches(store);
+  seedMockCostEntries(store);
   console.log(
     `Imported ${result.listings} sample listings across ${result.properties} new properties.`,
   );

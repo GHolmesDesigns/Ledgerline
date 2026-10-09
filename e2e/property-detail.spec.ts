@@ -1,4 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { routeApiTo, seedDatabase, startApi, type Api } from './support/api';
 
 test('property detail shows facts, separate history sources, and manual verification links', async ({
   page,
@@ -117,4 +121,53 @@ test('unknown property IDs show a not-found state', async ({ page }) => {
   );
   await page.goto('/property/prop_missing');
   await expect(page.getByRole('alert')).toHaveText('Property not found.');
+});
+
+test('property checklist records a flood quote and includes it in backup', async ({ page }) => {
+  const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-costs-'));
+  let api: Api | undefined;
+  try {
+    const databasePath = join(root, 'ledgerline.sqlite');
+    seedDatabase(databasePath);
+    api = await startApi(databasePath);
+    const listingResponse = await fetch(api.url('/api/listings?mode=sale'));
+    const listings = (await listingResponse.json()) as {
+      items: Array<{ property: { id: string; street: string } }>;
+    };
+    const fortLauderdale = listings.items.find(
+      ({ property }) => property.street === '2207 NE 32nd Ct',
+    )!;
+    await routeApiTo(page, () => api!);
+    await page.goto(`/property/${fortLauderdale.property.id}`);
+    await expect(
+      page.getByRole('heading', { name: 'Cost records and verification' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Tax bill: Done · Doc · Sample data — not real listings'),
+    ).toBeVisible();
+    await expect(
+      page.getByText('HOA confirmation: Done · N/A · Sample data — not real listings'),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Homeowners quote: Done · Quote · Sample data — not real listings'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Enter flood quote' })).toBeVisible();
+    await page.getByRole('button', { name: 'Enter flood quote' }).click();
+    await page.getByLabel('Amount', { exact: true }).fill('195');
+    await page.getByLabel('Source or document').fill('Carrier quote');
+    await page.getByLabel('Date', { exact: true }).fill('2026-10-09');
+    await page.getByRole('button', { name: 'Save cost record' }).click();
+    await expect(page.getByText(/flood quote · Quote \$195/)).toBeVisible();
+    const backup = await fetch(api.url('/api/backup/export'));
+    expect(backup.ok).toBeTruthy();
+    const data = await backup.json();
+    expect(
+      data.properties.some((property: { costEntries: Array<{ kind: string }> }) =>
+        property.costEntries.some((entry) => entry.kind === 'flood_quote'),
+      ),
+    ).toBeTruthy();
+  } finally {
+    await api?.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
 });
