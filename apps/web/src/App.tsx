@@ -27,6 +27,14 @@ import {
 } from './settingsOrder';
 
 type RankingWeightSets = Record<RankingMode, RankingWeights>;
+type ThemeChoice = 'light' | 'dark' | 'system';
+const THEME_KEY = 'ledgerline.theme';
+
+function readThemeChoice(): ThemeChoice {
+  if (typeof window === 'undefined') return 'system';
+  const saved = window.localStorage.getItem(THEME_KEY);
+  return saved === 'light' || saved === 'dark' ? saved : 'system';
+}
 type RankingWeightsResponse = {
   weights?: Record<RankingMode, { weights: Partial<RankingWeights> }>;
   error?: string;
@@ -1208,11 +1216,29 @@ function AboutPanel() {
   );
 }
 
-function AppearancePlaceholder() {
+function AppearanceSettings({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemeChoice;
+  onThemeChange: (theme: ThemeChoice) => void;
+}) {
   return (
-    <section aria-labelledby="appearance-heading" className="settings-placeholder">
+    <section aria-labelledby="appearance-heading" className="appearance-panel">
       <h2 id="appearance-heading">Appearance</h2>
-      <p>Appearance options will be available here.</p>
+      <p>Choose how Ledgerline looks on this computer.</p>
+      <label className="appearance-choice">
+        Color theme
+        <select
+          aria-label="Color theme"
+          onChange={(event) => onThemeChange(event.target.value as ThemeChoice)}
+          value={theme}
+        >
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
     </section>
   );
 }
@@ -1236,7 +1262,7 @@ function AssumptionsSettingsSection() {
 }
 
 const settingsSections = [
-  { id: 'appearance', title: 'Appearance', component: AppearancePlaceholder },
+  { id: 'appearance', title: 'Appearance' },
   { id: 'ranking-weights', title: 'Ranking weights', component: RankingPanel },
   { id: 'assumptions', title: 'Assumptions', component: AssumptionsSettingsSection },
   { id: 'saved-searches', title: 'Saved searches', component: SavedSearchPanel },
@@ -1249,10 +1275,16 @@ const settingsSections = [
 ] as const satisfies readonly {
   id: SettingsSectionId;
   title: string;
-  component: () => ReactNode;
+  component?: () => ReactNode;
 }[];
 
-function SettingsPage() {
+function SettingsPage({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemeChoice;
+  onThemeChange: (theme: ThemeChoice) => void;
+}) {
   const [order, setOrder] = useState<SettingsSectionId[]>(readSettingsOrder);
   const [announcement, setAnnouncement] = useState('');
   const keyboardDrag = useRef<{ id: SettingsSectionId; original: SettingsSectionId[] } | null>(
@@ -1414,10 +1446,15 @@ function SettingsPage() {
       </nav>
       <div className="settings-panels">
         {order.map((id) => {
-          const SectionComponent = settingsSections.find((item) => item.id === id)!.component;
+          const section = settingsSections.find((item) => item.id === id)!;
+          const SectionComponent = 'component' in section ? section.component : undefined;
           return (
             <section className="settings-section" id={id} key={id} tabIndex={-1}>
-              <SectionComponent />
+              {id === 'appearance' ? (
+                <AppearanceSettings onThemeChange={onThemeChange} theme={theme} />
+              ) : SectionComponent ? (
+                <SectionComponent />
+              ) : null}
             </section>
           );
         })}
@@ -5258,6 +5295,21 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
     () => initialPath ?? (typeof window === 'undefined' ? '/' : window.location.pathname),
   );
   const page = currentPage(pathname);
+  const [theme, setTheme] = useState<ThemeChoice>(readThemeChoice);
+
+  useEffect(() => {
+    window.localStorage.setItem(THEME_KEY, theme);
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      document.documentElement.dataset.theme =
+        theme === 'system' ? (media.matches ? 'dark' : 'light') : theme;
+    };
+    applyTheme();
+    if (theme === 'system') media.addEventListener('change', applyTheme);
+    return () => {
+      media.removeEventListener('change', applyTheme);
+    };
+  }, [theme]);
 
   useEffect(() => {
     const syncPath = () => setPathname(window.location.pathname);
@@ -5288,7 +5340,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
             <h1>{page.title}</h1>
           </div>
           {page.path === '/settings' ? (
-            <SettingsPage />
+            <SettingsPage onThemeChange={setTheme} theme={theme} />
           ) : page.path === '/' ? (
             <SearchScreen />
           ) : page.path === '/compare' ? (
