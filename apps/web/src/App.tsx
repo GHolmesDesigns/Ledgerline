@@ -1,4 +1,11 @@
-import { useEffect, useState, type FormEvent, type PointerEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import {
   defaultRankingWeights,
   rankListings,
@@ -1601,6 +1608,9 @@ function SavedSearchPanel() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
+  const [notice, setNotice] = useState('');
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const refresh = async () => {
     try {
       const response = await fetch('/api/saved-searches');
@@ -1682,12 +1692,19 @@ function SavedSearchPanel() {
   };
 
   const remove = async (search: SavedSearch) => {
+    setConfirmingId(null);
     const response = await fetch(`/api/saved-searches/${search.id}`, { method: 'DELETE' });
     if (!response.ok) {
       setError('Could not delete saved search.');
       return;
     }
+    setNotice(
+      `Deleted "${search.name}". Properties, listings, notes, saves, dismissals, and photos were not changed.`,
+    );
     await refresh();
+    window.dispatchEvent(new Event('provider-usage-updated'));
+    // The row that held focus is gone; move focus to the section heading.
+    headingRef.current?.focus();
   };
 
   const refreshOne = async (search: SavedSearch) => {
@@ -1753,7 +1770,9 @@ function SavedSearchPanel() {
       <div className="panel-heading">
         <div>
           <p className="screen-eyebrow">Search profiles</p>
-          <h2 id="saved-searches-heading">Saved searches</h2>
+          <h2 id="saved-searches-heading" ref={headingRef} tabIndex={-1}>
+            Saved searches
+          </h2>
         </div>
         <span className="review-count">{items.length} saved</span>
       </div>
@@ -1766,6 +1785,7 @@ function SavedSearchPanel() {
           {error}
         </p>
       )}
+      {notice && <p role="status">{notice}</p>}
       {items.length > 0 && (
         <button
           className="text-button"
@@ -1873,13 +1893,47 @@ function SavedSearchPanel() {
                           Add Rent search
                         </button>
                       )}
-                      <button
-                        className="text-button"
-                        onClick={() => void remove(search)}
-                        type="button"
-                      >
-                        Delete
-                      </button>
+                      {confirmingId === search.id ? (
+                        <div
+                          className="saved-search-confirm"
+                          role="group"
+                          aria-label="Confirm delete"
+                        >
+                          <span>
+                            Delete &ldquo;{search.name}&rdquo;?{' '}
+                            {paired ? `Its paired search "${paired.name}" stays, unpaired. ` : ''}
+                            Its own assumptions go with it. Properties, listings, notes, saves, and
+                            photos are not changed.
+                          </span>
+                          <button
+                            className="text-button"
+                            onClick={() => void remove(search)}
+                            type="button"
+                          >
+                            Confirm delete
+                          </button>
+                          <button
+                            autoFocus
+                            className="text-button"
+                            onClick={() => setConfirmingId(null)}
+                            type="button"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          aria-label={`Delete ${search.name}`}
+                          className="text-button"
+                          onClick={() => {
+                            setNotice('');
+                            setConfirmingId(search.id);
+                          }}
+                          type="button"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </form>
                 );

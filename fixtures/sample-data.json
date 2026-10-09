@@ -1,6 +1,15 @@
 {
   "_readme": "FICTIONAL SAMPLE DATA — not real listings. Addresses and street numbers are invented. Local rates are layout placeholders, not real county rates. Source of truth for rules: PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md, at the version in planVersion. Run `node fixtures/check-fixtures.mjs` after any edit.",
-  "planVersion": "2.9",
+  "planVersion": "2.15",
+  "searchAreaRules": {
+    "radiusMinMi": 0.1,
+    "radiusMaxMi": 25.0,
+    "mockAddressCenter": {
+      "address": "2207 NE 32nd Ct, Fort Lauderdale, FL 33308",
+      "latitude": 26.19,
+      "longitude": -80.115
+    }
+  },
   "asOf": "2026-10-07",
   "lineStates": {
     "listing": {
@@ -109,6 +118,7 @@
   "savedSearches": [
     {
       "area": "Fort Lauderdale 33308 + radius",
+      "location": { "mode": "radius", "center": { "enteredAddress": "2207 NE 32nd Ct, Fort Lauderdale, FL 33308", "latitude": 26.19, "longitude": -80.115 }, "radiusMi": 25.0 },
       "county": "Broward",
       "buy": {
         "requestsPerRefresh": 1
@@ -119,6 +129,7 @@
     },
     {
       "area": "Miami 33131–33137",
+      "location": { "mode": "radius", "center": { "enteredAddress": null, "latitude": 25.78, "longitude": -80.19 }, "radiusMi": 5.0 },
       "county": "Miami-Dade",
       "buy": {
         "requestsPerRefresh": 2,
@@ -131,6 +142,7 @@
     },
     {
       "area": "North Miami 33161",
+      "location": { "mode": "zip", "zip": "33161" },
       "county": "Miami-Dade",
       "buy": {
         "requestsPerRefresh": 1
@@ -166,6 +178,7 @@
       "unit": null,
       "city": "Fort Lauderdale",
       "zip": "33308",
+      "coordinates": { "latitude": 26.19, "longitude": -80.115 },
       "county": "Broward",
       "inConfiguredMarket": true,
       "type": "single_family",
@@ -297,6 +310,7 @@
       "unit": null,
       "city": "Miramar",
       "zip": "33027",
+      "coordinates": { "latitude": 25.981, "longitude": -80.365 },
       "county": "Broward",
       "inConfiguredMarket": true,
       "type": "townhome",
@@ -400,6 +414,7 @@
       "unit": "1408",
       "city": "Miami",
       "zip": "33131",
+      "coordinates": { "latitude": 25.76, "longitude": -80.19 },
       "county": "Miami-Dade",
       "inConfiguredMarket": true,
       "type": "condo",
@@ -505,6 +520,7 @@
       "unit": "507",
       "city": "Miami",
       "zip": "33137",
+      "coordinates": { "latitude": 25.81, "longitude": -80.19 },
       "county": "Miami-Dade",
       "inConfiguredMarket": true,
       "type": "condo",
@@ -615,6 +631,7 @@
       "unit": null,
       "city": "North Miami",
       "zip": "33161",
+      "coordinates": { "latitude": 25.904, "longitude": -80.178 },
       "county": "Miami-Dade",
       "inConfiguredMarket": true,
       "type": "single_family",
@@ -718,6 +735,7 @@
       "unit": null,
       "city": "Boca Raton",
       "zip": "33432",
+      "coordinates": { "latitude": 26.35, "longitude": -80.083 },
       "county": "Palm Beach",
       "inConfiguredMarket": false,
       "type": "single_family",
@@ -821,6 +839,7 @@
       "unit": "9B",
       "city": "Hollywood",
       "zip": "33019",
+      "coordinates": { "latitude": 26.02, "longitude": -80.115 },
       "county": "Broward",
       "inConfiguredMarket": true,
       "type": "condo",

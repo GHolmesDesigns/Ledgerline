@@ -619,6 +619,16 @@ h1 {
 .saved-search-actions {
   grid-column: 1 / -1;
 }
+.saved-search-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+}
 .property-detail-panel {
   display: grid;
   gap: 22px;

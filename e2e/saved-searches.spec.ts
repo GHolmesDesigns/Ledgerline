@@ -82,4 +82,22 @@ test('saves and reopens a search profile with its filters', async ({ page }) => 
   await expect(
     page.getByRole('status').filter({ hasText: 'Last refreshed' }).first(),
   ).toBeVisible();
+
+  // Delete asks first, and cancelling keeps the search.
+  await page.getByRole('button', { name: 'Delete Miami two bedroom' }).click();
+  await expect(page.getByRole('group', { name: 'Confirm delete' })).toContainText(
+    'Properties, listings, notes, saves, and photos are not changed.',
+  );
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText('2 saved')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete Miami two bedroom' })).toBeVisible();
+
+  // Confirming removes that search only; its pair stays.
+  await page.getByRole('button', { name: 'Delete Miami two bedroom' }).click();
+  await page.getByRole('button', { name: 'Confirm delete' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Deleted "Miami two bedroom"' }),
+  ).toContainText('Properties, listings, notes, saves, dismissals, and photos were not changed.');
+  await expect(page.getByRole('button', { name: 'Delete Miami two bedroom' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Delete Miami 33131 · Rent' })).toBeVisible();
 });

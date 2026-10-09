@@ -282,6 +282,20 @@ const comps = data.rentComps['ftl-2207-ne-32nd-ct'].map((c) => c.rent).sort((a, 
 const median = (comps[1] + comps[2]) / 2;
 if (median !== 5225) fail(`comp median ${median} ≠ 5225`); else ok('local comps median $5,225');
 
+// Radius search (plan: Initial search profile). Straight-line miles; the boundary is included.
+const miles = (a, b) => {
+  const rad = (d) => d * Math.PI / 180, R = 3958.8;
+  const h = Math.sin(rad(b.latitude - a.latitude) / 2) ** 2
+    + Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(rad(b.longitude - a.longitude) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+const within = (center, radius) => data.properties.filter((p) => miles(center, p.coordinates) <= radius).map((p) => p.id);
+const rules = data.searchAreaRules, center = rules.mockAddressCenter;
+const near = within(center, rules.radiusMinMi), far = within(center, rules.radiusMaxMi);
+if (near.join() !== 'ftl-2207-ne-32nd-ct') fail(`0.1 mi radius should match only Fort Lauderdale, got ${near}`); else ok('0.1 mi radius matches only Fort Lauderdale');
+if (!far.includes('boc-618-ne-7th-st') || far.includes('brk-1245-brickell-bay-dr-1408')) fail(`25 mi radius should include Boca Raton and exclude Brickell, got ${far}`); else ok('25 mi radius includes Boca Raton, excludes Brickell');
+for (const area of data.savedSearches) if (!area.location) fail(`saved search "${area.area}" has no location mode`);
+
 // The fixtures follow one plan version (plan, Version history).
 const plan = readFileSync(join(here, '..', 'PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md'), 'utf8');
 const planVersion = plan.match(/^\*Version (\d+\.\d+) ·/m)?.[1];

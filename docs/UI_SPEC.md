@@ -1,8 +1,8 @@
 # UI specification — Florida Home Dashboard
 
-*Oct 9, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.9, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
+*Oct 9, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.15, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
 
-Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Ranking & data**. Visual reference: `design/` (see `design/README.md` for which screens are current).
+Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Settings** (formerly "Ranking & data"; the `design/` files keep the older title in places). Visual reference: `design/` (see `design/README.md` for which screens are current).
 
 ## 1. Rules on every screen
 
@@ -63,11 +63,19 @@ Always shows its source, using the first that applies:
 - **Local, per county:** millage, typical non-ad valorem $/yr, homeowners default (house), HO-6 default (condo), flood defaults for zones X / AE / VE, source and date. Sample values are tagged "sample".
 - **No statewide rates anywhere.** No "18.5 mills" or any single Florida figure.
 
+### Sidebar (desktop, plan 2.10)
+- Left sidebar with Search, Compare, and Settings; a labelled toggle collapses it to an icon rail and back (`aria-expanded`); the choice is remembered on this computer. Links keep accessible names and visible focus when collapsed.
+- The app version (for example "v0.3.1") sits at the bottom of the sidebar, from `package.json`, and stays visible when collapsed. Settings → About shows it too.
+- Mobile has no sidebar; the bottom tab bar replaces it.
+
+### Appearance
+Light, Dark, or System (default), set in Settings → Appearance. Both themes keep text contrast at 4.5:1 or better on every control state, and tags and chips still carry text.
+
 ### Header
-"RentCast · Developer · 23 / 45 requests" with a usage bar, last refresh time, and "browsing uses no requests". Refresh button: "Refresh this search · ~2 requests (measured)".
+"RentCast · Developer · 23 / 45 requests · 50 included" with a usage bar, "29 days left · resets Nov 7", last refresh time, and "browsing uses no requests". These match the RentCast dashboard: Settings holds the billing day and any outside requests (for example the Milestone 0 pull), shows how many counted requests were errors that RentCast does not bill, and shows any unexplained difference from the dashboard's "used" figure. Refresh button: "Refresh this search · ~2 requests (measured)".
 
 ### Sample-data note
-Keep "Sample data — not real listings" visible on every screen.
+Show "Sample data — not real listings" on every screen while the mock provider is active, and also while the provider cannot be determined. With a live provider and no mock listings on screen, there is no banner. Any listing from the mock provider carries a "Sample data" tag on its card, property page, and Compare column whichever provider is active, so old sample listings stay labeled after switching to RentCast.
 
 ## 2. Sample listings (Buy)
 
@@ -86,12 +94,16 @@ Line-by-line amounts and states are in the fixture file.
 ## 3. Screens
 
 ### Search (desktop `Main`, mobile `MobileSearch`)
+- Buy/Rent switch and a labeled **Location: ZIP | Radius | City text** choice (City text is the existing free-text field). ZIP accepts one five-digit ZIP. Radius accepts any value from 0.1 to 25.0 miles inclusive and a **Center: Street address | Coordinates** choice. The street-address field takes street, city, and state, with ZIP when known; coordinates use separate labeled latitude and longitude inputs. Addresses resolve only against addresses of properties already stored; otherwise enter latitude and longitude. show the resolved point and coordinates before Search or Save, and ask the user to correct an ambiguous or unresolved address. Changing the address clears the old resolved point. Reject an invalid ZIP, latitude, longitude, or radius with inline text, and keep Search and Save disabled until the area is valid. Radius results use each property's coordinates and include the boundary; listings without coordinates stay available through ZIP search.
+- Location chip: "ZIP 33161" or "Within [radius] mi of [address or coordinates]". Saving, restarting, and JSON export/import keep the mode, entered address, resolved coordinates, and radius.
+- For a radius search, draw its center and circle on the map. Panning and changing the radius use local data only; the header's request count stays unchanged.
 - Buy/Rent switch, location field, saved search "Fort Lauderdale 33308 · Buy · $250k–$900k" with "Paired Rent search on · needed for local comps", removable filter chips, Sort: Your score / Newest / Price.
-- Card: the property's first uploaded photo when it has one (no image box otherwise); price, status, address, city · county, facts line; score block with rank and provisional badge; "Est. monthly to own" with its status chip; "Comparable rent" with its source line; gap row (or the hidden-gap reason); risk chips; implausible-value flag; selected card shows the score breakdown; footer with provider, last seen (stale after 7 days, highlighted), Save, Compare, Dismiss, Details & verify.
+- Filters also include **lot size** (min and max sq ft), **year built** (min and max), **days on market** ("listed within [n] days"), and **tags** (must have all chosen). The results line says how many listings a filter left out for a missing value (for example "12 hidden: lot size unknown"). These use stored data only and are kept in a saved search.
+- Card: the property's first uploaded photo when it has one (no image box otherwise); price, status, address, city · county, facts line; score block with rank and provisional badge; "Est. monthly to own" with its status chip; "Comparable rent" with its source line; gap row (or the hidden-gap reason); risk chips; my tags as chips labelled "My tag" with a control to add or remove one (standard list plus "Add custom tag"); implausible-value flag; selected card shows the score breakdown; footer with provider, last seen (stale after 7 days, highlighted), Save, Compare, Dismiss, Details & verify.
 - Boca Raton card shows the "Set local rates for Palm Beach County" prompt inline.
-- Map and list stay in sync; map shows county borders. Map: Google Maps (Maps JavaScript API) when a key is set. Without a key: a plain map of county borders and pins from local data, with the note "Add a Google Maps key to show the street map."
+- Map and list stay in sync; map shows county borders. Map: Google Maps (Maps JavaScript API) when a key is set, framed on the current results' pins. Without a key (or offline): a plain map of county borders and pins from local data, with the note "Add a Google Maps key in Settings to show the street map." The plain map also frames the current results, never the whole state. Pins sit at the properties' coordinates as in `Main`.
 - Footer text: "Monthly costs use your personal assumptions (20% down, 6.50% 30-yr fixed, maintenance 1%/yr) and each county's local rates. Local rates shown are sample placeholders. Photos are ones you upload; the listing provider supplies none."
-- Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Compare, Ranking & data).
+- Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Compare, Settings).
 
 ### Compare (desktop `Compare`, mobile `MobileCompare`)
 - Shortlist: Fort Lauderdale (#5), Miramar (#2), North Miami (#3, provisional), Hollywood (#7, provisional).
@@ -102,6 +114,8 @@ Line-by-line amounts and states are in the fixture file.
 - Mobile: two properties side by side, chosen with Left/Right selectors; same rows and rules.
 
 ### Property detail (desktop `Property`, mobile `MobileProperty`) — Fort Lauderdale 33308
+- **Top of the page, in order:** header with the address and the **Open Street View** link, then a Google map (Maps JavaScript API) with the property's pin. With no key or offline: the plain local map with the pin and "Add a Google Maps key in Settings to show the street map." Street View stays a link; no Street View images.
+- "Search this address" (header, and the mobile bottom bar) is a readable button in both themes: never dark text on a dark background.
 - Two listings on file: for sale $849,000, for rent $5,200/mo.
 - Cost breakdown, every line tagged:
   - P&I $4,293 Calc · $679,200 loan · 6.50% · 30 yr
@@ -122,12 +136,16 @@ Line-by-line amounts and states are in the fixture file.
 - **"Open Street View"** link: opens Google Maps Street View at the property's coordinates in a new tab (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG`; no key, no request from the app).
 - Price history (provider history vs. local snapshots labeled), verification links (MLS #, agent, address search; the app never fetches these pages), notes, data quality.
 
-### Ranking & data (desktop `Settings`, mobile `MobileSettings`)
-- **Ranking weights** with live ranking of all 7 listings in score order, provisional badges and short reasons.
+### Settings (desktop `Settings`, mobile `MobileSettings`)
+- Default section order: Appearance; Ranking weights; Assumptions and comparable-rent rules; Saved searches; Personal tags; RentCast usage; Keys (RentCast, Google Maps); Property match review; Backup; About (version). Each header has a drag handle; sections reorder by dragging, by keyboard (focus the handle, Enter or Space to pick up and drop, arrow keys to move, Escape to cancel, with the new position announced), or on a phone with Move up and Move down. "Reset order" restores the default; the order is saved on this computer and is not in the backup.
+- **Personal tags** section: standard and custom tags with the number of properties using each; rename and delete custom tags (delete asks first and says how many properties lose it); standard tags cannot be deleted.
+- **RentCast usage** section: billing day, plan's included requests, ceiling, outside requests, the dashboard's "used" figure with its date, the app's own count, errors RentCast does not bill, and any unexplained difference. Search, Compare, and Property link to the matching section instead of editing settings in place.
+- **Saved searches** list: name, mode, location, refresh interval, last refresh result, an editable name (required, trimmed; saved with "Save changes"; the row also shows mode and location because names need not be unique), and a Delete button on each row with a confirmation. Deleting removes only the search and its schedule, never properties, listings, notes, saves, or photos.
+- **Ranking weights** are sliders (value shown as text, arrow keys adjust), with live ranking of all 7 listings in score order, provisional badges and short reasons.
 - **Personal assumptions** panel: down payment, rate, term, maintenance.
 - **Local assumptions** table, one row per county: Miami-Dade, Broward, and Palm Beach ("Not set · Set local rates"). Columns: millage; typical non-ad valorem $/yr; homeowners default (house); HO-6 default (condo); flood default X / AE / VE; source and date. Every value tagged "sample".
 - **Comparable-rent rules** (editable): same property type; same bedrooms; living area ±20%; radius 1 mi; seen within 30 days; minimum 3 comps. Note: "Dense Miami areas may need a smaller radius."
-- **Data source & request budget:** saved searches as Buy/Rent pairs per area with measured requests per refresh (Broward 1+1, Miami 33131–33137 2+1); flagged Buy-only area "North Miami 33161 · No Rent search · local comps unavailable · Add Rent search"; "Rent estimates: +1 request each · 1 used this month"; weekly vs. daily projections against the 45 ceiling (weekly ≈ 42, daily ≈ 168 → over, needs Foundation $74/mo); over-ceiling warning.
+- **Data source & request budget:** saved searches as Buy/Rent pairs per area with measured requests per refresh (Broward 1+1, Miami 33131–33137 2+1); flagged Buy-only area "North Miami 33161 · No Rent search · local comps unavailable · Add Rent search"; "Rent estimates: +1 request each · 1 used this month"; weekly vs. daily projections against the 45 ceiling (weekly ≈ 42, daily ≈ 168 → over, needs Foundation $74/mo); over-ceiling warning. Show the provider's radius capability before a radius refresh.
 - **Property match review:** "1500 Bay Rd, Unit 1204" (new rent listing) vs. "1500 Bay Rd (no unit)" (existing property with 1 note): Link / Keep separate / Undo.
 - **Saved-search refresh:** each profile shows its last successful refresh, "Stale" after its configured interval, or a failed refresh with the attempt time and error. "Refresh now" runs one profile; "Refresh due searches" runs every profile whose interval has elapsed.
 - Nearby-coordinate matching can be enabled by setting `MATCH_REVIEW_DISTANCE_METERS`; without a threshold, address-based ambiguity rules still apply.
