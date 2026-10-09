@@ -11,3 +11,6 @@
 *.woff2 binary
 *.sqlite binary
 *.db binary
+
+# Windows batch files need CRLF line endings or goto labels can fail
+*.cmd text eol=crlf

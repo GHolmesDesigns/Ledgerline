@@ -1,23 +1,24 @@
 # UI specification — Florida Home Dashboard
 
-*Oct 9, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.15, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
+_Oct 9, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.15, which wins any conflict. Every number below is in `fixtures/sample-data.json`._
 
 Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Settings** (formerly "Ranking & data"; the `design/` files keep the older title in places). Visual reference: `design/` (see `design/README.md` for which screens are current).
 
 ## 1. Rules on every screen
 
 ### Cost line tags
+
 Every cost figure carries a short text tag. Tags must read without color.
 
-| Tag | Meaning | Total effect |
-|---|---|---|
-| Listing | From the provider record | Firm |
-| Calc | From price and the user's assumptions | Firm |
-| Quote | Insurer quote the user entered | Firm |
-| Doc | From a tax bill, association letter, or disclosure, including a verified $0 | Firm |
-| N/A | Can't apply to this property; shown as "N/A", counts as $0 | Firm, ignored |
-| Est. | Local default, same-building median, or an assumed $0 not yet checked | Total becomes Estimate |
-| Unknown | Known, material cost with no usable figure | Total becomes Incomplete |
+| Tag     | Meaning                                                                     | Total effect             |
+| ------- | --------------------------------------------------------------------------- | ------------------------ |
+| Listing | From the provider record                                                    | Firm                     |
+| Calc    | From price and the user's assumptions                                       | Firm                     |
+| Quote   | Insurer quote the user entered                                              | Firm                     |
+| Doc     | From a tax bill, association letter, or disclosure, including a verified $0 | Firm                     |
+| N/A     | Can't apply to this property; shown as "N/A", counts as $0                  | Firm, ignored            |
+| Est.    | Local default, same-building median, or an assumed $0 not yet checked       | Total becomes Estimate   |
+| Unknown | Known, material cost with no usable figure                                  | Total becomes Incomplete |
 
 - "Doc $0" = verified none (e.g. "Doc $0 · no CDD on tax bill").
 - Unchecked $0 = "Est. $0 · not checked" (assessments) or "Est. $0 · HOA not confirmed" (single-family HOA).
@@ -27,7 +28,9 @@ Every cost figure carries a short text tag. Tags must read without color.
 - **Townhomes use the house homeowners default**; condos use HO-6.
 
 ### Total status chip
+
 Takes the weakest line:
+
 - **Calculated** — every line is Listing, Calc, Quote, Doc, or N/A.
 - **Estimate · needs [up to two items] +n** — any Est. line. Name up to two items; count every other Est. line as "+n". Examples: "Estimate · needs flood quote" (1 line); "Estimate · needs insurance quote, assessments not checked +1" (3 lines); "Estimate · needs HO-6 quote, flood quote +2" (4 lines).
   - Named in the plan's order: HOA confirmation (same-building median) → insurance or HO-6 quote → flood quote (A or V zone, or zone unknown) → assessments not checked (association exists) → flood quote (other zones) → CDD not checked → HOA not confirmed (single-family) → assessments not checked (no known association).
@@ -40,18 +43,22 @@ Takes the weakest line:
 **Incomplete happens only for four triggers:** an assessment pending or approved with no amount; a known CDD with no amount; a condo, co-op, or townhome with no HOA fee from the listing or same-building data; a county without local rates.
 
 ### Own-vs-rent gap
+
 - Estimate total + rent available → "≈ +$1,971/mo" (≈ required).
 - Calculated total + rent available → "+$X/mo".
 - Incomplete total or rent Unavailable → hidden. Show a muted reason instead ("No own-vs-rent gap · total incomplete" / "· rent unavailable").
 
 ### Comparable rent
+
 Always shows its source, using the first that applies:
+
 1. "same home · listed [date]"
 2. "[n] local comps · median · within [distance]" (comps viewable)
 3. "RentCast estimate · range $low–$high · [date]" (on request only, 1 request)
 4. "Unavailable · [reason]" — never fill in a weak number.
 
 ### Scores and ranks
+
 - Default Buy weights: price 25, own-vs-rent cost 20, flood 20, HOA 15, insurance 10, size 10. Default Rent weights: price 40, flood 25, lease fit 20, size 15. Factor formulas and Unknown inputs follow plan § Interface scope, item 4.
 - **Rank labels (#1, #2…) always follow score order**, whatever sort is selected. Price sort on the sample data shows: $285k #1, $389k #7, $465k #2, $529k #6, $560k #3, $615k #4, $849k #5.
 - Unknown factors score as the worst value (0) and show "Unknown · scored 0" in the breakdown.
@@ -59,41 +66,50 @@ Always shows its source, using the first that applies:
 - Fixture factor values, scores, and ranks are computed from the sample data with these formulas; `fixtures/check-fixtures.mjs` recomputes them.
 
 ### Assumptions
+
 - **Personal:** down payment 20%, 6.50% 30-yr fixed, maintenance 1%/yr.
 - **Local, per county:** millage, typical non-ad valorem $/yr, homeowners default (house), HO-6 default (condo), flood defaults for zones X / AE / VE, source and date. Sample values are tagged "sample".
 - **No statewide rates anywhere.** No "18.5 mills" or any single Florida figure.
 
 ### Sidebar (desktop, plan 2.10)
+
 - Left sidebar with Search, Compare, and Settings; a labelled toggle collapses it to an icon rail and back (`aria-expanded`); the choice is remembered on this computer. Links keep accessible names and visible focus when collapsed.
 - The app version (for example "v0.3.1") sits at the bottom of the sidebar, from `package.json`, and stays visible when collapsed. Settings → About shows it too.
 - Mobile has no sidebar; the bottom tab bar replaces it.
 
 ### Appearance
+
 Light, Dark, or System (default), set in Settings → Appearance. Both themes keep text contrast at 4.5:1 or better on every control state, and tags and chips still carry text.
 
 ### Header
+
 "RentCast · Developer · 23 / 45 requests · 50 included" with a usage bar, "29 days left · resets Nov 7", last refresh time, and "browsing uses no requests". These match the RentCast dashboard: Settings holds the billing day and any outside requests (for example the Milestone 0 pull), shows how many counted requests were errors that RentCast does not bill, and shows any unexplained difference from the dashboard's "used" figure. Refresh button: "Refresh this search · ~2 requests (measured)".
 
 ### Sample-data note
-Show "Sample data — not real listings" on every screen while the mock provider is active, and also while the provider cannot be determined. With a live provider and no mock listings on screen, there is no banner. Any listing from the mock provider carries a "Sample data" tag on its card, property page, and Compare column whichever provider is active, so old sample listings stay labeled after switching to RentCast.
+
+Show "Sample data — not real listings" on every screen while the active provider is mock. Keep it
+visible until the provider is known, including when usage cannot be loaded. Independently label
+each mock-provider listing with a "Sample data" tag on its Search card, property listing, and
+Compare provider row; live-provider listings do not get the tag.
 
 ## 2. Sample listings (Buy)
 
-| Rank · score | Listing | County | Total | Rent | Gap |
-|---|---|---|---|---|---|
-| #1 · 81 provisional | $285,000 · Miami 33137 · condo 2/2 · listed 2,900 sf · 1981 · zone X · HOA Est. $640 (median of 3 units in this building) · flag "$98/sq ft; this area runs about $250–$750 (sample)…" | Miami-Dade | $3,018 · Estimate · needs HOA confirmation, HO-6 quote +3 | $3,300 · 3 local comps | ≈ −$282 |
-| #2 · 74 | $465,000 · Miramar 33027 · townhome 3/2.5 · 1,700 sf · 2016 · zone X · HOA $260 (Listing) · CDD Doc $2,400/yr | Broward | $4,525 · Estimate · needs insurance quote, assessments not checked +1 | $3,600 · 3 local comps · within 0.9 mi | ≈ +$925 |
-| #3 · 55 provisional | $560,000 · North Miami 33161 · single-family 3/2 · 1,400 sf · 1955 · roof 2006 (may limit carriers) · zone X · HOA Est. $0 not confirmed | Miami-Dade | $4,896 · Estimate · needs insurance quote, flood quote +3 | Unavailable · only 2 local comps | hidden |
-| #4 · 53 provisional | $615,000 · Boca Raton 33432 · single-family 3/2 · 1,600 sf · 1978 · picked up by radius at Broward line | Palm Beach (not configured) | at least $3,623 · Incomplete · no Palm Beach rates (tax, insurance, flood, and CDD Unknown) + "Set local rates for Palm Beach County" prompt | Unavailable · no Rent search covers this area | hidden |
-| #5 · 45 | $849,000 · Fort Lauderdale 33308 · single-family 3/2 · 1,850 sf · 1964 · roof 2020 · impact windows · zone AE | Broward | $7,171 · Estimate · needs flood quote | $5,200 · same home · listed Sep 28 | ≈ +$1,971 |
-| #6 · 42 | $529,000 · Brickell 33131 · high-rise condo 1/1 · 780 sf · 2008 · zone AE · HOA $890 · milestone filed · reserve study complete | Miami-Dade | $5,242 · Estimate · needs HO-6 quote, flood quote +2 | $3,100 · 4 local comps · within 0.3 mi | ≈ +$2,142 |
-| #7 · 36 provisional | $389,000 · Hollywood 33019 · oceanfront condo 2/2 · 1,100 sf · 1972 · zone VE · HOA $1,150 · special assessment pending, amount unknown · milestone filed · 40-year recertification in progress · reserve study pending | Broward | at least $4,661 + special assessment · Incomplete | $2,900 · 5 local comps | hidden |
+| Rank · score        | Listing                                                                                                                                                                                                                 | County                      | Total                                                                                                                                        | Rent                                          | Gap       |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | --------- |
+| #1 · 81 provisional | $285,000 · Miami 33137 · condo 2/2 · listed 2,900 sf · 1981 · zone X · HOA Est. $640 (median of 3 units in this building) · flag "$98/sq ft; this area runs about $250–$750 (sample)…"                                  | Miami-Dade                  | $3,018 · Estimate · needs HOA confirmation, HO-6 quote +3                                                                                    | $3,300 · 3 local comps                        | ≈ −$282   |
+| #2 · 74             | $465,000 · Miramar 33027 · townhome 3/2.5 · 1,700 sf · 2016 · zone X · HOA $260 (Listing) · CDD Doc $2,400/yr                                                                                                           | Broward                     | $4,525 · Estimate · needs insurance quote, assessments not checked +1                                                                        | $3,600 · 3 local comps · within 0.9 mi        | ≈ +$925   |
+| #3 · 55 provisional | $560,000 · North Miami 33161 · single-family 3/2 · 1,400 sf · 1955 · roof 2006 (may limit carriers) · zone X · HOA Est. $0 not confirmed                                                                                | Miami-Dade                  | $4,896 · Estimate · needs insurance quote, flood quote +3                                                                                    | Unavailable · only 2 local comps              | hidden    |
+| #4 · 53 provisional | $615,000 · Boca Raton 33432 · single-family 3/2 · 1,600 sf · 1978 · picked up by radius at Broward line                                                                                                                 | Palm Beach (not configured) | at least $3,623 · Incomplete · no Palm Beach rates (tax, insurance, flood, and CDD Unknown) + "Set local rates for Palm Beach County" prompt | Unavailable · no Rent search covers this area | hidden    |
+| #5 · 45             | $849,000 · Fort Lauderdale 33308 · single-family 3/2 · 1,850 sf · 1964 · roof 2020 · impact windows · zone AE                                                                                                           | Broward                     | $7,171 · Estimate · needs flood quote                                                                                                        | $5,200 · same home · listed Sep 28            | ≈ +$1,971 |
+| #6 · 42             | $529,000 · Brickell 33131 · high-rise condo 1/1 · 780 sf · 2008 · zone AE · HOA $890 · milestone filed · reserve study complete                                                                                         | Miami-Dade                  | $5,242 · Estimate · needs HO-6 quote, flood quote +2                                                                                         | $3,100 · 4 local comps · within 0.3 mi        | ≈ +$2,142 |
+| #7 · 36 provisional | $389,000 · Hollywood 33019 · oceanfront condo 2/2 · 1,100 sf · 1972 · zone VE · HOA $1,150 · special assessment pending, amount unknown · milestone filed · 40-year recertification in progress · reserve study pending | Broward                     | at least $4,661 + special assessment · Incomplete                                                                                            | $2,900 · 5 local comps                        | hidden    |
 
 Line-by-line amounts and states are in the fixture file.
 
 ## 3. Screens
 
 ### Search (desktop `Main`, mobile `MobileSearch`)
+
 - Buy/Rent switch and a labeled **Location: ZIP | Radius | City text** choice (City text is the existing free-text field). ZIP accepts one five-digit ZIP. Radius accepts any value from 0.1 to 25.0 miles inclusive and a **Center: Street address | Coordinates** choice. The street-address field takes street, city, and state, with ZIP when known; coordinates use separate labeled latitude and longitude inputs. Addresses resolve only against addresses of properties already stored; otherwise enter latitude and longitude. show the resolved point and coordinates before Search or Save, and ask the user to correct an ambiguous or unresolved address. Changing the address clears the old resolved point. Reject an invalid ZIP, latitude, longitude, or radius with inline text, and keep Search and Save disabled until the area is valid. Radius results use each property's coordinates and include the boundary; listings without coordinates stay available through ZIP search.
 - Location chip: "ZIP 33161" or "Within [radius] mi of [address or coordinates]". Saving, restarting, and JSON export/import keep the mode, entered address, resolved coordinates, and radius.
 - For a radius search, draw its center and circle on the map. Panning and changing the radius use local data only; the header's request count stays unchanged.
@@ -106,6 +122,7 @@ Line-by-line amounts and states are in the fixture file.
 - Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Compare, Settings).
 
 ### Compare (desktop `Compare`, mobile `MobileCompare`)
+
 - Shortlist: Fort Lauderdale (#5), Miramar (#2), North Miami (#3, provisional), Hollywood (#7, provisional).
 - Header splits assumptions: "Personal: 20% down · 6.50% 30-yr · maintenance 1%/yr" and "Local: Miami-Dade (sample) · Broward (sample)", each with its own Edit link.
 - Tag legend above the table.
@@ -114,6 +131,7 @@ Line-by-line amounts and states are in the fixture file.
 - Mobile: two properties side by side, chosen with Left/Right selectors; same rows and rules.
 
 ### Property detail (desktop `Property`, mobile `MobileProperty`) — Fort Lauderdale 33308
+
 - **Top of the page, in order:** header with the address and the **Open Street View** link, then a Google map (Maps JavaScript API) with the property's pin. With no key or offline: the plain local map with the pin and "Add a Google Maps key in Settings to show the street map." Street View stays a link; no Street View images.
 - "Search this address" (header, and the mobile bottom bar) is a readable button in both themes: never dark text on a dark background.
 - Two listings on file: for sale $849,000, for rent $5,200/mo.
@@ -136,8 +154,11 @@ Line-by-line amounts and states are in the fixture file.
 - **"Open Street View"** link: opens Google Maps Street View at the property's coordinates in a new tab (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG`; no key, no request from the app).
 - Price history (provider history vs. local snapshots labeled), verification links (MLS #, agent, address search; the app never fetches these pages), notes, data quality.
 
-### Settings (desktop `Settings`, mobile `MobileSettings`)
-- Default section order: Appearance; Ranking weights; Assumptions and comparable-rent rules; Saved searches; Personal tags; RentCast usage; Keys (RentCast, Google Maps); Property match review; Backup; About (version). Each header has a drag handle; sections reorder by dragging, by keyboard (focus the handle, Enter or Space to pick up and drop, arrow keys to move, Escape to cancel, with the new position announced), or on a phone with Move up and Move down. "Reset order" restores the default; the order is saved on this computer and is not in the backup.
+### Settings (`/settings`)
+
+- Sections, in order: Appearance, Ranking weights, Assumptions (personal and local rates plus comparable-rent rules), Saved searches, Personal tags, RentCast usage, Keys, Property match review, Backup and restore, About.
+- Every section is linked from the Settings section list and has a stable hash anchor. Search, Compare, and Property links open the relevant Settings section. Each section can be reordered by dragging its handle, with the keyboard (Enter/Space to pick up or drop, arrows to move, Escape to cancel), or on a phone with Move up/Move down buttons. The order is a local display preference, persists across reloads, and Reset order restores the listed default. New sections are merged at their default position. The order is not part of personal-data backups.
+- Appearance offers Light, Dark, and System (default). The choice applies immediately, follows OS color-scheme changes in System mode, and persists in local display preferences; it is excluded from personal-data backups. Personal tags remain a placeholder.
 - **Personal tags** section: standard and custom tags with the number of properties using each; rename and delete custom tags (delete asks first and says how many properties lose it); standard tags cannot be deleted.
 - **RentCast usage** section: billing day, plan's included requests, ceiling, outside requests, the dashboard's "used" figure with its date, the app's own count, errors RentCast does not bill, and any unexplained difference. Search, Compare, and Property link to the matching section instead of editing settings in place.
 - **Saved searches** list: name, mode, location, refresh interval, last refresh result, an editable name (required, trimmed; saved with "Save changes"; the row also shows mode and location because names need not be unique), and a Delete button on each row with a confirmation. Deleting removes only the search and its schedule, never properties, listings, notes, saves, or photos.
@@ -152,9 +173,11 @@ Line-by-line amounts and states are in the fixture file.
 - Backup: export/import personal data as JSON.
 
 ## 4. Mobile layout
-390 px phone frames; bottom tab bar; 44 px minimum targets; no fake status bar. Compare is two-up with selectors. Property detail has a fixed bottom bar (Save, Compare, Search this address). Ranking & data uses collapsible sections. Same data and rules as desktop.
+
+390 px phone frames; bottom tab bar; 44 px minimum targets; no fake status bar. Compare is two-up with selectors. Property detail has a fixed bottom bar (Save, Compare, Search this address). Settings sections have direct links and stable anchors. Same data and rules as desktop.
 
 ## 5. Decisions (Oct 7–8, 2026)
+
 1. **CDD line in a county without local rates:** "Unknown · no [county] rates" unless the tax bill has been checked (then Doc). Adds no new Incomplete trigger; the county trigger already applies. Setting the county's rates turns it into "Est. · CDD not checked".
 2. **Townhome insurance:** uses the county's house homeowners default.
 3. **Status chip wording:** always "+n" for Est. lines beyond the two named; Miramar reads "Estimate · needs insurance quote, assessments not checked +1".

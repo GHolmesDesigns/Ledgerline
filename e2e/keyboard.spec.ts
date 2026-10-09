@@ -46,7 +46,7 @@ for (const viewport of viewports) {
       ['Search', '/', 'Search'],
       ['Compare', '/compare', 'Compare'],
       ['Property detail', '/property/{id}', 'Property facts'],
-      ['Ranking & data', '/settings', 'Backup and restore'],
+      ['Settings', '/settings', 'Backup and restore'],
     ]) {
       test(`${name}: every control is reachable and shows focus`, async ({ page }) => {
         await page.goto(path.replace('{id}', propertyId));
@@ -116,7 +116,7 @@ test('keyboard only: search, save, compare, note, match review, and export', asy
     page,
     page
       .getByRole('navigation', { name: 'Main navigation' })
-      .getByRole('link', { name: 'Ranking & data' }),
+      .getByRole('link', { name: 'Settings' }),
   );
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByText('4 pending')).toBeVisible();

@@ -286,6 +286,50 @@ test('property risk details display, edit, and survive a JSON backup restore', a
   }
 });
 
+test('a late property refresh does not overwrite association details being typed', async ({
+  page,
+}) => {
+  const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-refresh-'));
+  let api: Api | undefined;
+  try {
+    const databasePath = join(root, 'ledgerline.sqlite');
+    seedDatabase(databasePath);
+    api = await startApi(databasePath);
+    const listingResponse = await fetch(api.url('/api/listings?mode=sale'));
+    const listings = (await listingResponse.json()) as {
+      items: Array<{ property: { id: string; street: string } }>;
+    };
+    const hollywood = listings.items.find(({ property }) => property.street === '2801 N Ocean Dr')!;
+    await routeApiTo(page, () => api!);
+
+    // The dev server runs effects twice, so opening a property sends two detail requests. Hold
+    // the second one back, as a slow machine would, until after the form has been edited.
+    const detailPath = `/api/properties/${hollywood.property.id}`;
+    let detailRequests = 0;
+    let detailsFinished = 0;
+    page.on('requestfinished', (request) => {
+      if (request.method() === 'GET' && request.url().endsWith(detailPath)) detailsFinished += 1;
+    });
+    await page.route(`**${detailPath}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        detailRequests += 1;
+        if (detailRequests > 1) await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      await route.fallback();
+    });
+
+    await page.goto(`/property/${hollywood.property.id}`);
+    const source = page.getByLabel('Association details source');
+    await source.fill('Typed while loading');
+    await expect.poll(() => detailsFinished).toBe(2);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    await expect(source).toHaveValue('Typed while loading');
+  } finally {
+    await api?.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('comparable rent uses same-home priority, shows stored comps, and saves minimum-comp rules', async ({
   page,
 }) => {

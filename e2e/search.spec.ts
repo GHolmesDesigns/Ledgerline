@@ -121,7 +121,9 @@ test('price sorting changes the query and shows full photo-free result cards', a
   await page.getByLabel('Sort listings').selectOption('price');
   await expect(page).toHaveURL(/sort=price/);
   await expect(page.locator('.listing-price').first()).toHaveText('$285,000');
-  await expect(page.getByText('3250 NE 2nd Ave')).toBeVisible();
+  await expect(
+    page.locator('.listing-card').getByRole('link', { name: 'NE 2nd Ave' }),
+  ).toBeVisible();
   await expect(page.locator('.listing-facts').first()).toContainText('3 bd');
   await expect(page.locator('.listing-facts').first()).toContainText('1,850 sq ft');
 });

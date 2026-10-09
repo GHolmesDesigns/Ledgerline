@@ -6,6 +6,7 @@ import {
   App,
   lowestCompleteCostPropertyId,
   RequestUsageHeader,
+  shouldShowSampleNotice,
   type PropertyDetailData,
 } from './App';
 
@@ -14,7 +15,7 @@ describe('app shell', () => {
     { path: '/', title: 'Search' },
     { path: '/compare', title: 'Compare' },
     { path: '/property/sample-property', title: 'Property detail' },
-    { path: '/settings', title: 'Ranking &amp; data' },
+    { path: '/settings', title: 'Settings' },
   ];
 
   for (const route of routes) {
@@ -28,10 +29,20 @@ describe('app shell', () => {
     });
   }
 
+  it('shows the global sample notice only for mock or unknown provider status', () => {
+    assert.equal(shouldShowSampleNotice('mock'), true);
+    assert.equal(shouldShowSampleNotice(null), true);
+    assert.equal(shouldShowSampleNotice(undefined), true);
+    assert.equal(shouldShowSampleNotice('rentcast'), false);
+  });
+
   it('provides a skip link, keyboard focus targets, and active route navigation', () => {
     const html = renderToStaticMarkup(<App initialPath="/compare" />);
     assert.match(html, /href="#main-content"/);
-    assert.match(html, /aria-current="page" class="nav-link" href="\/compare"/);
+    assert.match(
+      html,
+      /aria-current="page" aria-label="Compare" class="sidebar-nav-link" href="\/compare"/,
+    );
     assert.match(html, /id="main-content" tabindex="-1"/);
   });
 

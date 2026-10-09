@@ -3,9 +3,11 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent,
   type ReactNode,
 } from 'react';
+import packageJson from '../../../package.json';
 import {
   defaultRankingWeights,
   rankListings,
@@ -16,8 +18,23 @@ import {
   type RankingMode,
   type RankingWeights,
 } from './ranking';
+import {
+  defaultSettingsSectionIds,
+  moveSettingsSection,
+  readSettingsOrder,
+  SETTINGS_ORDER_KEY,
+  type SettingsSectionId,
+} from './settingsOrder';
 
 type RankingWeightSets = Record<RankingMode, RankingWeights>;
+type ThemeChoice = 'light' | 'dark' | 'system';
+const THEME_KEY = 'ledgerline.theme';
+
+function readThemeChoice(): ThemeChoice {
+  if (typeof window === 'undefined') return 'system';
+  const saved = window.localStorage.getItem(THEME_KEY);
+  return saved === 'light' || saved === 'dark' ? saved : 'system';
+}
 type RankingWeightsResponse = {
   weights?: Record<RankingMode, { weights: Partial<RankingWeights> }>;
   error?: string;
@@ -91,7 +108,7 @@ function ScoreSummary({ score, children }: { score: ListingRanking; children?: R
   );
 }
 
-type Route = { title: string; eyebrow: string; path: string };
+type Route = { title: string; eyebrow: string; path: string; icon?: string };
 
 type MatchReview = {
   id: number;
@@ -138,6 +155,36 @@ async function fetchRequestUsage() {
   const response = await fetch('/api/request-budget');
   if (!response.ok) throw new Error('Request usage is unavailable.');
   return (await response.json()) as RequestUsage;
+}
+
+export function shouldShowSampleNotice(provider: string | null | undefined) {
+  return provider == null || provider === 'mock';
+}
+
+function SampleDataNotice() {
+  const [provider, setProvider] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    const refresh = () =>
+      void fetchRequestUsage()
+        .then((usage) => active && setProvider(usage.provider))
+        .catch(() => active && setProvider(null));
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
+    window.addEventListener('provider-usage-updated', refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('provider-usage-updated', refresh);
+    };
+  }, []);
+  if (!shouldShowSampleNotice(provider)) return null;
+  return (
+    <div className="sample-notice" role="status">
+      <span className="sample-notice-dot" aria-hidden="true" />
+      Sample data — not real listings
+    </div>
+  );
 }
 
 export function RequestUsageHeader({ initialData }: { initialData?: RequestUsage }) {
@@ -210,7 +257,7 @@ function RequestBudgetPanel() {
       <div className="panel-heading">
         <div>
           <p className="screen-eyebrow">Data source &amp; request budget</p>
-          <h2 id="request-budget-heading">Provider usage</h2>
+          <h2 id="request-budget-heading">RentCast usage</h2>
         </div>
         <strong>{usage ? `${usage.used} / ${usage.ceiling} this month` : 'Loading usage…'}</strong>
       </div>
@@ -266,7 +313,7 @@ function RequestBudgetPanel() {
                         {buyOnly && (
                           <span>
                             No Rent search · local comps unavailable ·{' '}
-                            <a href="/settings">Add Rent search</a>
+                            <a href="/settings#saved-searches">Add Rent search</a>
                           </span>
                         )}
                       </p>
@@ -324,7 +371,7 @@ function ProviderCredentialsPanel() {
       <div className="panel-heading">
         <div>
           <p className="screen-eyebrow">Local API only</p>
-          <h2 id="provider-credentials-heading">RentCast key</h2>
+          <h2 id="provider-credentials-heading">Keys</h2>
         </div>
         <strong role="status">
           {configured === null ? 'Checking…' : configured ? 'Key set' : 'No key set'}
@@ -333,6 +380,7 @@ function ProviderCredentialsPanel() {
       <p className="panel-intro">
         The key is stored on this computer by the local API. It is never returned to the browser.
       </p>
+      <h3>RentCast key</h3>
       {configured && !editing ? (
         <button className="text-button" onClick={() => setEditing(true)} type="button">
           Replace key
@@ -912,10 +960,12 @@ function ComparableRentRulesPanel() {
 }
 
 const routes: Route[] = [
-  { title: 'Search', eyebrow: 'Find your next place', path: '/' },
-  { title: 'Compare', eyebrow: 'Side by side', path: '/compare' },
-  { title: 'Ranking & data', eyebrow: 'Make it yours', path: '/settings' },
+  { title: 'Search', eyebrow: 'Find your next place', path: '/', icon: '⌂' },
+  { title: 'Compare', eyebrow: 'Side by side', path: '/compare', icon: '⇄' },
+  { title: 'Settings', eyebrow: 'Make it yours', path: '/settings', icon: '⚙' },
 ];
+
+const appVersion = packageJson.version;
 
 function currentPage(pathname: string) {
   if (pathname === '/compare') return routes[1];
@@ -1092,18 +1142,324 @@ function BrandMark() {
 function Navigation({ pathname }: { pathname: string }) {
   const page = currentPage(pathname);
   return (
-    <nav aria-label="Main navigation" className="primary-nav">
+    <nav aria-label="Main navigation" className="sidebar-nav">
       {routes.map((route) => (
         <a
           aria-current={page.path === route.path ? 'page' : undefined}
-          className="nav-link"
+          aria-label={route.path === '/settings' ? 'Settings' : route.title}
+          className="sidebar-nav-link"
           href={route.path}
           key={route.path}
+          title={route.path === '/settings' ? 'Settings' : route.title}
         >
-          {route.title}
+          <span aria-hidden="true" className="sidebar-nav-icon">
+            {route.icon}
+          </span>
+          <span className="sidebar-nav-label">
+            {route.path === '/settings' ? 'Settings' : route.title}
+          </span>
         </a>
       ))}
     </nav>
+  );
+}
+
+function Sidebar({ pathname }: { pathname: string }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('ledgerline.sidebar-collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('ledgerline.sidebar-collapsed', String(collapsed));
+    } catch {
+      // The sidebar remains usable if browser storage is unavailable.
+    }
+  }, [collapsed]);
+
+  return (
+    <aside className={`desktop-sidebar${collapsed ? ' is-collapsed' : ''}`}>
+      <div className="sidebar-brand-row">
+        <a aria-label="Ledgerline home" className="brand" href="/">
+          <BrandMark />
+          <span className="brand-name">Ledgerline</span>
+        </a>
+        <button
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="sidebar-toggle"
+          onClick={() => setCollapsed((value) => !value)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          type="button"
+        >
+          <span aria-hidden="true">{collapsed ? '›' : '‹'}</span>
+        </button>
+      </div>
+      <Navigation pathname={pathname} />
+      <p className="sidebar-version">v{appVersion}</p>
+    </aside>
+  );
+}
+
+function AboutPanel() {
+  return (
+    <section aria-labelledby="about-heading" className="about-panel">
+      <h2 id="about-heading">About</h2>
+      <p>Ledgerline version</p>
+      <strong>v{appVersion}</strong>
+    </section>
+  );
+}
+
+function AppearanceSettings({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemeChoice;
+  onThemeChange: (theme: ThemeChoice) => void;
+}) {
+  return (
+    <section aria-labelledby="appearance-heading" className="appearance-panel">
+      <h2 id="appearance-heading">Appearance</h2>
+      <p>Choose how Ledgerline looks on this computer.</p>
+      <label className="appearance-choice">
+        Color theme
+        <select
+          aria-label="Color theme"
+          onChange={(event) => onThemeChange(event.target.value as ThemeChoice)}
+          value={theme}
+        >
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+    </section>
+  );
+}
+
+function PersonalTagsPlaceholder() {
+  return (
+    <section aria-labelledby="personal-tags-heading" className="settings-placeholder">
+      <h2 id="personal-tags-heading">Personal tags</h2>
+      <p>Personal tags will be available here.</p>
+    </section>
+  );
+}
+
+function AssumptionsSettingsSection() {
+  return (
+    <div className="settings-section-panels">
+      <AssumptionsPanel />
+      <ComparableRentRulesPanel />
+    </div>
+  );
+}
+
+const settingsSections = [
+  { id: 'appearance', title: 'Appearance' },
+  { id: 'ranking-weights', title: 'Ranking weights', component: RankingPanel },
+  { id: 'assumptions', title: 'Assumptions', component: AssumptionsSettingsSection },
+  { id: 'saved-searches', title: 'Saved searches', component: SavedSearchPanel },
+  { id: 'personal-tags', title: 'Personal tags', component: PersonalTagsPlaceholder },
+  { id: 'rentcast-usage', title: 'RentCast usage', component: RequestBudgetPanel },
+  { id: 'keys', title: 'Keys', component: ProviderCredentialsPanel },
+  { id: 'property-match-review', title: 'Property match review', component: MatchReviewPanel },
+  { id: 'backup-restore', title: 'Backup and restore', component: BackupPanel },
+  { id: 'about', title: 'About', component: AboutPanel },
+] as const satisfies readonly {
+  id: SettingsSectionId;
+  title: string;
+  component?: () => ReactNode;
+}[];
+
+function SettingsPage({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemeChoice;
+  onThemeChange: (theme: ThemeChoice) => void;
+}) {
+  const [order, setOrder] = useState<SettingsSectionId[]>(readSettingsOrder);
+  const [announcement, setAnnouncement] = useState('');
+  const keyboardDrag = useRef<{ id: SettingsSectionId; original: SettingsSectionId[] } | null>(
+    null,
+  );
+  const pointerDrag = useRef<{ id: SettingsSectionId; original: SettingsSectionId[] } | null>(null);
+
+  useEffect(() => {
+    window.localStorage.setItem(SETTINGS_ORDER_KEY, JSON.stringify(order));
+  }, [order]);
+
+  const announcePosition = (id: SettingsSectionId, current: SettingsSectionId[]) => {
+    const section = settingsSections.find((item) => item.id === id)!;
+    setAnnouncement(`${section.title}, position ${current.indexOf(id) + 1} of ${current.length}`);
+  };
+
+  const move = (id: SettingsSectionId, to: number) => {
+    setOrder((current) => {
+      const next = moveSettingsSection(current, current.indexOf(id), to);
+      if (next.some((value, index) => value !== current[index])) announcePosition(id, next);
+      return next;
+    });
+  };
+
+  const moveBy = (id: SettingsSectionId, amount: number) => {
+    const index = order.indexOf(id);
+    move(id, Math.max(0, Math.min(order.length - 1, index + amount)));
+  };
+
+  const finishKeyboardDrag = (id: SettingsSectionId) => {
+    if (!keyboardDrag.current || keyboardDrag.current.id !== id) {
+      keyboardDrag.current = { id, original: [...order] };
+      setAnnouncement(
+        `${settingsSections.find((item) => item.id === id)!.title} picked up. Use arrow keys to move, Enter or Space to drop, Escape to cancel.`,
+      );
+    } else {
+      keyboardDrag.current = null;
+      announcePosition(id, order);
+    }
+  };
+
+  const onHandleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, id: SettingsSectionId) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      finishKeyboardDrag(id);
+    } else if (event.key === 'Escape' && keyboardDrag.current?.id === id) {
+      event.preventDefault();
+      setOrder(keyboardDrag.current.original);
+      keyboardDrag.current = null;
+      setAnnouncement('Move cancelled. Original section order restored.');
+    } else if (
+      (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+      keyboardDrag.current?.id === id
+    ) {
+      event.preventDefault();
+      moveBy(id, event.key === 'ArrowUp' ? -1 : 1);
+    }
+  };
+
+  const onPointerDown = (event: PointerEvent<HTMLButtonElement>, id: SettingsSectionId) => {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    pointerDrag.current = { id, original: [...order] };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    const active = pointerDrag.current;
+    if (!active || (event.buttons === 0 && event.pointerType === 'mouse')) return;
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-settings-section]');
+    const id = target?.dataset.settingsSection as SettingsSectionId | undefined;
+    if (id && id !== active.id) move(active.id, order.indexOf(id));
+  };
+
+  const onPointerUp = (id: SettingsSectionId) => {
+    if (!pointerDrag.current) return;
+    pointerDrag.current = null;
+    announcePosition(id, order);
+  };
+
+  const resetOrder = () => {
+    const defaults = [...defaultSettingsSectionIds];
+    setOrder(defaults);
+    window.localStorage.removeItem(SETTINGS_ORDER_KEY);
+    keyboardDrag.current = null;
+    pointerDrag.current = null;
+    setAnnouncement('Settings section order reset to default.');
+  };
+
+  useEffect(() => {
+    const focusHashTarget = () => {
+      const id = window.location.hash.slice(1);
+      if (!id) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'start', behavior: 'instant' });
+    };
+    focusHashTarget();
+    window.addEventListener('hashchange', focusHashTarget);
+    return () => window.removeEventListener('hashchange', focusHashTarget);
+  }, []);
+
+  return (
+    <>
+      <nav aria-label="Settings sections" className="settings-section-nav">
+        <div className="settings-section-order-list">
+          {order.map((id) => {
+            const section = settingsSections.find((item) => item.id === id)!;
+            const index = order.indexOf(id);
+            const grabbed = keyboardDrag.current?.id === id;
+            return (
+              <div className="settings-section-order-item" data-settings-section={id} key={id}>
+                <a href={`/settings#${id}`}>{section.title}</a>
+                <button
+                  aria-label={`Reorder ${section.title}`}
+                  aria-pressed={grabbed}
+                  className="settings-drag-handle"
+                  onKeyDown={(event) => onHandleKeyDown(event, id)}
+                  onPointerDown={(event) => onPointerDown(event, id)}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={() => onPointerUp(id)}
+                  onPointerCancel={() => {
+                    pointerDrag.current = null;
+                  }}
+                  type="button"
+                >
+                  <span aria-hidden="true">⠿</span>
+                </button>
+                <div className="settings-mobile-move">
+                  <button
+                    aria-label={`Move ${section.title} up`}
+                    disabled={index === 0}
+                    onClick={() => moveBy(id, -1)}
+                    type="button"
+                  >
+                    Move up
+                  </button>
+                  <button
+                    aria-label={`Move ${section.title} down`}
+                    disabled={index === order.length - 1}
+                    onClick={() => moveBy(id, 1)}
+                    type="button"
+                  >
+                    Move down
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button className="settings-reset-order" onClick={resetOrder} type="button">
+          Reset order
+        </button>
+        <span aria-live="polite" className="sr-only" role="status">
+          {announcement}
+        </span>
+      </nav>
+      <div className="settings-panels">
+        {order.map((id) => {
+          const section = settingsSections.find((item) => item.id === id)!;
+          const SectionComponent = 'component' in section ? section.component : undefined;
+          return (
+            <section className="settings-section" id={id} key={id} tabIndex={-1}>
+              {id === 'appearance' ? (
+                <AppearanceSettings onThemeChange={onThemeChange} theme={theme} />
+              ) : SectionComponent ? (
+                <SectionComponent />
+              ) : null}
+            </section>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -1456,6 +1812,10 @@ type SearchListing = {
   comparableRent?: ComparableRent | null;
   costEstimate?: CostEstimate | null;
 };
+
+function isSampleListing(provider: string) {
+  return provider === 'mock';
+}
 
 function PropertyRankingBreakdowns({ data }: { data: PropertyDetailData }) {
   const modes = [...new Set(data.listings.map((listing) => listing.mode))];
@@ -2446,10 +2806,15 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
     }
   };
 
+  // Only the newest request may update the page. An older response that lands late would
+  // otherwise reset the details form over what was typed after the newer one arrived.
+  const latestRefresh = useRef(0);
   const refresh = async () => {
+    const request = ++latestRefresh.current;
     try {
       const response = await fetch(`/api/properties/${propertyId}`);
       const result = (await response.json()) as PropertyDetailData & { error?: string };
+      if (request !== latestRefresh.current) return;
       if (!response.ok) throw new Error(result.error ?? 'Property details are unavailable.');
       setData(result);
       setRiskDraft(
@@ -2475,6 +2840,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       setRiskFloodZone(result.property.floodZone ?? '');
       setError('');
     } catch (reason) {
+      if (request !== latestRefresh.current) return;
       setError(reason instanceof Error ? reason.message : 'Property details are unavailable.');
     }
   };
@@ -2814,7 +3180,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               (line) => line.state === 'Unknown' && line.note === 'Local rates not set',
             ) && (
               <p className="local-rates-prompt">
-                <a href="/settings">Set local rates for {property.county} County</a>
+                <a href="/settings#assumptions">Set local rates for {property.county} County</a>
               </p>
             )}
           </>
@@ -3000,6 +3366,9 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               <span>{priceText(listing.price, listing.mode)}</span>
               <span>{listing.status}</span>
               <span>{listing.provider}</span>
+              {isSampleListing(listing.provider) && (
+                <span className="sample-listing-tag">Sample data</span>
+              )}
               <span>Last seen {listing.providerLastSeenDate ?? 'unknown'}</span>
             </li>
           ))}
@@ -3914,6 +4283,21 @@ function CompareScreen() {
       specialAssessment: null,
     };
   const rows: Array<[string, (item: PropertyDetailData) => ReactNode]> = [
+    [
+      'Provider',
+      (item) => (
+        <span className="compare-provider-list">
+          {item.listings.map((listing) => (
+            <span key={listing.id}>
+              {listing.mode === 'sale' ? 'Buy' : 'Rent'} · {listing.provider}
+              {isSampleListing(listing.provider) && (
+                <span className="sample-listing-tag">Sample data</span>
+              )}
+            </span>
+          ))}
+        </span>
+      ),
+    ],
     ['Price', listingPrice],
     ['Status', listingStatus],
     ['Type', (item) => item.property.propertyType?.replaceAll('_', ' ') ?? 'Unknown'],
@@ -4022,10 +4406,10 @@ function CompareScreen() {
       <div className="compare-assumptions" aria-label="Cost assumptions">
         <p>
           <strong>Personal:</strong> {personalLabel}{' '}
-          <a href="/settings">Edit personal assumptions</a>
+          <a href="/settings#assumptions">Edit personal assumptions</a>
         </p>
         <p>
-          <strong>Local:</strong> {localLabel} <a href="/settings">Edit local rates</a>
+          <strong>Local:</strong> {localLabel} <a href="/settings#assumptions">Edit local rates</a>
         </p>
       </div>
       <p className="compare-cost-legend" aria-label="Cost line tag legend">
@@ -4493,7 +4877,7 @@ function SearchScreen() {
                 ) : (
                   <>
                     No Rent search · local comps unavailable ·{' '}
-                    <a href="/settings">Add Rent search</a>
+                    <a href="/settings#saved-searches">Add Rent search</a>
                   </>
                 )}
               </p>
@@ -4851,7 +5235,7 @@ function SearchScreen() {
                             (line) =>
                               line.state === 'Unknown' && line.note === 'Local rates not set',
                           ) && (
-                            <a className="local-rates-prompt" href="/settings">
+                            <a className="local-rates-prompt" href="/settings#assumptions">
                               Set local rates for {property.county} County
                             </a>
                           )}
@@ -4912,6 +5296,9 @@ function SearchScreen() {
                         <span>
                           {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
                         </span>
+                        {isSampleListing(listing.provider) && (
+                          <span className="sample-listing-tag">Sample data</span>
+                        )}
                         {stale(listing.providerLastSeenDate) && (
                           <span className="stale-tag">Stale</span>
                         )}
@@ -4961,6 +5348,21 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
     () => initialPath ?? (typeof window === 'undefined' ? '/' : window.location.pathname),
   );
   const page = currentPage(pathname);
+  const [theme, setTheme] = useState<ThemeChoice>(readThemeChoice);
+
+  useEffect(() => {
+    window.localStorage.setItem(THEME_KEY, theme);
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      document.documentElement.dataset.theme =
+        theme === 'system' ? (media.matches ? 'dark' : 'light') : theme;
+    };
+    applyTheme();
+    if (theme === 'system') media.addEventListener('change', applyTheme);
+    return () => {
+      media.removeEventListener('change', applyTheme);
+    };
+  }, [theme]);
 
   useEffect(() => {
     const syncPath = () => setPathname(window.location.pathname);
@@ -4973,56 +5375,46 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <header className="site-header">
-        <a aria-label="Ledgerline home" className="brand" href="/">
-          <BrandMark />
-          <span className="brand-name">Ledgerline</span>
-        </a>
-        <Navigation pathname={pathname} />
-        <RequestUsageHeader />
-      </header>
+      <Sidebar pathname={pathname} />
+      <div className="app-content">
+        <header className="site-header">
+          <a aria-label="Ledgerline home" className="brand mobile-brand" href="/">
+            <BrandMark />
+            <span className="brand-name">Ledgerline</span>
+          </a>
+          <RequestUsageHeader />
+        </header>
 
-      <div className="sample-notice" role="status">
-        <span className="sample-notice-dot" aria-hidden="true" />
-        Sample data — not real listings
-      </div>
+        <SampleDataNotice />
 
-      <main className="screen-content" id="main-content" tabIndex={-1}>
-        <div className="screen-heading">
-          <p className="screen-eyebrow">{page.eyebrow}</p>
-          <h1>{page.title}</h1>
-        </div>
-        {page.path === '/settings' ? (
-          <div className="settings-panels">
-            <RankingPanel />
-            <AssumptionsPanel />
-            <ComparableRentRulesPanel />
-            <RequestBudgetPanel />
-            <ProviderCredentialsPanel />
-            <SavedSearchPanel />
-            <MatchReviewPanel />
-            <BackupPanel />
+        <main className="screen-content" id="main-content" tabIndex={-1}>
+          <div className="screen-heading">
+            <p className="screen-eyebrow">{page.eyebrow}</p>
+            <h1>{page.title}</h1>
           </div>
-        ) : page.path === '/' ? (
-          <SearchScreen />
-        ) : page.path === '/compare' ? (
-          <CompareScreen />
-        ) : page.path.startsWith('/property/') ? (
-          <PropertyDetailScreen propertyId={page.path.slice('/property/'.length)} />
-        ) : (
-          <section aria-label={`${page.title} placeholder`} className="empty-panel">
-            <span aria-hidden="true" className="empty-panel-mark">
-              <BrandMark />
-            </span>
-            <p>Screen content is coming next.</p>
-          </section>
-        )}
-      </main>
+          {page.path === '/settings' ? (
+            <SettingsPage onThemeChange={setTheme} theme={theme} />
+          ) : page.path === '/' ? (
+            <SearchScreen />
+          ) : page.path === '/compare' ? (
+            <CompareScreen />
+          ) : page.path.startsWith('/property/') ? (
+            <PropertyDetailScreen propertyId={page.path.slice('/property/'.length)} />
+          ) : (
+            <section aria-label={`${page.title} placeholder`} className="empty-panel">
+              <span aria-hidden="true" className="empty-panel-mark">
+                <BrandMark />
+              </span>
+              <p>Screen content is coming next.</p>
+            </section>
+          )}
+        </main>
 
-      <footer className="site-footer">
-        <span>Personal Florida home finder</span>
-        <span>Built for one person, on this computer.</span>
-      </footer>
+        <footer className="site-footer">
+          <span>Personal Florida home finder</span>
+          <span>Built for one person, on this computer.</span>
+        </footer>
+      </div>
 
       <nav aria-label="Mobile navigation" className="mobile-nav">
         {routes.map((route) => (
@@ -5031,8 +5423,9 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
             className="mobile-nav-link"
             href={route.path}
             key={route.path}
+            title={route.path === '/settings' ? 'Settings' : route.title}
           >
-            {route.title}
+            {route.path === '/settings' ? 'Settings' : route.title}
           </a>
         ))}
       </nav>

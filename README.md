@@ -14,6 +14,7 @@ A personal, local-only web app for finding, ranking, and comparing Florida homes
 | `fixtures/sample-data.json`              | Fictional sample listings with every expected number                                                                                                                      |
 | `fixtures/check-fixtures.mjs`            | Recomputes every derived number in the fixtures                                                                                                                           |
 | `tools/rentcast-sample/`                 | Milestone 0 script that Garnie runs to pull and evaluate a capped RentCast sample. The app's adapter uses RentCast only during an explicit local refresh. See its README. |
+| `tools/desktop-launcher/`                | Windows desktop shortcut that starts Ledgerline if it is not running and opens it, and the script that builds its icon. See its README.                                   |
 | `design/`                                | Visual reference: screens, tokens, and which screens are current                                                                                                          |
 | `AGENTS.md`, `CLAUDE.md`                 | Build instructions for coding agents                                                                                                                                      |
 | `CHANGELOG.md`                           | Releases and the project's version bump rule                                                                                                                              |
@@ -54,7 +55,7 @@ Vite serves the placeholder web client at <http://127.0.0.1:5173> and proxies `/
 
 On first API start, a SQLite database and migration ledger are created under `apps/api/data/`. That folder is ignored by Git. Remove it to reset the local database; the API recreates it on the next start. `LEDGERLINE_DATA_PATH` can point the API at a different SQLite file.
 
-The mock provider is selected by default. To use RentCast, set `LISTING_PROVIDER=rentcast` in the ignored `apps/api/.env` file and restart the API. Set the key in Ranking & data; the local API keeps it in that same file. Set `LISTING_PROVIDER=mock` to return to the fictional sample provider.
+The mock provider is selected by default. To use RentCast, set `LISTING_PROVIDER=rentcast` in the ignored `apps/api/.env` file and restart the API. Set the key in Settings; the local API keeps it in that same file. Set `LISTING_PROVIDER=mock` to return to the fictional sample provider.
 
 The API health endpoint is <http://127.0.0.1:4174/api/health>. The current screen is only the Wave 1 scaffold placeholder; later cards add the dashboard behavior.
 
