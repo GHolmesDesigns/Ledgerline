@@ -101,6 +101,27 @@ export interface SavedSearchInput {
   refreshIntervalDays?: number | null;
 }
 
+export interface PersonalAssumptions {
+  downPaymentPct: number;
+  mortgageRatePct: number;
+  termYears: number;
+  maintenancePctPerYear: number;
+  updatedAt?: string;
+}
+
+export interface LocalAssumptions {
+  county: string;
+  set: boolean;
+  millage: number | null;
+  typicalNonAdValoremPerYear: number | null;
+  homeownersDefaultMonthly: number | null;
+  ho6DefaultMonthly: number | null;
+  floodDefaultMonthly: Record<string, number>;
+  source: string | null;
+  setOn: string | null;
+  sample: boolean;
+}
+
 export type SavedSearchUpdate = Partial<SavedSearchInput>;
 
 export interface ListingSearchCriteria {
@@ -798,7 +819,14 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             timestamps.updatedAt ?? timestamps.createdAt ?? at,
           ],
         );
-        return store.getSavedSearch(lastInsertId())!;
+        const id = lastInsertId();
+        store.setPersonalAssumptions(id, {
+          downPaymentPct: 20,
+          mortgageRatePct: 6.5,
+          termYears: 30,
+          maintenancePctPerYear: 1,
+        });
+        return store.getSavedSearch(id)!;
       });
     },
 
@@ -809,6 +837,93 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
     listSavedSearches(): SavedSearch[] {
       return all(`SELECT ${searchColumns} FROM saved_searches ORDER BY id`).map(toSearch);
+    },
+
+    getPersonalAssumptions(searchId: number): PersonalAssumptions | null {
+      const row = one('SELECT * FROM personal_assumptions WHERE saved_search_id = ?', [searchId]);
+      return row
+        ? {
+            downPaymentPct: Number(row.down_payment_pct),
+            mortgageRatePct: Number(row.mortgage_rate_pct),
+            termYears: Number(row.term_years),
+            maintenancePctPerYear: Number(row.maintenance_pct_per_year),
+            updatedAt: String(row.updated_at),
+          }
+        : null;
+    },
+
+    setPersonalAssumptions(searchId: number, input: PersonalAssumptions) {
+      transaction(() => {
+        if (!store.getSavedSearch(searchId)) throw new Error('Saved search not found.');
+        run(
+          `INSERT INTO personal_assumptions
+            (saved_search_id, down_payment_pct, mortgage_rate_pct, term_years,
+             maintenance_pct_per_year, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT (saved_search_id) DO UPDATE SET
+             down_payment_pct = excluded.down_payment_pct,
+             mortgage_rate_pct = excluded.mortgage_rate_pct,
+             term_years = excluded.term_years,
+             maintenance_pct_per_year = excluded.maintenance_pct_per_year,
+             updated_at = excluded.updated_at`,
+          [
+            searchId,
+            input.downPaymentPct,
+            input.mortgageRatePct,
+            input.termYears,
+            input.maintenancePctPerYear,
+            input.updatedAt ?? now(),
+          ],
+        );
+      });
+      return store.getPersonalAssumptions(searchId)!;
+    },
+
+    listLocalAssumptions(): LocalAssumptions[] {
+      return all('SELECT * FROM local_assumptions ORDER BY county').map((row) => ({
+        county: String(row.county),
+        set: row.is_set === 1,
+        millage: number(row.millage),
+        typicalNonAdValoremPerYear: number(row.typical_non_ad_valorem_per_year),
+        homeownersDefaultMonthly: number(row.homeowners_default_monthly),
+        ho6DefaultMonthly: number(row.ho6_default_monthly),
+        floodDefaultMonthly: JSON.parse(String(row.flood_default_monthly)) as Record<
+          string,
+          number
+        >,
+        source: text(row.source),
+        setOn: text(row.set_on),
+        sample: row.sample === 1,
+      }));
+    },
+
+    setLocalAssumption(input: LocalAssumptions) {
+      transaction(() =>
+        run(
+          `INSERT INTO local_assumptions
+          (county, is_set, millage, typical_non_ad_valorem_per_year, homeowners_default_monthly,
+           ho6_default_monthly, flood_default_monthly, source, set_on, sample)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (county) DO UPDATE SET is_set = excluded.is_set, millage = excluded.millage,
+           typical_non_ad_valorem_per_year = excluded.typical_non_ad_valorem_per_year,
+           homeowners_default_monthly = excluded.homeowners_default_monthly,
+           ho6_default_monthly = excluded.ho6_default_monthly,
+           flood_default_monthly = excluded.flood_default_monthly, source = excluded.source,
+           set_on = excluded.set_on, sample = excluded.sample`,
+          [
+            input.county,
+            input.set ? 1 : 0,
+            input.millage,
+            input.typicalNonAdValoremPerYear,
+            input.homeownersDefaultMonthly,
+            input.ho6DefaultMonthly,
+            JSON.stringify(input.floodDefaultMonthly),
+            input.source,
+            input.setOn,
+            input.sample ? 1 : 0,
+          ],
+        ),
+      );
+      return store.listLocalAssumptions().find((item) => item.county === input.county)!;
     },
 
     listDueSavedSearches(at = now()): SavedSearch[] {

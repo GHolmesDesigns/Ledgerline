@@ -269,6 +269,358 @@ function ProviderCredentialsPanel() {
   );
 }
 
+type PersonalAssumptions = {
+  downPaymentPct: number;
+  mortgageRatePct: number;
+  termYears: number;
+  maintenancePctPerYear: number;
+};
+type LocalAssumptions = {
+  county: string;
+  set: boolean;
+  millage: number | null;
+  typicalNonAdValoremPerYear: number | null;
+  homeownersDefaultMonthly: number | null;
+  ho6DefaultMonthly: number | null;
+  floodDefaultMonthly: Record<string, number>;
+  source: string | null;
+  setOn: string | null;
+  sample: boolean;
+};
+type AssumptionSearch = {
+  id: number;
+  name: string;
+  mode: 'sale' | 'rent';
+  location: string;
+  personal: PersonalAssumptions;
+};
+
+function AssumptionsPanel() {
+  const [searches, setSearches] = useState<AssumptionSearch[]>([]);
+  const [local, setLocal] = useState<LocalAssumptions[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [mobile, setMobile] = useState(false);
+  const load = async () => {
+    const response = await fetch('/api/assumptions');
+    if (!response.ok) throw new Error('Assumptions are unavailable.');
+    const data = (await response.json()) as {
+      searches: AssumptionSearch[];
+      local: LocalAssumptions[];
+    };
+    setSearches(data.searches);
+    setLocal(data.local);
+  };
+  useEffect(() => {
+    void load().catch(() =>
+      setErrors({ page: 'Assumptions are unavailable. Start the local API and try again.' }),
+    );
+  }, []);
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 700px)');
+    const sync = () => setMobile(query.matches);
+    sync();
+    query.addEventListener('change', sync);
+    return () => query.removeEventListener('change', sync);
+  }, []);
+  const updatePersonal = (id: number, key: keyof PersonalAssumptions, value: string) => {
+    const numeric = value === '' ? 0 : Number(value);
+    setSearches((items) =>
+      items.map((item) =>
+        item.id === id ? { ...item, personal: { ...item.personal, [key]: numeric } } : item,
+      ),
+    );
+  };
+  const savePersonal = async (event: FormEvent<HTMLFormElement>, item: AssumptionSearch) => {
+    event.preventDefault();
+    const key = `search-${item.id}`;
+    setBusy(key);
+    setErrors((items) => ({ ...items, [key]: '' }));
+    try {
+      const response = await fetch(`/api/saved-searches/${item.id}/assumptions`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(item.personal),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? 'Could not save assumptions.');
+      setSaved((items) => ({ ...items, [key]: 'Saved' }));
+    } catch (reason) {
+      setErrors((items) => ({
+        ...items,
+        [key]: reason instanceof Error ? reason.message : 'Could not save assumptions.',
+      }));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const updateLocal = (county: string, patch: Partial<LocalAssumptions>) =>
+    setLocal((items) =>
+      items.map((item) => (item.county === county ? { ...item, ...patch } : item)),
+    );
+  const saveLocal = async (event: FormEvent<HTMLFormElement>, item: LocalAssumptions) => {
+    event.preventDefault();
+    const key = `county-${item.county}`;
+    setBusy(key);
+    setErrors((items) => ({ ...items, [key]: '' }));
+    try {
+      const response = await fetch(`/api/local-assumptions/${encodeURIComponent(item.county)}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ...item,
+          setOn: item.setOn || new Date().toISOString().slice(0, 10),
+          source: item.source ?? '',
+        }),
+      });
+      const data = (await response.json()) as { local?: LocalAssumptions; error?: string };
+      if (!response.ok || !data.local) throw new Error(data.error ?? 'Could not save local rates.');
+      updateLocal(item.county, data.local);
+      setSaved((items) => ({ ...items, [key]: 'Saved' }));
+    } catch (reason) {
+      setErrors((items) => ({
+        ...items,
+        [key]: reason instanceof Error ? reason.message : 'Could not save local rates.',
+      }));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const amountField = (
+    label: string,
+    value: number | null,
+    onChange: (next: number | null) => void,
+    suffix = '',
+  ) => (
+    <label className="assumption-field">
+      {label}
+      <span className="assumption-input-wrap">
+        <input
+          aria-label={label}
+          min="0"
+          onChange={(event) =>
+            onChange(event.target.value === '' ? null : Number(event.target.value))
+          }
+          step="any"
+          type="number"
+          value={value ?? ''}
+        />
+        <span>{suffix}</span>
+      </span>
+    </label>
+  );
+  return (
+    <section aria-labelledby="assumptions-heading" className="assumptions-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="screen-eyebrow">Cost inputs</p>
+          <h2 id="assumptions-heading">Assumptions</h2>
+        </div>
+      </div>
+      {errors.page && (
+        <p role="alert" className="search-error">
+          {errors.page}
+        </p>
+      )}
+      <details className="assumption-section" open={!mobile}>
+        <summary>Personal assumptions</summary>
+        <p className="panel-intro">
+          Saved with each search profile. These defaults are used for Buy and Rent searches and can
+          be changed separately.
+        </p>
+        <div className="assumption-groups">
+          {searches.map((item) => {
+            const key = `search-${item.id}`;
+            return (
+              <form
+                aria-label={`Personal assumptions for ${item.name}`}
+                className="assumption-card"
+                key={item.id}
+                onSubmit={(event) => void savePersonal(event, item)}
+              >
+                <h4>
+                  {item.name} · {item.mode === 'sale' ? 'Buy' : 'Rent'}
+                </h4>
+                <div className="assumption-fields">
+                  <label className="assumption-field">
+                    Down payment %
+                    <input
+                      max="100"
+                      min="0"
+                      onChange={(event) =>
+                        updatePersonal(item.id, 'downPaymentPct', event.target.value)
+                      }
+                      step="0.1"
+                      type="number"
+                      value={item.personal.downPaymentPct}
+                    />
+                  </label>
+                  <label className="assumption-field">
+                    Mortgage rate %
+                    <input
+                      max="100"
+                      min="0"
+                      onChange={(event) =>
+                        updatePersonal(item.id, 'mortgageRatePct', event.target.value)
+                      }
+                      step="0.01"
+                      type="number"
+                      value={item.personal.mortgageRatePct}
+                    />
+                  </label>
+                  <label className="assumption-field">
+                    Term (years)
+                    <input
+                      max="100"
+                      min="1"
+                      onChange={(event) => updatePersonal(item.id, 'termYears', event.target.value)}
+                      step="1"
+                      type="number"
+                      value={item.personal.termYears}
+                    />
+                  </label>
+                  <label className="assumption-field">
+                    Maintenance % / yr
+                    <input
+                      max="100"
+                      min="0"
+                      onChange={(event) =>
+                        updatePersonal(item.id, 'maintenancePctPerYear', event.target.value)
+                      }
+                      step="0.1"
+                      type="number"
+                      value={item.personal.maintenancePctPerYear}
+                    />
+                  </label>
+                </div>
+                {errors[key] && (
+                  <p className="search-error" role="alert">
+                    {errors[key]}
+                  </p>
+                )}
+                <div className="assumption-actions">
+                  <button disabled={busy === key} type="submit">
+                    {busy === key ? 'Saving…' : 'Save personal assumptions'}
+                  </button>
+                  {saved[key] && <span role="status">{saved[key]}</span>}
+                </div>
+              </form>
+            );
+          })}
+          {searches.length === 0 && (
+            <p>No saved searches yet. Save a search to set its personal assumptions.</p>
+          )}
+        </div>
+      </details>
+      <details className="assumption-section" open={!mobile}>
+        <summary>Local assumptions</summary>
+        <p className="panel-intro">
+          Rates are specific to a county. Sample figures are placeholders from the fictional
+          fixtures; enter local figures and a source when you have verified them.
+        </p>
+        <div className="assumption-groups">
+          {local.map((item) => {
+            const key = `county-${item.county}`;
+            const setAmount = (field: keyof LocalAssumptions, value: number | null) =>
+              updateLocal(item.county, { [field]: value } as Partial<LocalAssumptions>);
+            return (
+              <form
+                aria-label={`${item.county} local assumptions`}
+                className="assumption-card"
+                key={item.county}
+                onSubmit={(event) => void saveLocal(event, item)}
+              >
+                <div className="assumption-card-heading">
+                  <h4>{item.county}</h4>
+                  {item.set ? (
+                    <span className="assumption-tag">{item.sample ? 'sample' : 'set'}</span>
+                  ) : (
+                    <strong>Not set · Set local rates</strong>
+                  )}
+                </div>
+                <div className="assumption-fields">
+                  {amountField(
+                    'Millage',
+                    item.millage,
+                    (value) => setAmount('millage', value),
+                    'mills',
+                  )}
+                  {amountField(
+                    'Typical non-ad valorem / yr',
+                    item.typicalNonAdValoremPerYear,
+                    (value) => setAmount('typicalNonAdValoremPerYear', value),
+                    '$',
+                  )}
+                  {amountField(
+                    'Homeowners default (house) / mo',
+                    item.homeownersDefaultMonthly,
+                    (value) => setAmount('homeownersDefaultMonthly', value),
+                    '$',
+                  )}
+                  {amountField(
+                    'HO-6 default (condo) / mo',
+                    item.ho6DefaultMonthly,
+                    (value) => setAmount('ho6DefaultMonthly', value),
+                    '$',
+                  )}
+                  {['X', 'X500', 'AE', 'AH', 'AO', 'V', 'VE'].map((zone) =>
+                    amountField(
+                      `Flood ${zone} / mo`,
+                      item.floodDefaultMonthly[zone] ?? null,
+                      (value) =>
+                        updateLocal(item.county, {
+                          floodDefaultMonthly: {
+                            ...item.floodDefaultMonthly,
+                            ...(value === null ? {} : { [zone]: value }),
+                          },
+                        }),
+                      '$',
+                    ),
+                  )}
+                  <label className="assumption-field">
+                    Source
+                    <input
+                      onChange={(event) => updateLocal(item.county, { source: event.target.value })}
+                      required
+                      value={item.source ?? ''}
+                    />
+                  </label>
+                  <label className="assumption-field">
+                    Date set
+                    <input
+                      onChange={(event) => updateLocal(item.county, { setOn: event.target.value })}
+                      required
+                      type="date"
+                      value={item.setOn ?? new Date().toISOString().slice(0, 10)}
+                    />
+                  </label>
+                </div>
+                {errors[key] && (
+                  <p className="search-error" role="alert">
+                    {errors[key]}
+                  </p>
+                )}
+                <div className="assumption-actions">
+                  <button disabled={busy === key} type="submit">
+                    {busy === key ? 'Saving…' : item.set ? 'Save local rates' : 'Set local rates'}
+                  </button>
+                  {saved[key] && <span role="status">{saved[key]}</span>}
+                  {item.set && (
+                    <span>
+                      {item.source} · set {item.setOn}
+                    </span>
+                  )}
+                </div>
+              </form>
+            );
+          })}
+        </div>
+      </details>
+    </section>
+  );
+}
+
 const routes: Route[] = [
   { title: 'Search', eyebrow: 'Find your next place', path: '/' },
   { title: 'Compare', eyebrow: 'Side by side', path: '/compare' },
@@ -449,6 +801,8 @@ function MatchReviewPanel() {
 
 type BackupCounts = {
   properties: number;
+  personalAssumptions: number;
+  localAssumptions: number;
   notes: number;
   saved: number;
   dismissed: number;
@@ -470,6 +824,8 @@ const backupCountLabels: Array<[keyof BackupCounts, string, string]> = [
   ['savedSearches', 'saved search', 'saved searches'],
   ['matchDecisions', 'match decision', 'match decisions'],
   ['properties', 'property', 'properties'],
+  ['personalAssumptions', 'personal assumption set', 'personal assumption sets'],
+  ['localAssumptions', 'local rate set', 'local rate sets'],
 ];
 
 const describeBackupCounts = (counts: BackupCounts) =>
@@ -549,10 +905,11 @@ function BackupPanel() {
         </div>
       </div>
       <p className="panel-intro">
-        Export your notes, saved and dismissed homes, saved searches, and property match decisions
-        to one JSON file. Importing merges a file into this database by address and unit and never
-        creates duplicates. Listings, prices, and provider keys are not included; Refresh fetches
-        listings again. The file stays on this computer.
+        Export your notes, saved and dismissed homes, saved searches, personal and local
+        assumptions, and property match decisions to one JSON file. Importing merges a file into
+        this database by address and unit and never creates duplicates. Listings, prices, and
+        provider keys are not included; Refresh fetches listings again. The file stays on this
+        computer.
       </p>
       <div className="backup-actions">
         <button disabled={busy !== null} onClick={() => void exportData()} type="button">
@@ -2833,6 +3190,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
         </div>
         {page.path === '/settings' ? (
           <div className="settings-panels">
+            <AssumptionsPanel />
             <RequestBudgetPanel />
             <ProviderCredentialsPanel />
             <SavedSearchPanel />

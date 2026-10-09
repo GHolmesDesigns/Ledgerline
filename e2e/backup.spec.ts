@@ -42,6 +42,15 @@ test('export, delete the data folder, restart, and import restores personal data
       priceMax: 900000,
       refreshIntervalDays: 7,
     });
+    await send(api, '/api/local-assumptions/Broward', 'PUT', {
+      millage: 18.75,
+      typicalNonAdValoremPerYear: 700,
+      homeownersDefaultMonthly: 520,
+      ho6DefaultMonthly: 110,
+      floodDefaultMonthly: { X: 50, AE: 180, VE: 420 },
+      source: 'Broward tax collector',
+      setOn: '2026-10-09',
+    });
     const searches = (await (await fetch(api.url('/api/saved-searches'))).json()) as {
       items: Array<{ name: string }>;
     };
@@ -65,7 +74,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await download.saveAs(backupPath);
     await expect(backup.getByRole('status')).toContainText('Exported your personal data to');
     const backupText = readFileSync(backupPath, 'utf8');
-    expect(JSON.parse(backupText).formatVersion).toBe(1);
+    expect(JSON.parse(backupText).formatVersion).toBe(2);
     expect(backupText).not.toContain('prop_');
     expect(backupText).not.toContain('849000');
 
@@ -80,7 +89,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await backup.getByLabel('Backup file (.json)').setInputFiles(backupPath);
     await backup.getByRole('button', { name: 'Import personal data' }).click();
     await expect(backup.getByRole('status')).toContainText(
-      `Imported 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 2 properties.`,
+      `Imported 2 notes, 1 saved home, 1 dismissed home, ${searchNames.length} saved searches, 2 properties, ${searchNames.length} personal assumption sets, 1 local rate set. Already here: 2 local rate sets.`,
     );
     await page.reload();
     await expect(page.getByLabel('My Fort Lauderdale search name')).toBeVisible();
@@ -120,6 +129,13 @@ test('export, delete the data folder, restart, and import restores personal data
     expect(database.rows('SELECT COUNT(*) AS n FROM property_notes')).toEqual([{ n: 2 }]);
     expect(database.rows('SELECT COUNT(*) AS n FROM saved_searches')).toEqual([
       { n: searchNames.length },
+    ]);
+    expect(
+      database.rows(
+        "SELECT millage, source, set_on, sample FROM local_assumptions WHERE county = 'Broward'",
+      ),
+    ).toEqual([
+      { millage: 18.75, source: 'Broward tax collector', set_on: '2026-10-09', sample: 0 },
     ]);
     database.close();
   } finally {

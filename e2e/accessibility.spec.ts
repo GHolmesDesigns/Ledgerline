@@ -68,6 +68,8 @@ for (const viewport of viewports) {
           blocking.map((violation) => ({
             id: violation.id,
             impact: violation.impact,
+            help: violation.help,
+            summary: violation.nodes.slice(0, 5).map((node) => node.failureSummary),
             targets: violation.nodes.slice(0, 5).map((node) => node.target.join(' ')),
           })),
         ).toEqual([]);

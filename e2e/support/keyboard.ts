@@ -39,20 +39,22 @@ export async function sweepTabOrder(page: Page) {
     document.body.setAttribute('tabindex', '-1');
     document.body.focus();
     document.body.removeAttribute('tabindex');
-    document.querySelectorAll('[data-kb-seen]').forEach((element) => {
-      element.removeAttribute('data-kb-seen');
-    });
+    document
+      .querySelectorAll(
+        'a[href], button, input:not([type="hidden"]), select, textarea, summary, [tabindex="0"]',
+      )
+      .forEach((element, index) => element.setAttribute('data-kb-id', String(index)));
   });
   const withoutIndicator: string[] = [];
+  const visited = new Set<string>();
+  const repeatedDates = new Map<string, number>();
+  let firstStop: string | null = null;
   let stops = 0;
   for (; stops < 400; stops += 1) {
     await page.keyboard.press('Tab');
     const stop = await page.evaluate(() => {
       const element = document.activeElement;
-      if (!element || element === document.body || element.hasAttribute('data-kb-seen')) {
-        return null;
-      }
-      element.setAttribute('data-kb-seen', '');
+      if (!element || element === document.body) return null;
       const style = getComputedStyle(element);
       const circle = element.querySelector('circle');
       const indicator =
@@ -62,29 +64,57 @@ export async function sweepTabOrder(page: Page) {
         element.getAttribute('aria-label') ||
         (element.textContent ?? '').trim().slice(0, 40) ||
         element.tagName.toLowerCase();
-      return { indicator, label: `${element.tagName.toLowerCase()} "${label}"` };
+      return {
+        indicator,
+        label: `${element.tagName.toLowerCase()} "${label}"`,
+        key: element.getAttribute('data-kb-id') ?? '',
+        isDate: element instanceof HTMLInputElement && element.type === 'date',
+      };
     });
     if (!stop) break;
+    if (visited.has(stop.key)) {
+      if (stop.key === firstStop || !stop.isDate) break;
+      const repeats = (repeatedDates.get(stop.key) ?? 0) + 1;
+      repeatedDates.set(stop.key, repeats);
+      if (repeats > 4) break;
+      continue;
+    }
+    if (firstStop === null) firstStop = stop.key;
+    visited.add(stop.key);
     if (!stop.indicator) withoutIndicator.push(stop.label);
   }
-  const unreached = await page.evaluate(() => {
-    const selector =
-      'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex="0"]';
-    return [...document.querySelectorAll<HTMLElement>(selector)]
-      .filter((element) => {
-        const box = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
-        return box.width > 0 && box.height > 0 && style.visibility !== 'hidden';
-      })
-      .filter((element) => !element.hasAttribute('data-kb-seen'))
-      .map(
-        (element) =>
-          `${element.tagName.toLowerCase()} "${
-            element.getAttribute('aria-label') ||
-            (element.textContent ?? '').trim().slice(0, 40) ||
-            element.tagName
-          }"`,
-      );
-  });
+  const unreached = await page.evaluate(
+    (visitedIds: string[]) => {
+      const selector =
+        'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex="0"]';
+      return [...document.querySelectorAll<HTMLElement>(selector)]
+        .filter((element) => {
+          const box = element.getBoundingClientRect();
+          const style = getComputedStyle(element);
+          const closedSection = element.closest('details:not([open])');
+          return (
+            box.width > 0 &&
+            box.height > 0 &&
+            style.visibility !== 'hidden' &&
+            (!closedSection || element.tagName === 'SUMMARY')
+          );
+        })
+        .filter((element) => !visitedIds.includes(element.getAttribute('data-kb-id') ?? ''))
+        .map(
+          (element) =>
+            `${element.tagName.toLowerCase()} "${
+              element.getAttribute('aria-label') ||
+              (element.textContent ?? '').trim().slice(0, 40) ||
+              element.tagName
+            }"`,
+        );
+    },
+    [...visited],
+  );
+  await page.evaluate(() =>
+    document
+      .querySelectorAll('[data-kb-id]')
+      .forEach((element) => element.removeAttribute('data-kb-id')),
+  );
   return { stops, withoutIndicator, unreached };
 }
