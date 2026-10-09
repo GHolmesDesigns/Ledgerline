@@ -100,7 +100,19 @@ function countingProvider(options: { pages?: number; estimate?: boolean } = {}) 
       ? {
           async estimateRent() {
             calls.estimate += 1;
-            return { low: 2000, high: 2600 };
+            return {
+              value: 2300,
+              low: 2000,
+              high: 2600,
+              comps: [
+                {
+                  id: 'mock-rent-comp-1',
+                  address: '900 Fictional Ave, Miami, FL 33131',
+                  rent: 2250,
+                  distanceMi: 0.4,
+                },
+              ],
+            };
           },
         }
       : {}),
@@ -284,6 +296,7 @@ describe('refresh and rent estimate enforcement', () => {
     const job = new RefreshJob(store, provider, budget);
     assert.equal((await job.refresh(search.id)).error, undefined);
     const property = store.listProperties()[0]!;
+    store.setFavorite(property.id, true);
     logRequests(44 - budget.status().used, otherSearch().id);
     assert.equal(budget.status().used, 44);
 
@@ -293,7 +306,25 @@ describe('refresh and rent estimate enforcement', () => {
         method: 'POST',
       });
       assert.equal(allowed.status, 200);
-      assert.deepEqual(await allowed.json(), { estimate: { low: 2000, high: 2600 } });
+      assert.deepEqual(await allowed.json(), {
+        estimate: {
+          value: 2300,
+          low: 2000,
+          high: 2600,
+          comps: [
+            {
+              id: 'mock-rent-comp-1',
+              address: '900 Fictional Ave, Miami, FL 33131',
+              rent: 2250,
+              distanceMi: 0.4,
+            },
+          ],
+        },
+      });
+      assert.equal(store.getComparableRentFigure(property.id)?.source, 'rent_estimate');
+      assert.deepEqual(store.getComparableRentFigure(property.id)?.estimateComps, [
+        { address: '900 Fictional Ave, Miami, FL 33131', rent: 2250, distanceMi: 0.4 },
+      ]);
       assert.equal(budget.status().used, 45);
       const log = store.listProviderRequestLogs().at(-1)!;
       assert.equal(log.purpose, 'rent-estimate');
@@ -318,6 +349,7 @@ describe('refresh and rent estimate enforcement', () => {
     const job = new RefreshJob(store, provider, budget);
     await job.refresh(search.id);
     const property = store.listProperties()[0]!;
+    store.setFavorite(property.id, true);
     const before = budget.status().used;
     const api = await serve(database, store, job);
     try {

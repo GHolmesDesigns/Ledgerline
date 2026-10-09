@@ -24,6 +24,7 @@ type RequestUsage = {
   ceiling: number;
   used: number;
   remaining: number;
+  nextReset: string;
   provider: string;
   tier: string;
   lastSuccessfulRefreshAt: string | null;
@@ -297,7 +298,7 @@ type ComparableRentRules = {
 };
 type ComparableRent = {
   figure: {
-    source: 'same_home' | 'local_comps' | 'unavailable';
+    source: 'same_home' | 'local_comps' | 'rent_estimate' | 'unavailable';
     value: number | null;
     low: number | null;
     high: number | null;
@@ -305,6 +306,7 @@ type ComparableRent = {
     compCount: number;
     maxDistanceMi: number | null;
     compIds: string[];
+    estimateComps?: Array<{ address: string; rent: number; distanceMi: number | null }>;
     computedAt: string;
   };
   label: string;
@@ -321,6 +323,7 @@ type ComparableRent = {
     lastSeen: string;
     stale: boolean;
   }>;
+  estimateComps?: Array<{ address: string; rent: number; distanceMi: number | null }>;
 };
 
 type CostEstimate = {
@@ -1992,6 +1995,9 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
   const [riskFloodZone, setRiskFloodZone] = useState('');
   const [riskBusy, setRiskBusy] = useState(false);
   const [riskMessage, setRiskMessage] = useState('');
+  const [requestUsage, setRequestUsage] = useState<RequestUsage | null>(null);
+  const [rentEstimateAvailable, setRentEstimateAvailable] = useState(false);
+  const [rentEstimateBusy, setRentEstimateBusy] = useState(false);
   const [carrierAgeLimit, setCarrierAgeLimit] = useState('');
   const fixedCostState =
     costKind === 'hoa_none' || costKind === 'flood_not_carried'
@@ -2054,6 +2060,15 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
     void refresh();
   }, [propertyId]);
   useEffect(() => {
+    void fetchRequestUsage()
+      .then(setRequestUsage)
+      .catch(() => setRequestUsage(null));
+    void fetch('/api/listings/capabilities')
+      .then((response) => response.json() as Promise<Record<string, boolean>>)
+      .then((capabilities) => setRentEstimateAvailable(capabilities.rentEstimates === true))
+      .catch(() => setRentEstimateAvailable(false));
+  }, [propertyId]);
+  useEffect(() => {
     try {
       setCarrierAgeLimit(window.localStorage.getItem('ledgerline.carrier-age-limit-years') ?? '');
     } catch {
@@ -2075,6 +2090,33 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       return;
     }
     setData({ ...data, [key]: value });
+  };
+
+  const requestRentEstimate = async () => {
+    if (!data) return;
+    setRentEstimateBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/properties/${propertyId}/rent-estimate`, {
+        method: 'POST',
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'Rent estimate failed.');
+      window.dispatchEvent(new Event('provider-usage-updated'));
+      await Promise.all([
+        refresh(),
+        fetchRequestUsage()
+          .then(setRequestUsage)
+          .catch(() => setRequestUsage(null)),
+      ]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Rent estimate failed.');
+      fetchRequestUsage()
+        .then(setRequestUsage)
+        .catch(() => setRequestUsage(null));
+    } finally {
+      setRentEstimateBusy(false);
+    }
   };
 
   const addNote = async (event: FormEvent<HTMLFormElement>) => {
@@ -2852,17 +2894,54 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
                 </p>
               </details>
             )}
+            {(data.comparableRent.estimateComps ?? []).length > 0 && (
+              <details className="comparable-rent-comps">
+                <summary>
+                  RentCast estimate comps ({data.comparableRent.estimateComps!.length})
+                </summary>
+                <ul>
+                  {data.comparableRent.estimateComps!.map((comp, index) => (
+                    <li key={`${comp.address}-${index}`}>
+                      {comp.address} · ${comp.rent.toLocaleString()}/mo
+                      {comp.distanceMi == null ? '' : ` · ${comp.distanceMi.toFixed(1)} mi`}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </>
         ) : (
           <p>Unavailable · no rent data.</p>
         )}
         <p>
-          Computed{' '}
-          {data.comparableRent?.figure.computedAt
-            ? new Date(data.comparableRent.figure.computedAt).toLocaleString()
-            : '—'}{' '}
-          from local listings · browsing uses no provider requests.
+          {data.comparableRent?.figure.source === 'rent_estimate'
+            ? `Requested from RentCast on ${new Date(data.comparableRent.figure.computedAt).toLocaleString()} · 1 provider request.`
+            : `Computed ${data.comparableRent?.figure.computedAt ? new Date(data.comparableRent.figure.computedAt).toLocaleString() : '—'} from local listings · browsing uses no provider requests.`}
         </p>
+        {data.saved &&
+          rentEstimateAvailable &&
+          (!data.comparableRent ||
+            data.comparableRent.figure.source === 'unavailable' ||
+            (data.comparableRent.figure.source === 'rent_estimate' &&
+              data.comparableRent.stale)) && (
+            <div className="rent-estimate-action">
+              <button
+                disabled={rentEstimateBusy || (requestUsage != null && requestUsage.remaining < 1)}
+                onClick={() => void requestRentEstimate()}
+                type="button"
+              >
+                {rentEstimateBusy
+                  ? 'Requesting RentCast estimate…'
+                  : `${data.comparableRent?.figure.source === 'rent_estimate' ? 'Refresh' : 'Get'} RentCast rent estimate · 1 request · ${requestUsage?.remaining ?? '…'} left this month`}
+              </button>
+              {requestUsage && requestUsage.remaining < 1 && (
+                <p role="status">
+                  Request ceiling reached. Resets{' '}
+                  {new Date(requestUsage.nextReset).toLocaleDateString()}.
+                </p>
+              )}
+            </div>
+          )}
       </section>
       <section aria-labelledby="property-history-heading" className="property-detail-section">
         <h3 id="property-history-heading">Price and status history</h3>

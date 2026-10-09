@@ -25,6 +25,7 @@ export interface ComparableRentResult {
   stale: boolean;
   comps: ComparableRentComp[];
   compsMedian: number | null;
+  estimateComps: NonNullable<ComparableRentFigure['estimateComps']>;
 }
 
 function active(listing: Listing) {
@@ -195,6 +196,19 @@ export function findComparableRent(
       stale,
       comps: selected,
       compsMedian: median(selected.map((item) => item.rent)),
+      estimateComps: [],
+    };
+  }
+  const savedFigure = store.getComparableRentFigure(propertyId);
+  if (matching.length < rules.minComps && savedFigure?.source === 'rent_estimate') {
+    const stale = !withinDays(savedFigure.computedAt, 30, now);
+    return {
+      figure: savedFigure,
+      label: `RentCast estimate · range $${savedFigure.low?.toLocaleString() ?? '—'}–$${savedFigure.high?.toLocaleString() ?? '—'} · ${shortDate(savedFigure.computedAt)}`,
+      stale,
+      comps: [],
+      compsMedian: null,
+      estimateComps: savedFigure.estimateComps ?? [],
     };
   }
   const covered = coveredByRentSearch(store, property);
@@ -230,5 +244,5 @@ export function findComparableRent(
     value === null
       ? `Unavailable · ${reason}`
       : `${selected.length} local comps · median · within ${maxDistanceMi!.toFixed(1)} mi`;
-  return { figure, label, stale, comps: selected, compsMedian };
+  return { figure, label, stale, comps: selected, compsMedian, estimateComps: [] };
 }

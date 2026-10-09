@@ -47,12 +47,13 @@ describe('local API bootstrap', () => {
       { version: 8, name: '008_property_cost_entries.sql' },
       { version: 9, name: '009_property_risk_details.sql' },
       { version: 10, name: '010_comparable_rent.sql' },
+      { version: 11, name: '011_rent_estimate_comps.sql' },
     ]);
     closeDatabase(first);
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 10 },
+      { count: 11 },
     ]);
     closeDatabase(second);
   });
@@ -478,10 +479,11 @@ describe('property detail API', () => {
           costEstimate: { monthlyTotal: number; totalStatus: string } | null;
         }>;
       };
-      const searchedProperty = searchResult.items.find((item) => item.property.id === property.id);
-      assert.equal(searchedProperty?.listing.price, 800000);
-      assert.equal(searchedProperty?.costEstimate?.monthlyTotal, 6802);
-      assert.equal(searchedProperty?.costEstimate?.totalStatus, 'Estimate');
+      const searchedListing = searchResult.items.find(
+        (item) => item.property.id === property.id && item.listing.price === 800000,
+      );
+      assert.equal(searchedListing?.costEstimate?.monthlyTotal, 6802);
+      assert.equal(searchedListing?.costEstimate?.totalStatus, 'Estimate');
       assert.equal(
         (await fetch(`http://127.0.0.1:${address.port}/api/properties/${property.id}?searchId=999`))
           .status,

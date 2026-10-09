@@ -11,7 +11,7 @@ CREATE TABLE comparable_rent_rules (
 
 CREATE TABLE comparable_rent_figures (
   property_id TEXT PRIMARY KEY REFERENCES properties (id) ON DELETE CASCADE,
-  source TEXT NOT NULL CHECK (source IN ('same_home', 'local_comps', 'unavailable')),
+  source TEXT NOT NULL CHECK (source IN ('same_home', 'local_comps', 'rent_estimate', 'unavailable')),
   value INTEGER,
   low INTEGER,
   high INTEGER,
