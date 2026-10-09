@@ -1,5 +1,6 @@
 import type { Database, SqlValue } from 'sql.js';
 import { randomUUID } from 'node:crypto';
+import { defaultRankingWeights, type RankingWeights } from './ranking-weights.js';
 
 // Data-access module for the core records (C5). Everything the API and web client
 // know about properties, listings, and personal data goes through here, so no SQL
@@ -201,6 +202,13 @@ export interface ComparableRentFigure {
   compIds: string[];
   estimateComps?: Array<{ address: string; rent: number; distanceMi: number | null }>;
   computedAt: string;
+}
+
+export interface RankingWeightSet {
+  mode: ListingMode;
+  weights: RankingWeights;
+  /** Null while the mode still uses the default weights. */
+  updatedAt: string | null;
 }
 
 export const defaultComparableRentRules: ComparableRentRules = {
@@ -758,6 +766,35 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         );
       });
       return store.getComparableRentRules();
+    },
+
+    getRankingWeights(mode: ListingMode): RankingWeightSet {
+      const row = one('SELECT * FROM ranking_weights WHERE mode = ?', [mode]);
+      return row
+        ? {
+            mode,
+            weights: {
+              ...defaultRankingWeights[mode],
+              ...(JSON.parse(String(row.weights)) as RankingWeights),
+            },
+            updatedAt: String(row.updated_at),
+          }
+        : { mode, weights: { ...defaultRankingWeights[mode] }, updatedAt: null };
+    },
+
+    setRankingWeights(
+      mode: ListingMode,
+      weights: RankingWeights,
+      updatedAt = now(),
+    ): RankingWeightSet {
+      transaction(() => {
+        run(
+          `INSERT INTO ranking_weights (mode, weights, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(mode) DO UPDATE SET weights=excluded.weights, updated_at=excluded.updated_at`,
+          [mode, JSON.stringify(weights), updatedAt],
+        );
+      });
+      return store.getRankingWeights(mode);
     },
 
     saveComparableRentFigure(input: ComparableRentFigure): ComparableRentFigure {

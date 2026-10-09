@@ -381,15 +381,29 @@ test('C34 flags suspicious values and accepts a sourced correction', async ({ pa
     api = await startApi(databasePath);
     const response = await fetch(api.url('/api/listings?mode=sale'));
     const results = (await response.json()) as {
-      items: Array<{ property: { id: string; street: string; unit: string | null } }>;
+      items: Array<{
+        property: { id: string; street: string; unit: string | null };
+        listing: { id: string };
+      }>;
     };
     const sample = results.items.find(
       ({ property }) => property.street === '3250 NE 2nd Ave' && property.unit === '507',
     )!;
+    // A confirmed value stays outside the range, so its resolved flag is kept and backed up.
+    const outlier = results.items.find(
+      ({ property }) => property.street === '7000 Imaginary Palm Court',
+    )!;
+    await fetch(api.url(`/api/properties/${outlier.property.id}`));
+    const confirmed = await fetch(api.url(`/api/listings/${outlier.listing.id}/implausible`), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ field: 'livingAreaSqft', action: 'confirm' }),
+    });
+    expect(confirmed.status).toBe(200);
     await routeApiTo(page, () => api!);
     await page.goto(`/property/${sample.property.id}`);
     await expect(
-      page.getByText(/\$98\/sq ft; this area runs about \$450–\$650 \(sample\)/),
+      page.getByText(/\$98\/sq ft; this area runs about \$250–\$750 \(sample\)/),
     ).toBeVisible();
     await page.getByLabel('Correct livingAreaSqft').fill('700');
     await page.getByLabel('Source for livingAreaSqft').fill('county property record');
@@ -409,7 +423,14 @@ test('C34 flags suspicious values and accepts a sourced correction', async ({ pa
     expect(saved.valueOverrides.livingAreaSqft).toEqual(
       expect.objectContaining({ value: 700, source: 'county property record' }),
     );
-    expect(saved.listingFlags[0].flags).toEqual(
+    // 700 sq ft is $407/sq ft, inside the sample range, so no flag remains open.
+    expect(
+      saved.listingFlags.flatMap((listing) => listing.flags).filter((flag) => !flag.resolved),
+    ).toEqual([]);
+    const outlierSaved = exported.properties.find(
+      (item) => item.address.street === '7000 Imaginary Palm Court',
+    )!;
+    expect(outlierSaved.listingFlags[0].flags).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: 'livingAreaSqft', resolved: true }),
       ]),

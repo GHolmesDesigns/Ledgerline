@@ -58,14 +58,8 @@ for (const viewport of viewports) {
       test(`axe reports no serious or critical issues on ${route}`, async ({ page }) => {
         const entry = routes(propertyId).find((item) => item.name === route)!;
         await open(page, entry.path, entry.ready);
-        const { violations } = await new AxeBuilder({ page })
-          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
-          .analyze();
-        const blocking = violations.filter(
-          (violation) => violation.impact === 'serious' || violation.impact === 'critical',
-        );
         expect(
-          blocking.map((violation) => ({
+          (await seriousViolations(page)).map((violation) => ({
             id: violation.id,
             impact: violation.impact,
             help: violation.help,
@@ -125,17 +119,40 @@ for (const viewport of viewports) {
   });
 }
 
+// Serious and critical axe violations. The sticky mobile tab bar covers whatever scrolls under
+// it, so axe would count a control that happens to sit at the screen's bottom edge as
+// "partially obscured", and which control that is depends on font metrics. With the bar
+// showing, the page is checked with it hidden and then the bar on its own. Scroll padding keeps
+// focused controls clear of the bar, and a test below checks it never covers the end of a page.
+async function seriousViolations(page: Page) {
+  const scan = async (builder: AxeBuilder) =>
+    (
+      await builder
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+        .analyze()
+    ).violations;
+  let violations: Awaited<ReturnType<typeof scan>>;
+  if (await page.locator('.mobile-nav').isVisible()) {
+    const hideBar = await page.addStyleTag({
+      content: '.mobile-nav { visibility: hidden !important; }',
+    });
+    violations = await scan(new AxeBuilder({ page }));
+    await hideBar.evaluate((element) => element.remove());
+    violations.push(...(await scan(new AxeBuilder({ page }).include('.mobile-nav'))));
+  } else {
+    violations = await scan(new AxeBuilder({ page }));
+  }
+  return violations.filter(
+    (violation) => violation.impact === 'serious' || violation.impact === 'critical',
+  );
+}
+
 async function expectNoSeriousViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
-    .analyze();
   expect(
-    violations
-      .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
-      .map((violation) => ({
-        id: violation.id,
-        targets: violation.nodes.slice(0, 5).map((node) => node.target.join(' ')),
-      })),
+    (await seriousViolations(page)).map((violation) => ({
+      id: violation.id,
+      targets: violation.nodes.slice(0, 5).map((node) => node.target.join(' ')),
+    })),
   ).toEqual([]);
 }
 

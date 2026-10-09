@@ -1327,6 +1327,63 @@ h1 {
 .listing-card-heading {
   align-items: flex-start;
 }
+.ranking-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -8px 0 14px;
+}
+.ranking-summary strong {
+  font-family: var(--font-label);
+}
+.provisional-tag {
+  border: 1px dashed currentColor;
+  border-radius: 12px;
+  display: inline-block;
+  padding: 2px 8px;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.score-factor-list {
+  display: grid;
+  gap: 4px;
+  margin: -6px 0 14px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+.score-factor-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.score-factor-list li span:last-child {
+  font-family: var(--font-label);
+}
+.ranking-weight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.ranking-live-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ranking-live-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.ranking-live-list .ranking-summary {
+  margin: 0;
+}
 .listing-price {
   margin: 0;
   font-family: var(--font-display);
@@ -1834,6 +1891,11 @@ h1 {
 }
 
 @media (max-width: 700px) {
+  /* Scrolling a card or focused control into view stops above the sticky tab bar. */
+  html {
+    scroll-padding-bottom: 80px;
+  }
+
   .site-header {
     min-height: 64px;
     padding: 0 16px;

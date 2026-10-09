@@ -1,4 +1,88 @@
 import { useEffect, useState, type FormEvent, type PointerEvent, type ReactNode } from 'react';
+import {
+  defaultRankingWeights,
+  rankListings,
+  rankingFactorLabels,
+  rankingFactors,
+  type ListingRanking,
+  type RankingFactor,
+  type RankingMode,
+  type RankingWeights,
+} from './ranking';
+
+type RankingWeightSets = Record<RankingMode, RankingWeights>;
+type RankingWeightsResponse = {
+  weights?: Record<RankingMode, { weights: Partial<RankingWeights> }>;
+  error?: string;
+};
+
+const toRankingWeightSets = (
+  sets: NonNullable<RankingWeightsResponse['weights']>,
+): RankingWeightSets => ({
+  sale: { ...defaultRankingWeights.sale, ...sets.sale.weights },
+  rent: { ...defaultRankingWeights.rent, ...sets.rent.weights },
+});
+
+// Weights are personal data in the local database, so every screen ranks with the saved
+// values. They are null until loaded; screens show no rank before then.
+function useRankingWeights() {
+  const [weights, setWeights] = useState<RankingWeightSets | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/ranking-weights')
+      .then(async (response) => {
+        const data = (await response.json()) as RankingWeightsResponse;
+        if (!response.ok || !data.weights)
+          throw new Error(data.error ?? 'Ranking weights are unavailable.');
+        if (!cancelled) setWeights(toRankingWeightSets(data.weights));
+      })
+      .catch(() => {
+        if (!cancelled)
+          setError('Ranking weights are unavailable. Start the local API and try again.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return { weights, setWeights, error };
+}
+
+function ScoreBreakdown({ mode, score }: { mode: RankingMode; score: ListingRanking }) {
+  return (
+    <ul aria-label="Score breakdown" className="score-factor-list">
+      {rankingFactors[mode].map((factor) => {
+        const result = score.factors[factor];
+        return (
+          <li key={factor}>
+            <span>{rankingFactorLabels[factor]}</span>
+            <span>
+              {!result || result.unknown
+                ? 'Unknown · scored 0'
+                : `${result.weightedPoints} pts · ${result.score}/100`}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function ScoreSummary({ score, children }: { score: ListingRanking; children?: ReactNode }) {
+  return (
+    <p className="ranking-summary">
+      <strong>
+        <span className="sr-only">Rank </span>#{score.rank} ·{' '}
+        <span className="sr-only">score </span>
+        {score.score}
+      </strong>
+      {children}
+      {score.provisional && (
+        <span className="provisional-tag">Provisional · {score.provisionalReason}</span>
+      )}
+    </p>
+  );
+}
 
 type Route = { title: string; eyebrow: string; path: string };
 
@@ -360,20 +444,29 @@ function AssumptionsPanel() {
   const [saved, setSaved] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
-  const load = async () => {
-    const response = await fetch('/api/assumptions');
-    if (!response.ok) throw new Error('Assumptions are unavailable.');
-    const data = (await response.json()) as {
-      searches: AssumptionSearch[];
-      local: LocalAssumptions[];
-    };
-    setSearches(data.searches);
-    setLocal(data.local);
-  };
   useEffect(() => {
-    void load().catch(() =>
-      setErrors({ page: 'Assumptions are unavailable. Start the local API and try again.' }),
-    );
+    let cancelled = false;
+    void fetch('/api/assumptions')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Assumptions are unavailable.');
+        return (await response.json()) as {
+          searches: AssumptionSearch[];
+          local: LocalAssumptions[];
+        };
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setSearches(data.searches);
+          setLocal(data.local);
+        }
+      })
+      .catch(() => {
+        if (!cancelled)
+          setErrors({ page: 'Assumptions are unavailable. Start the local API and try again.' });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   useEffect(() => {
     const query = window.matchMedia('(max-width: 700px)');
@@ -457,8 +550,8 @@ function AssumptionsPanel() {
         <input
           aria-label={label}
           min="0"
-          onChange={(event) =>
-            onChange(event.target.value === '' ? null : Number(event.target.value))
+          onInput={(event) =>
+            onChange(event.currentTarget.value === '' ? null : Number(event.currentTarget.value))
           }
           step="any"
           type="number"
@@ -651,7 +744,9 @@ function AssumptionsPanel() {
                   <label className="assumption-field">
                     Source
                     <input
-                      onChange={(event) => updateLocal(item.county, { source: event.target.value })}
+                      onInput={(event) =>
+                        updateLocal(item.county, { source: event.currentTarget.value })
+                      }
                       required
                       value={item.source ?? ''}
                     />
@@ -697,15 +792,20 @@ function ComparableRentRulesPanel() {
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
+    let cancelled = false;
     void fetch('/api/comparable-rent-rules')
       .then(async (response) => {
         const data = (await response.json()) as { rules?: ComparableRentRules; error?: string };
         if (!response.ok || !data.rules) throw new Error(data.error ?? 'Rules are unavailable.');
-        setRules(data.rules);
+        if (!cancelled) setRules(data.rules);
       })
-      .catch(() =>
-        setError('Comparable-rent rules are unavailable. Start the local API and try again.'),
-      );
+      .catch(() => {
+        if (!cancelled)
+          setError('Comparable-rent rules are unavailable. Start the local API and try again.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   const update = (patch: Partial<ComparableRentRules>) => {
     setRules((current) => (current ? { ...current, ...patch } : current));
@@ -817,6 +917,159 @@ function currentPage(pathname: string) {
     return { title: 'Property detail', eyebrow: 'Home details', path: pathname };
   }
   return routes[0];
+}
+
+function RankingPanel() {
+  const [mode, setMode] = useState<RankingMode>('sale');
+  const { weights, setWeights, error: loadError } = useRankingWeights();
+  const [items, setItems] = useState<SearchListing[]>([]);
+  const [listError, setListError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [savedMode, setSavedMode] = useState<RankingMode | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/listings?mode=${mode}`)
+      .then(async (response) => {
+        const data = (await response.json()) as { items?: SearchListing[]; error?: string };
+        if (!response.ok) throw new Error(data.error ?? 'Rankings are unavailable.');
+        if (!cancelled) {
+          setItems(data.items ?? []);
+          setListError('');
+        }
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled)
+          setListError(reason instanceof Error ? reason.message : 'Rankings are unavailable.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+  const factors = rankingFactors[mode];
+  const rankings = weights ? rankListings(items, mode, weights[mode]) : null;
+  const ordered = rankings
+    ? [...items].sort(
+        (left, right) => rankings.get(left.listing.id)!.rank - rankings.get(right.listing.id)!.rank,
+      )
+    : [];
+  const total = weights ? factors.reduce((sum, factor) => sum + weights[mode][factor], 0) : 0;
+  const changeWeight = (factor: RankingFactor, value: string) => {
+    const number = value === '' ? 0 : Math.max(0, Math.min(100, Math.round(Number(value))));
+    setWeights((current) =>
+      current ? { ...current, [mode]: { ...current[mode], [factor]: number } } : current,
+    );
+    setSavedMode(null);
+  };
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!weights) return;
+    setBusy(true);
+    setSaveError('');
+    try {
+      const response = await fetch('/api/ranking-weights', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          mode,
+          weights: Object.fromEntries(factors.map((factor) => [factor, weights[mode][factor]])),
+        }),
+      });
+      const data = (await response.json()) as RankingWeightsResponse;
+      if (!response.ok || !data.weights)
+        throw new Error(data.error ?? 'Could not save ranking weights.');
+      const saved = toRankingWeightSets(data.weights);
+      setWeights((current) => (current ? { ...current, [mode]: saved[mode] } : saved));
+      setSavedMode(mode);
+    } catch (reason) {
+      setSaveError(reason instanceof Error ? reason.message : 'Could not save ranking weights.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const modeName = mode === 'sale' ? 'Buy' : 'Rent';
+  return (
+    <section aria-labelledby="ranking-heading" className="assumptions-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="screen-eyebrow">Personal ranking</p>
+          <h2 id="ranking-heading">Ranking weights</h2>
+        </div>
+        <div className="mode-switch" aria-label="Ranking mode" role="group">
+          <button aria-pressed={mode === 'sale'} onClick={() => setMode('sale')} type="button">
+            Buy
+          </button>
+          <button aria-pressed={mode === 'rent'} onClick={() => setMode('rent')} type="button">
+            Rent
+          </button>
+        </div>
+      </div>
+      <p className="panel-intro">
+        Each factor counts in proportion to its weight; the defaults add up to 100. Unknown factors
+        score 0. Rank numbers follow score order on Search, whatever its sort.
+      </p>
+      {loadError && (
+        <p className="search-error" role="alert">
+          {loadError}
+        </p>
+      )}
+      {weights && (
+        <form className="assumption-card" onSubmit={(event) => void save(event)}>
+          <div className="ranking-weight-grid">
+            {factors.map((factor) => (
+              <label className="assumption-field" key={factor}>
+                {rankingFactorLabels[factor]} weight
+                <span className="assumption-input-wrap">
+                  <input
+                    aria-label={`${rankingFactorLabels[factor]} weight`}
+                    min="0"
+                    max="100"
+                    step="1"
+                    type="number"
+                    value={weights[mode][factor]}
+                    onChange={(event) => changeWeight(factor, event.target.value)}
+                  />
+                  <span>%</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p>Total {total}</p>
+          {saveError && (
+            <p className="search-error" role="alert">
+              {saveError}
+            </p>
+          )}
+          <div className="assumption-actions">
+            <button disabled={busy} type="submit">
+              {busy ? 'Saving…' : `Save ${modeName} weights`}
+            </button>
+            {savedMode === mode && <span role="status">Saved</span>}
+          </div>
+        </form>
+      )}
+      <h3>Live ranking · active {modeName} listings on this computer</h3>
+      {listError ? (
+        <p role="alert" className="search-error">
+          {listError}
+        </p>
+      ) : (
+        <ol className="ranking-live-list">
+          {ordered.map((item) => (
+            <li key={item.listing.id}>
+              <ScoreSummary score={rankings!.get(item.listing.id)!}>
+                <span>
+                  {item.property.street}
+                  {item.property.unit ? `, Unit ${item.property.unit}` : ''} · {item.property.city}
+                </span>
+              </ScoreSummary>
+            </li>
+          ))}
+          {weights && !ordered.length && <li>No {modeName} listings to rank yet.</li>}
+        </ol>
+      )}
+    </section>
+  );
 }
 
 function BrandMark() {
@@ -992,6 +1245,7 @@ type BackupCounts = {
   dismissed: number;
   savedSearches: number;
   matchDecisions: number;
+  rankingWeights: number;
 };
 
 type BackupReport = {
@@ -1011,6 +1265,7 @@ const backupCountLabels: Array<[keyof BackupCounts, string, string]> = [
   ['properties', 'property', 'properties'],
   ['personalAssumptions', 'personal assumption set', 'personal assumption sets'],
   ['localAssumptions', 'local rate set', 'local rate sets'],
+  ['rankingWeights', 'ranking weight set', 'ranking weight sets'],
 ];
 
 const describeBackupCounts = (counts: BackupCounts) =>
@@ -1090,9 +1345,9 @@ function BackupPanel() {
         </div>
       </div>
       <p className="panel-intro">
-        Export your notes, saved and dismissed homes, saved searches, personal and local
-        assumptions, and property match decisions to one JSON file. Importing merges a file into
-        this database by address and unit and never creates duplicates. Listings, prices, and
+        Export your notes, saved and dismissed homes, saved searches, ranking weights, personal and
+        local assumptions, and property match decisions to one JSON file. Importing merges a file
+        into this database by address and unit and never creates duplicates. Listings, prices, and
         provider keys are not included; Refresh fetches listings again. The file stays on this
         computer.
       </p>
@@ -1178,15 +1433,96 @@ type SearchListing = {
     mode: 'sale' | 'rent';
     price: number | null;
     pricePeriod: string;
+    hoaFee?: number | null;
     status: string;
     provider: string;
     providerLastSeenDate: string | null;
+    implausibleFlags?: Array<{
+      field: string;
+      value: number | string | null;
+      reason: string;
+      resolved?: boolean;
+    }>;
   };
   saved?: boolean;
   dismissed?: boolean;
   comparableRent?: ComparableRent | null;
   costEstimate?: CostEstimate | null;
 };
+
+function PropertyRankingBreakdowns({ data }: { data: PropertyDetailData }) {
+  const modes = [...new Set(data.listings.map((listing) => listing.mode))];
+  const [itemsByMode, setItemsByMode] = useState<Partial<Record<RankingMode, SearchListing[]>>>({});
+  const { weights, error } = useRankingWeights();
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void Promise.all(
+      modes.map(async (mode) => {
+        // Dismissed homes still get a score here, so every active listing has one.
+        const response = await fetch(`/api/listings?mode=${mode}&showDismissed=true`);
+        const result = (await response.json()) as { items?: SearchListing[] };
+        if (!response.ok) throw new Error('Rankings are unavailable.');
+        return [mode, result.items ?? []] as const;
+      }),
+    )
+      .then((results) => {
+        if (!cancelled) setItemsByMode(Object.fromEntries(results));
+      })
+      .catch(() => {
+        if (!cancelled) setItemsByMode({});
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data.property.id, modes.join(',')]);
+
+  return (
+    <section aria-labelledby="property-ranking-heading" className="property-detail-section">
+      <h3 id="property-ranking-heading">Personal ranking</h3>
+      {error ? (
+        <p className="search-error" role="alert">
+          {error}
+        </p>
+      ) : loading || !weights ? (
+        <p>Calculating score from local results…</p>
+      ) : (
+        data.listings.map((listing) => {
+          const mode = listing.mode;
+          const modeName = mode === 'sale' ? 'Buy' : 'Rent';
+          const items = itemsByMode[mode] ?? [];
+          const result = items.some((entry) => entry.listing.id === listing.id)
+            ? rankListings(items, mode, weights[mode]).get(listing.id)
+            : undefined;
+          return (
+            <div className="property-ranking-breakdown" key={listing.id}>
+              <h4>{modeName} listing</h4>
+              {result ? (
+                <>
+                  <ScoreSummary score={result} />
+                  <p>
+                    Ranked among all {items.length} active {modeName} listings on this computer;
+                    Search ranks within its current results.
+                  </p>
+                  <ScoreBreakdown mode={mode} score={result} />
+                </>
+              ) : (
+                <p>
+                  Only active listings are ranked; this one is {listing.status.replaceAll('_', ' ')}
+                  .
+                </p>
+              )}
+            </div>
+          );
+        })
+      )}
+    </section>
+  );
+}
 
 type CountyFeature = {
   type: 'Feature';
@@ -1208,7 +1544,7 @@ type SearchFilters = {
   propertyType: string;
   minSqft: string;
   status: string;
-  sort: 'newest' | 'price';
+  sort: 'score' | 'newest' | 'price';
   savedOnly: boolean;
   showDismissed: boolean;
 };
@@ -1239,7 +1575,10 @@ const profileFromSearch = (search: SavedSearch): SearchFilters => ({
   propertyType: String(search.filters.propertyType ?? ''),
   minSqft: String(search.filters.minSqft ?? ''),
   status: String(search.filters.status ?? 'active'),
-  sort: search.filters.sort === 'price' ? 'price' : 'newest',
+  sort:
+    search.filters.sort === 'price' || search.filters.sort === 'score'
+      ? search.filters.sort
+      : 'newest',
   savedOnly: search.filters.savedOnly === true,
   showDismissed: search.filters.showDismissed === true,
 });
@@ -1582,7 +1921,10 @@ function searchFromUrl(): SearchFilters {
     propertyType: params.get('propertyType') ?? '',
     minSqft: params.get('minSqft') ?? '',
     status: params.get('status') ?? 'active',
-    sort: params.get('sort') === 'price' ? 'price' : 'newest',
+    sort:
+      params.get('sort') === 'price' || params.get('sort') === 'score'
+        ? (params.get('sort') as SearchFilters['sort'])
+        : 'newest',
     savedOnly: params.get('savedOnly') === 'true',
     showDismissed: params.get('showDismissed') === 'true',
   };
@@ -2609,6 +2951,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           ))}
         </ul>
       </section>
+      <PropertyRankingBreakdowns data={data} />
       <section aria-labelledby="property-facts-heading" className="property-detail-section">
         <h3 id="property-facts-heading">Property facts</h3>
         <dl className="property-facts-grid">
@@ -3733,6 +4076,7 @@ function SearchScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
   const [compareMessage, setCompareMessage] = useState('');
+  const { weights: rankingWeights, error: rankingError } = useRankingWeights();
 
   const refreshSavedSearches = async () => {
     try {
@@ -3873,15 +4217,31 @@ function SearchScreen() {
     return () => window.removeEventListener('popstate', restore);
   }, []);
 
+  // Ranks always come from score order within the current results. Newest and Price keep the
+  // API's order; only "Your score" reorders the cards.
+  const ranking = rankingWeights
+    ? rankListings(items, filters.mode, rankingWeights[filters.mode])
+    : null;
+  const visibleItems =
+    filters.sort === 'score' && ranking
+      ? [...items].sort(
+          (left, right) => ranking.get(left.listing.id)!.rank - ranking.get(right.listing.id)!.rank,
+        )
+      : items;
+  const firstVisibleId = visibleItems[0]?.listing.id ?? null;
+  const rankingSettled = rankingWeights !== null || rankingError !== '';
+
   useEffect(() => {
     if (items.length === 0) {
       setSelectedId(null);
       return;
     }
+    // Under "Your score", wait for the weights so the first card selected is the top-ranked one.
+    if (filters.sort === 'score' && !rankingSettled) return;
     if (!selectedId || !items.some((item) => item.listing.id === selectedId)) {
-      setSelectedId(items[0].listing.id);
+      setSelectedId(firstVisibleId);
     }
-  }, [items, selectedId]);
+  }, [items, selectedId, firstVisibleId, filters.sort, rankingSettled]);
 
   useEffect(() => {
     if (!selectedId || (window.matchMedia('(max-width: 700px)').matches && mobileView === 'map'))
@@ -4279,8 +4639,9 @@ function SearchScreen() {
           <select
             aria-label="Sort listings"
             value={filters.sort}
-            onChange={(event) => update('sort', event.target.value as 'newest' | 'price')}
+            onChange={(event) => update('sort', event.target.value as SearchFilters['sort'])}
           >
+            <option value="score">Your score</option>
             <option value="newest">Newest</option>
             <option value="price">Price</option>
           </select>
@@ -4335,7 +4696,7 @@ function SearchScreen() {
             className={`search-results-layout ${mobileView === 'map' ? 'mobile-map-active' : ''}`}
           >
             <div className="listing-grid" aria-label="Search results" role="group">
-              {items.map(
+              {visibleItems.map(
                 (
                   {
                     property,
@@ -4346,162 +4707,171 @@ function SearchScreen() {
                     costEstimate,
                   },
                   index,
-                ) => (
-                  <article
-                    className={`listing-card${selectedId === listing.id ? ' is-selected' : ''}`}
-                    id={`listing-${listing.id}`}
-                    key={listing.id}
-                    onClick={() => setSelectedId(listing.id)}
-                  >
-                    <div className="listing-card-heading">
-                      <div>
-                        <p className="listing-price">
-                          {formatPrice(listing.price, listing.mode, listing.pricePeriod)}
-                        </p>
-                        <p className="listing-status">{listing.status.replaceAll('_', ' ')}</p>
+                ) => {
+                  const score = ranking?.get(listing.id);
+                  return (
+                    <article
+                      className={`listing-card${selectedId === listing.id ? ' is-selected' : ''}`}
+                      id={`listing-${listing.id}`}
+                      key={listing.id}
+                      onClick={() => setSelectedId(listing.id)}
+                    >
+                      <div className="listing-card-heading">
+                        <div>
+                          <p className="listing-price">
+                            {formatPrice(listing.price, listing.mode, listing.pricePeriod)}
+                          </p>
+                          <p className="listing-status">{listing.status.replaceAll('_', ' ')}</p>
+                        </div>
+                        <div className="listing-card-tools">
+                          <span className="listing-mode-label">
+                            {listing.mode === 'sale' ? 'BUY' : 'RENT'}
+                          </span>
+                          <button
+                            aria-pressed={selectedId === listing.id}
+                            className="select-listing"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedId(listing.id);
+                            }}
+                            type="button"
+                            aria-label={`Select ${property.street} on map`}
+                          >
+                            Pin {index + 1}
+                          </button>
+                        </div>
                       </div>
-                      <div className="listing-card-tools">
-                        <span className="listing-mode-label">
-                          {listing.mode === 'sale' ? 'BUY' : 'RENT'}
-                        </span>
+                      <h2>
+                        <a href={`/property/${property.id}`}>
+                          {property.street}
+                          {property.unit ? `, Unit ${property.unit}` : ''}
+                        </a>
+                      </h2>
+                      <p className="listing-location">
+                        {property.city} · {property.county ?? 'Florida'} County, {property.zip}
+                      </p>
+                      <p className="listing-facts">
+                        {property.beds ?? '—'} bd <span>·</span> {property.bathsTotal ?? '—'} ba{' '}
+                        <span>·</span> {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft{' '}
+                        <span>·</span> {property.yearBuilt ?? 'Year unknown'}
+                      </p>
+                      {score && <ScoreSummary score={score} />}
+                      {score && selectedId === listing.id && (
+                        <ScoreBreakdown mode={listing.mode} score={score} />
+                      )}
+                      {listing.mode === 'sale' && comparableRent && (
+                        <p className="listing-comparable-rent">
+                          <strong>Comparable rent</strong>{' '}
+                          {comparableRent.figure.value == null
+                            ? comparableRent.label
+                            : `$${comparableRent.figure.value.toLocaleString()}/mo · ${comparableRent.label}`}
+                          {comparableRent.stale ? ' · Stale' : ''}
+                        </p>
+                      )}
+                      {listing.mode === 'sale' && costEstimate && (
+                        <div className="listing-cost-summary" aria-label="Monthly cost to own">
+                          <p>
+                            <strong>Est. monthly to own</strong> {costEstimate.totalLabel}{' '}
+                            <span className="total-status-tag">{costEstimate.statusLabel}</span>
+                          </p>
+                          {costEstimate.monthlyTotal != null &&
+                          comparableRent?.figure.value != null ? (
+                            <p className="cost-gap">
+                              {costEstimate.totalStatus === 'Estimate' ? '≈ ' : ''}
+                              {costEstimate.monthlyTotal >= comparableRent.figure.value ? '+' : '−'}
+                              $
+                              {Math.abs(
+                                Math.round(costEstimate.monthlyTotal - comparableRent.figure.value),
+                              ).toLocaleString()}
+                              /mo
+                            </p>
+                          ) : (
+                            <p className="cost-gap-muted">
+                              No own-vs-rent gap ·{' '}
+                              {costEstimate.totalStatus === 'Incomplete'
+                                ? 'total incomplete'
+                                : 'rent unavailable'}
+                            </p>
+                          )}
+                          {costEstimate.lines.some(
+                            (line) =>
+                              line.state === 'Unknown' && line.note === 'Local rates not set',
+                          ) && (
+                            <a className="local-rates-prompt" href="/settings">
+                              Set local rates for {property.county} County
+                            </a>
+                          )}
+                        </div>
+                      )}
+                      <div className="property-risk-chips" aria-label="Property risks" role="group">
+                        {property.floodZone && (
+                          <span>
+                            Flood zone {property.floodZone}
+                            {property.floodZone.toUpperCase() === 'X' &&
+                              " · Zone X doesn't mean no flood risk."}
+                          </span>
+                        )}
+                        {property.riskDetails?.roofYear && (
+                          <span>Roof {property.riskDetails.roofYear}</span>
+                        )}
+                        {property.riskDetails?.specialAssessment && (
+                          <span>Special assessment · {property.riskDetails.specialAssessment}</span>
+                        )}
+                      </div>
+                      <div className="property-actions">
                         <button
-                          aria-pressed={selectedId === listing.id}
-                          className="select-listing"
+                          aria-label={`${saved ? 'Remove' : 'Save'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''} ${saved ? 'from saved homes' : 'to saved homes'}`}
+                          aria-pressed={saved}
                           onClick={(event) => {
                             event.stopPropagation();
-                            setSelectedId(listing.id);
+                            void mutateProperty(property.id, 'favorite', !saved);
                           }}
                           type="button"
-                          aria-label={`Select ${property.street} on map`}
                         >
-                          Pin {index + 1}
+                          {saved ? 'Saved' : 'Save'}
+                        </button>
+                        <button
+                          aria-pressed={compare.ids.includes(property.id)}
+                          className="secondary-button"
+                          aria-label={`${compare.ids.includes(property.id) ? 'Remove' : 'Compare'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}${compare.ids.includes(property.id) ? ' from Compare' : ''}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleCompare(property.id);
+                          }}
+                          type="button"
+                        >
+                          {compare.ids.includes(property.id) ? 'In Compare' : 'Compare'}
+                        </button>
+                        <button
+                          aria-label={`${dismissed ? 'Undo dismissal for' : 'Dismiss'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}`}
+                          className="secondary-button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void mutateProperty(property.id, 'dismissal', !dismissed);
+                          }}
+                          type="button"
+                        >
+                          {dismissed ? 'Undo dismissal' : 'Dismiss'}
                         </button>
                       </div>
-                    </div>
-                    <h2>
-                      <a href={`/property/${property.id}`}>
-                        {property.street}
-                        {property.unit ? `, Unit ${property.unit}` : ''}
-                      </a>
-                    </h2>
-                    <p className="listing-location">
-                      {property.city} · {property.county ?? 'Florida'} County, {property.zip}
-                    </p>
-                    <p className="listing-facts">
-                      {property.beds ?? '—'} bd <span>·</span> {property.bathsTotal ?? '—'} ba{' '}
-                      <span>·</span> {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft{' '}
-                      <span>·</span> {property.yearBuilt ?? 'Year unknown'}
-                    </p>
-                    {listing.mode === 'sale' && comparableRent && (
-                      <p className="listing-comparable-rent">
-                        <strong>Comparable rent</strong>{' '}
-                        {comparableRent.figure.value == null
-                          ? comparableRent.label
-                          : `$${comparableRent.figure.value.toLocaleString()}/mo · ${comparableRent.label}`}
-                        {comparableRent.stale ? ' · Stale' : ''}
-                      </p>
-                    )}
-                    {listing.mode === 'sale' && costEstimate && (
-                      <div className="listing-cost-summary" aria-label="Monthly cost to own">
-                        <p>
-                          <strong>Est. monthly to own</strong> {costEstimate.totalLabel}{' '}
-                          <span className="total-status-tag">{costEstimate.statusLabel}</span>
-                        </p>
-                        {costEstimate.monthlyTotal != null &&
-                        comparableRent?.figure.value != null ? (
-                          <p className="cost-gap">
-                            {costEstimate.totalStatus === 'Estimate' ? '≈ ' : ''}
-                            {costEstimate.monthlyTotal >= comparableRent.figure.value ? '+' : '−'}$
-                            {Math.abs(
-                              Math.round(costEstimate.monthlyTotal - comparableRent.figure.value),
-                            ).toLocaleString()}
-                            /mo
-                          </p>
-                        ) : (
-                          <p className="cost-gap-muted">
-                            No own-vs-rent gap ·{' '}
-                            {costEstimate.totalStatus === 'Incomplete'
-                              ? 'total incomplete'
-                              : 'rent unavailable'}
-                          </p>
-                        )}
-                        {costEstimate.lines.some(
-                          (line) => line.state === 'Unknown' && line.note === 'Local rates not set',
-                        ) && (
-                          <a className="local-rates-prompt" href="/settings">
-                            Set local rates for {property.county} County
-                          </a>
+                      <div className="listing-card-footer">
+                        <span>
+                          {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
+                        </span>
+                        {stale(listing.providerLastSeenDate) && (
+                          <span className="stale-tag">Stale</span>
                         )}
                       </div>
-                    )}
-                    <div className="property-risk-chips" aria-label="Property risks" role="group">
-                      {property.floodZone && (
-                        <span>
-                          Flood zone {property.floodZone}
-                          {property.floodZone.toUpperCase() === 'X' &&
-                            " · Zone X doesn't mean no flood risk."}
-                        </span>
-                      )}
-                      {property.riskDetails?.roofYear && (
-                        <span>Roof {property.riskDetails.roofYear}</span>
-                      )}
-                      {property.riskDetails?.specialAssessment && (
-                        <span>Special assessment · {property.riskDetails.specialAssessment}</span>
-                      )}
-                    </div>
-                    <div className="property-actions">
-                      <button
-                        aria-label={`${saved ? 'Remove' : 'Save'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''} ${saved ? 'from saved homes' : 'to saved homes'}`}
-                        aria-pressed={saved}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void mutateProperty(property.id, 'favorite', !saved);
-                        }}
-                        type="button"
-                      >
-                        {saved ? 'Saved' : 'Save'}
-                      </button>
-                      <button
-                        aria-pressed={compare.ids.includes(property.id)}
-                        className="secondary-button"
-                        aria-label={`${compare.ids.includes(property.id) ? 'Remove' : 'Compare'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}${compare.ids.includes(property.id) ? ' from Compare' : ''}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleCompare(property.id);
-                        }}
-                        type="button"
-                      >
-                        {compare.ids.includes(property.id) ? 'In Compare' : 'Compare'}
-                      </button>
-                      <button
-                        aria-label={`${dismissed ? 'Undo dismissal for' : 'Dismiss'} ${property.street}${property.unit ? ` unit ${property.unit}` : ''}`}
-                        className="secondary-button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void mutateProperty(property.id, 'dismissal', !dismissed);
-                        }}
-                        type="button"
-                      >
-                        {dismissed ? 'Undo dismissal' : 'Dismiss'}
-                      </button>
-                    </div>
-                    <div className="listing-card-footer">
-                      <span>
-                        {listing.provider} · last seen {listing.providerLastSeenDate ?? 'unknown'}
-                      </span>
-                      {stale(listing.providerLastSeenDate) && (
-                        <span className="stale-tag">Stale</span>
-                      )}
-                    </div>
-                  </article>
-                ),
+                    </article>
+                  );
+                },
               )}
             </div>
             <div className="results-map-column">
               {boundaries ? (
                 <CountyMap
                   boundaries={boundaries}
-                  items={items}
+                  items={visibleItems}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                 />
@@ -4570,6 +4940,7 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
         </div>
         {page.path === '/settings' ? (
           <div className="settings-panels">
+            <RankingPanel />
             <AssumptionsPanel />
             <ComparableRentRulesPanel />
             <RequestBudgetPanel />

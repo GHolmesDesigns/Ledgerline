@@ -53,10 +53,10 @@ Always shows its source, using the first that applies:
 
 ### Scores and ranks
 - Default Buy weights: price 25, own-vs-rent cost 20, flood 20, HOA 15, insurance 10, size 10. Default Rent weights: price 40, flood 25, lease fit 20, size 15. Factor formulas and Unknown inputs follow plan § Interface scope, item 4.
-- **Rank labels (#1, #2…) always follow score order**, whatever sort is selected. Price sort on the sample data shows: $285k #4, $389k #7, $465k #2, $529k #3, $560k #5, $615k #6, $849k #1.
+- **Rank labels (#1, #2…) always follow score order**, whatever sort is selected. Price sort on the sample data shows: $285k #1, $389k #7, $465k #2, $529k #6, $560k #3, $615k #4, $849k #5.
 - Unknown factors score as the worst value (0) and show "Unknown · scored 0" in the breakdown.
 - **Provisional** badge whenever a factor is unknown or the listing has an implausible-value flag, with the reason ("1 factor unknown: comparable rent", "check price per sq ft"). Use a dashed border plus the word, not color alone.
-- Fixture factor values are hand-set sample scores; Issue 35 calculates them from these formulas.
+- Fixture factor values, scores, and ranks are computed from the sample data with these formulas; `fixtures/check-fixtures.mjs` recomputes them.
 
 ### Assumptions
 - **Personal:** down payment 20%, 6.50% 30-yr fixed, maintenance 1%/yr.
@@ -73,13 +73,13 @@ Keep "Sample data — not real listings" visible on every screen.
 
 | Rank · score | Listing | County | Total | Rent | Gap |
 |---|---|---|---|---|---|
-| #1 · 84 | $849,000 · Fort Lauderdale 33308 · single-family 3/2 · 1,850 sf · 1964 · roof 2020 · impact windows · zone AE | Broward | $7,171 · Estimate · needs flood quote | $5,200 · same home · listed Sep 28 | ≈ +$1,971 |
-| #2 · 81 | $465,000 · Miramar 33027 · townhome 3/2.5 · 1,700 sf · 2016 · zone X · HOA $260 (Listing) · CDD Doc $2,400/yr | Broward | $4,525 · Estimate · needs insurance quote, assessments not checked +1 | $3,600 · 3 local comps · within 0.9 mi | ≈ +$925 |
-| #3 · 78 | $529,000 · Brickell 33131 · high-rise condo 1/1 · 780 sf · 2008 · zone AE · HOA $890 · milestone filed · reserve study complete | Miami-Dade | $5,242 · Estimate · needs HO-6 quote, flood quote +2 | $3,100 · 4 local comps · within 0.3 mi | ≈ +$2,142 |
-| #4 · 74 provisional | $285,000 · Miami 33137 · condo 2/2 · listed 2,900 sf · 1981 · zone X · HOA Est. $640 (median of 3 units in this building) · flag "$98/sq ft; this area runs about $450–$650 (sample)…" | Miami-Dade | $3,018 · Estimate · needs HOA confirmation, HO-6 quote +3 | $3,300 · 3 local comps | ≈ −$282 |
-| #5 · 66 provisional | $560,000 · North Miami 33161 · single-family 3/2 · 1,400 sf · 1955 · roof 2006 (may limit carriers) · zone X · HOA Est. $0 not confirmed | Miami-Dade | $4,896 · Estimate · needs insurance quote, flood quote +3 | Unavailable · only 2 local comps | hidden |
-| #6 · 60 provisional | $615,000 · Boca Raton 33432 · single-family 3/2 · 1,600 sf · 1978 · picked up by radius at Broward line | Palm Beach (not configured) | at least $3,623 · Incomplete · no Palm Beach rates (tax, insurance, flood, and CDD Unknown) + "Set local rates for Palm Beach County" prompt | Unavailable · no Rent search covers this area | hidden |
-| #7 · 52 provisional | $389,000 · Hollywood 33019 · oceanfront condo 2/2 · 1,100 sf · 1972 · zone VE · HOA $1,150 · special assessment pending, amount unknown · milestone filed · 40-year recertification in progress · reserve study pending | Broward | at least $4,661 + special assessment · Incomplete | $2,900 · 5 local comps | hidden |
+| #1 · 81 provisional | $285,000 · Miami 33137 · condo 2/2 · listed 2,900 sf · 1981 · zone X · HOA Est. $640 (median of 3 units in this building) · flag "$98/sq ft; this area runs about $250–$750 (sample)…" | Miami-Dade | $3,018 · Estimate · needs HOA confirmation, HO-6 quote +3 | $3,300 · 3 local comps | ≈ −$282 |
+| #2 · 74 | $465,000 · Miramar 33027 · townhome 3/2.5 · 1,700 sf · 2016 · zone X · HOA $260 (Listing) · CDD Doc $2,400/yr | Broward | $4,525 · Estimate · needs insurance quote, assessments not checked +1 | $3,600 · 3 local comps · within 0.9 mi | ≈ +$925 |
+| #3 · 55 provisional | $560,000 · North Miami 33161 · single-family 3/2 · 1,400 sf · 1955 · roof 2006 (may limit carriers) · zone X · HOA Est. $0 not confirmed | Miami-Dade | $4,896 · Estimate · needs insurance quote, flood quote +3 | Unavailable · only 2 local comps | hidden |
+| #4 · 53 provisional | $615,000 · Boca Raton 33432 · single-family 3/2 · 1,600 sf · 1978 · picked up by radius at Broward line | Palm Beach (not configured) | at least $3,623 · Incomplete · no Palm Beach rates (tax, insurance, flood, and CDD Unknown) + "Set local rates for Palm Beach County" prompt | Unavailable · no Rent search covers this area | hidden |
+| #5 · 45 | $849,000 · Fort Lauderdale 33308 · single-family 3/2 · 1,850 sf · 1964 · roof 2020 · impact windows · zone AE | Broward | $7,171 · Estimate · needs flood quote | $5,200 · same home · listed Sep 28 | ≈ +$1,971 |
+| #6 · 42 | $529,000 · Brickell 33131 · high-rise condo 1/1 · 780 sf · 2008 · zone AE · HOA $890 · milestone filed · reserve study complete | Miami-Dade | $5,242 · Estimate · needs HO-6 quote, flood quote +2 | $3,100 · 4 local comps · within 0.3 mi | ≈ +$2,142 |
+| #7 · 36 provisional | $389,000 · Hollywood 33019 · oceanfront condo 2/2 · 1,100 sf · 1972 · zone VE · HOA $1,150 · special assessment pending, amount unknown · milestone filed · 40-year recertification in progress · reserve study pending | Broward | at least $4,661 + special assessment · Incomplete | $2,900 · 5 local comps | hidden |
 
 Line-by-line amounts and states are in the fixture file.
 
@@ -94,7 +94,7 @@ Line-by-line amounts and states are in the fixture file.
 - Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Compare, Ranking & data).
 
 ### Compare (desktop `Compare`, mobile `MobileCompare`)
-- Shortlist: Fort Lauderdale (#1), Miramar (#2), North Miami (#5, provisional), Hollywood (#7, provisional).
+- Shortlist: Fort Lauderdale (#5), Miramar (#2), North Miami (#3, provisional), Hollywood (#7, provisional).
 - Header splits assumptions: "Personal: 20% down · 6.50% 30-yr · maintenance 1%/yr" and "Local: Miami-Dade (sample) · Broward (sample)", each with its own Edit link.
 - Tag legend above the table.
 - Rows: price, status, beds/baths/area, score; P&I, property tax, homeowners/HO-6, flood, HOA, **Non-ad valorem / CDD**, **Special assessment**, maintenance; **Total** with each column's status chip; comparable rent with source; own vs. rent; **Upfront cash** (down payment + one-time assessments); flood zone; insurance & wind mitigation; condo & association (milestone inspection, county recertification, reserve study, special assessment); notes; verify.
@@ -140,5 +140,5 @@ Line-by-line amounts and states are in the fixture file.
 1. **CDD line in a county without local rates:** "Unknown · no [county] rates" unless the tax bill has been checked (then Doc). Adds no new Incomplete trigger; the county trigger already applies. Setting the county's rates turns it into "Est. · CDD not checked".
 2. **Townhome insurance:** uses the county's house homeowners default.
 3. **Status chip wording:** always "+n" for Est. lines beyond the two named; Miramar reads "Estimate · needs insurance quote, assessments not checked +1".
-4. **Ranking factors (Oct 8, plan 2.8):** Buy and Rent factors and weights are fixed as listed above; formulas and unknown behavior are in plan § Interface scope, item 4. Fixture scores remain hand-set until Issue 35. Implausibility flags follow plan 2.9 and remain visible until confirmed or corrected.
+4. **Ranking factors (Oct 8, plan 2.8):** Buy and Rent factors and weights are fixed as listed above; formulas and unknown behavior are in plan § Interface scope, item 4. Fixture scores are computed with these formulas (Issue 35). Implausibility flags follow plan 2.9 and remain visible until confirmed or corrected.
 5. **Map and photos (Oct 8, plan 2.7):** Google Maps with a plain-map fallback when no key is set; photos are ones the user uploads; Street View is a link out to Google Maps, never an image shown in the app.

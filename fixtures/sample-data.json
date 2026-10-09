@@ -46,8 +46,8 @@
       "county": "Miami-Dade",
       "set": true,
       "sample": true,
-      "pricePerSqftMin": 450,
-      "pricePerSqftMax": 650,
+      "pricePerSqftMin": 250,
+      "pricePerSqftMax": 750,
       "millage": 20.0,
       "typicalNonAdValoremPerYear": 650,
       "homeownersDefaultMonthly": 560,
@@ -273,11 +273,11 @@
         }
       ],
       "factors": {
-        "price": 80,
-        "cost": 75,
-        "flood": 70,
+        "price": 0,
+        "cost": 62,
+        "flood": 40,
         "hoa": 100,
-        "ins": 95,
+        "ins": 0,
         "size": 100
       },
       "expected": {
@@ -286,8 +286,8 @@
         "monthlyTotal": 7171,
         "gapLabel": "≈ +$1,971/mo",
         "upfrontCash": 169800,
-        "score": 84,
-        "rank": 1,
+        "score": 45,
+        "rank": 5,
         "provisional": false
       }
     },
@@ -376,12 +376,12 @@
         "maxDistanceMi": 0.9
       },
       "factors": {
-        "price": 85,
-        "cost": 80,
-        "flood": 95,
-        "hoa": 70,
-        "ins": 70,
-        "size": 75
+        "price": 68,
+        "cost": 74,
+        "flood": 100,
+        "hoa": 77,
+        "ins": 18,
+        "size": 86
       },
       "expected": {
         "totalStatus": "estimate",
@@ -389,7 +389,7 @@
         "monthlyTotal": 4525,
         "gapLabel": "≈ +$925/mo",
         "upfrontCash": 93000,
-        "score": 81,
+        "score": 74,
         "rank": 2,
         "provisional": false
       }
@@ -481,12 +481,12 @@
         "maxDistanceMi": 0.3
       },
       "factors": {
-        "price": 95,
-        "cost": 70,
-        "flood": 70,
-        "hoa": 80,
-        "ins": 85,
-        "size": 55
+        "price": 57,
+        "cost": 31,
+        "flood": 40,
+        "hoa": 23,
+        "ins": 98,
+        "size": 0
       },
       "expected": {
         "totalStatus": "estimate",
@@ -494,8 +494,8 @@
         "monthlyTotal": 5242,
         "gapLabel": "≈ +$2,142/mo",
         "upfrontCash": 105800,
-        "score": 78,
-        "rank": 3,
+        "score": 42,
+        "rank": 6,
         "provisional": false
       }
     },
@@ -523,7 +523,7 @@
       "flags": [
         {
           "field": "livingAreaSqft",
-          "message": "$98/sq ft; this area runs about $450–$650 (sample). The living area or price may be wrong."
+          "message": "$98/sq ft; this area runs about $250–$750 (sample). The living area or price may be wrong."
         }
       ],
       "listings": [
@@ -592,9 +592,9 @@
       "factors": {
         "price": 100,
         "cost": 100,
-        "flood": 95,
-        "hoa": 50,
-        "ins": 25,
+        "flood": 100,
+        "hoa": 44,
+        "ins": 98,
         "size": null
       },
       "expected": {
@@ -603,8 +603,8 @@
         "monthlyTotal": 3018,
         "gapLabel": "≈ −$282/mo",
         "upfrontCash": 57000,
-        "score": 74,
-        "rank": 4,
+        "score": 81,
+        "rank": 1,
         "provisional": true,
         "provisionalReason": "check price per sq ft"
       }
@@ -692,12 +692,12 @@
         "compCount": 2
       },
       "factors": {
-        "price": 85,
+        "price": 51,
         "cost": null,
-        "flood": 95,
-        "hoa": 90,
-        "ins": 40,
-        "size": 80
+        "flood": 100,
+        "hoa": 100,
+        "ins": 10,
+        "size": 58
       },
       "expected": {
         "totalStatus": "estimate",
@@ -706,8 +706,8 @@
         "gapLabel": null,
         "gapHiddenReason": "rent unavailable",
         "upfrontCash": 112000,
-        "score": 66,
-        "rank": 5,
+        "score": 55,
+        "rank": 3,
         "provisional": true,
         "provisionalReason": "1 factor unknown: comparable rent"
       }
@@ -794,12 +794,12 @@
         "value": null
       },
       "factors": {
-        "price": 80,
+        "price": 41,
         "cost": null,
-        "flood": 95,
-        "hoa": 90,
+        "flood": 100,
+        "hoa": 100,
         "ins": null,
-        "size": 75
+        "size": 77
       },
       "expected": {
         "totalStatus": "incomplete",
@@ -808,8 +808,8 @@
         "gapLabel": null,
         "gapHiddenReason": "total incomplete",
         "upfrontCash": 123000,
-        "score": 60,
-        "rank": 6,
+        "score": 53,
+        "rank": 4,
         "provisional": true,
         "provisionalReason": "2 factors unknown: comparable rent, insurance",
         "prompt": "Set local rates for Palm Beach County"
@@ -902,12 +902,12 @@
         "maxDistanceMi": 0.5
       },
       "factors": {
-        "price": 100,
+        "price": 82,
         "cost": null,
-        "flood": 20,
-        "hoa": 40,
-        "ins": 90,
-        "size": 80
+        "flood": 10,
+        "hoa": 0,
+        "ins": 100,
+        "size": 30
       },
       "expected": {
         "totalStatus": "incomplete",
@@ -918,7 +918,7 @@
         "gapHiddenReason": "total incomplete",
         "upfrontCash": null,
         "upfrontLabel": "$77,800 + assessment (amount unknown)",
-        "score": 52,
+        "score": 36,
         "rank": 7,
         "provisional": true,
         "provisionalReason": "1 factor unknown: own-vs-rent gap (incomplete total)"
@@ -1012,7 +1012,7 @@
   "priceSortExpectedRanks": [
     [
       "mia-3250-ne-2nd-ave-507",
-      4
+      1
     ],
     [
       "hol-2801-n-ocean-dr-9b",
@@ -1024,19 +1024,19 @@
     ],
     [
       "brk-1245-brickell-bay-dr-1408",
-      3
-    ],
-    [
-      "nmi-1460-ne-135th-st",
-      5
-    ],
-    [
-      "boc-618-ne-7th-st",
       6
     ],
     [
+      "nmi-1460-ne-135th-st",
+      3
+    ],
+    [
+      "boc-618-ne-7th-st",
+      4
+    ],
+    [
       "ftl-2207-ne-32nd-ct",
-      1
+      5
     ]
   ],
   "matchReview": {

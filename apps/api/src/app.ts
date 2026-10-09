@@ -25,6 +25,7 @@ import { defaultComparableRentRules } from './store.js';
 import { findComparableRent } from './comparable-rent.js';
 import { createFemaNfhlLookup, type FloodZoneLookup } from './fema-nfhl.js';
 import { findImplausibleFlags } from './implausible.js';
+import { readRankingWeights } from './ranking-weights.js';
 
 function costEstimateFor(
   store: Store,
@@ -85,6 +86,35 @@ function costEstimateFor(
     personalAssumptions,
     sameBuildingHoaMonthly,
   });
+}
+
+// The listing's implausible values against its county's range. A flag the user already
+// confirmed or corrected stays resolved.
+function currentImplausibleFlags(
+  store: Store,
+  property: NonNullable<ReturnType<Store['getProperty']>>,
+  listing: ReturnType<Store['listListings']>[number],
+  localAssumptions = store.listLocalAssumptions(),
+) {
+  const assumptions = localAssumptions.find(
+    (item) =>
+      item.county?.toLocaleLowerCase('en-US') === property.county?.toLocaleLowerCase('en-US'),
+  );
+  const detected = findImplausibleFlags(
+    property,
+    listing,
+    assumptions
+      ? {
+          min: assumptions.pricePerSqftMin ?? null,
+          max: assumptions.pricePerSqftMax ?? null,
+          sample: assumptions.sample,
+        }
+      : undefined,
+  );
+  const resolved = new Set(
+    listing.implausibleFlags.filter((flag) => flag.resolved).map((flag) => flag.field),
+  );
+  return detected.map((flag) => ({ ...flag, resolved: resolved.has(flag.field) }));
 }
 
 const defaultCredentialPath = resolve(dirname(fileURLToPath(import.meta.url)), '../.env');
@@ -164,6 +194,30 @@ export function createApp(
         })),
         local: store.listLocalAssumptions(),
       });
+      return;
+    }
+    if (request.url === '/api/ranking-weights' && request.method === 'GET') {
+      json(200, {
+        weights: { sale: store.getRankingWeights('sale'), rent: store.getRankingWeights('rent') },
+      });
+      return;
+    }
+    if (request.url === '/api/ranking-weights' && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        if (body.mode !== 'sale' && body.mode !== 'rent')
+          throw new Error('Mode must be sale or rent.');
+        const weights = readRankingWeights(body.mode, body.weights);
+        if (!weights) throw new Error('Each weight must be a whole number from 0 to 100.');
+        store.setRankingWeights(body.mode, weights);
+        json(200, {
+          weights: { sale: store.getRankingWeights('sale'), rent: store.getRankingWeights('rent') },
+        });
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to save ranking weights.',
+        });
+      }
       return;
     }
     if (request.url === '/api/comparable-rent-rules' && request.method === 'GET') {
@@ -667,33 +721,11 @@ export function createApp(
         json(404, { error: 'Property not found.' });
         return;
       }
-      let listings = store.listListings(propertyId);
-      const assumptions = store
-        .listLocalAssumptions()
-        .find(
-          (item) =>
-            item.county?.toLocaleLowerCase('en-US') === property.county?.toLocaleLowerCase('en-US'),
+      const listings = store
+        .listListings(propertyId)
+        .map((listing) =>
+          store.setImplausibleFlags(listing.id, currentImplausibleFlags(store, property, listing)),
         );
-      listings = listings.map((listing) => {
-        const detected = findImplausibleFlags(
-          property,
-          listing,
-          assumptions
-            ? {
-                min: assumptions.pricePerSqftMin ?? null,
-                max: assumptions.pricePerSqftMax ?? null,
-                sample: assumptions.sample,
-              }
-            : undefined,
-        );
-        const resolved = new Set(
-          listing.implausibleFlags.filter((flag) => flag.resolved).map((flag) => flag.field),
-        );
-        return store.setImplausibleFlags(
-          listing.id,
-          detected.map((flag) => ({ ...flag, resolved: resolved.has(flag.field) })),
-        );
-      });
       const comparableRent = findComparableRent(store, propertyId, store.getComparableRentRules());
       const saleListings = listings
         .filter((listing) => listing.mode === 'sale')
@@ -1009,9 +1041,20 @@ export function createApp(
         ) {
           throw new Error('Minimum price cannot exceed maximum price.');
         }
+        const localAssumptions = store.listLocalAssumptions();
         const items = store.transaction(() =>
           store.searchListings(criteria).map((item) => ({
             ...item,
+            // Detected for display and scoring only; property detail stores them.
+            listing: {
+              ...item.listing,
+              implausibleFlags: currentImplausibleFlags(
+                store,
+                item.property,
+                item.listing,
+                localAssumptions,
+              ),
+            },
             comparableRent:
               mode === 'sale'
                 ? findComparableRent(store, item.property.id, store.getComparableRentRules())

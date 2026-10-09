@@ -1,4 +1,33 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { readDatabase, routeApiTo, seedDatabase, startApi, type Api } from './support/api';
+
+type WeightSet = { mode: string; updatedAt: string | null; weights: Record<string, number> };
+
+// Weights live in the local API's database. Tests that change them keep their own copy, so a
+// saved weight never leaks into another test.
+async function mockRankingWeights(page: Page) {
+  const sets: Record<string, WeightSet> = {
+    sale: {
+      mode: 'sale',
+      updatedAt: null,
+      weights: { price: 25, cost: 20, flood: 20, hoa: 15, ins: 10, size: 10 },
+    },
+    rent: { mode: 'rent', updatedAt: null, weights: { price: 40, flood: 25, lease: 20, size: 15 } },
+  };
+  await page.route('**/api/ranking-weights', async (route) => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as {
+        mode: string;
+        weights: WeightSet['weights'];
+      };
+      sets[body.mode] = { mode: body.mode, updatedAt: '2026-10-09T12:00:00.000Z', ...body };
+    }
+    await route.fulfill({ json: { weights: sets } });
+  });
+}
 
 const sale = (price: number, street: string): object => ({
   property: {
@@ -95,6 +124,146 @@ test('price sorting changes the query and shows full photo-free result cards', a
   await expect(page.getByText('3250 NE 2nd Ave')).toBeVisible();
   await expect(page.locator('.listing-facts').first()).toContainText('3 bd');
   await expect(page.locator('.listing-facts').first()).toContainText('1,850 sq ft');
+});
+
+test('score ranks stay attached to listings when the display sort changes', async ({ page }) => {
+  const high = sale(800000, 'High price home') as {
+    property: { floodZone?: string | null };
+  };
+  const low = sale(200000, 'Low price home') as {
+    property: { floodZone?: string | null };
+  };
+  high.property.floodZone = 'X';
+  low.property.floodZone = 'X';
+  await mockRankingWeights(page);
+  await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
+  // The API orders Newest and Price; "Your score" asks it for Newest and reorders by rank.
+  await page.route('**/api/listings?**', (route) =>
+    route.fulfill({
+      json: {
+        items:
+          new URL(route.request().url()).searchParams.get('sort') === 'price'
+            ? [low, high]
+            : [high, low],
+      },
+    }),
+  );
+
+  await page.goto('/?sort=score');
+  const cards = page.locator('.listing-card');
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0).locator('.listing-price')).toHaveText('$200,000');
+  await expect(cards.nth(0).locator('.ranking-summary strong')).toContainText('#1');
+  await expect(cards.nth(1).locator('.ranking-summary strong')).toContainText('#2');
+  // The top-ranked card is the one selected first.
+  await expect(cards.nth(0)).toHaveClass(/is-selected/);
+
+  // Newest puts the #2 home first without changing either label.
+  await page.getByLabel('Sort listings').selectOption('newest');
+  await expect(page).toHaveURL(/sort=newest/);
+  await expect(cards.nth(0).locator('.listing-price')).toHaveText('$800,000');
+  await expect(cards.nth(0).locator('.ranking-summary strong')).toContainText('#2');
+  await expect(cards.nth(1).locator('.ranking-summary strong')).toContainText('#1');
+
+  await page.getByLabel('Sort listings').selectOption('price');
+  await expect(page).toHaveURL(/sort=price/);
+  await expect(cards.nth(0).locator('.listing-price')).toHaveText('$200,000');
+  await expect(cards.nth(0).locator('.ranking-summary strong')).toContainText('#1');
+  await expect(cards.nth(1).locator('.ranking-summary strong')).toContainText('#2');
+});
+
+test('changing a ranking weight updates scores and rank order', async ({ page }) => {
+  const small = sale(200000, 'Smaller home') as {
+    property: { livingAreaSqft?: number; floodZone?: string | null };
+  };
+  const large = sale(800000, 'Larger home') as {
+    property: { livingAreaSqft?: number; floodZone?: string | null };
+  };
+  small.property.livingAreaSqft = 1000;
+  large.property.livingAreaSqft = 4000;
+  small.property.floodZone = 'X';
+  large.property.floodZone = 'X';
+  await mockRankingWeights(page);
+  await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
+  await page.route('**/api/listings?**', (route) =>
+    route.fulfill({ json: { items: [small, large] } }),
+  );
+
+  await page.goto('/');
+  const cards = page.locator('.listing-card');
+  await expect(cards.first().getByRole('link', { name: 'Smaller home' })).toBeVisible();
+  await page.goto('/settings');
+  const panel = page.getByRole('region', { name: 'Ranking weights' });
+  const live = panel.getByRole('listitem');
+  await expect(live.first()).toContainText('Smaller home');
+  for (const factor of ['price', 'own-vs-rent cost', 'flood', 'HOA', 'insurance'])
+    await panel.getByLabel(`${factor} weight`).fill('0');
+  await panel.getByLabel('living area weight').fill('100');
+  // The live ranking follows the edits before they are saved.
+  await expect(live.first()).toContainText('Larger home');
+  await panel.getByRole('button', { name: 'Save Buy weights' }).click();
+  await expect(panel.getByRole('status')).toHaveText('Saved');
+
+  await page.goto('/?sort=score');
+  await expect(cards.first().getByRole('link', { name: 'Larger home' })).toBeVisible();
+  await expect(cards.first().locator('.ranking-summary strong')).toContainText('#1');
+  const breakdown = cards.first().getByRole('list', { name: 'Score breakdown' });
+  await expect(breakdown.getByRole('listitem').filter({ hasText: 'living area' })).toContainText(
+    '100 pts · 100/100',
+  );
+  await expect(breakdown.getByRole('listitem').filter({ hasText: 'price' })).toContainText('0 pts');
+});
+
+test('sample listings show computed ranks and provisional reasons from local data only', async ({
+  page,
+}) => {
+  const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-ranking-'));
+  const databasePath = join(root, 'ledgerline.sqlite');
+  let api: Api | undefined;
+  try {
+    seedDatabase(databasePath);
+    api = await startApi(databasePath);
+    await routeApiTo(page, () => api!);
+    await page.goto('/?sort=price');
+    const card = (name: string) =>
+      page.locator('.listing-card').filter({ has: page.getByRole('link', { name }) });
+
+    // Acceptance 3.8 and 3.9: the reasons appear on the card, not only in the breakdown.
+    await expect(card('1460 NE 135th St').locator('.provisional-tag')).toHaveText(
+      'Provisional · 1 factor unknown: comparable rent',
+    );
+    const miami = card('3250 NE 2nd Ave, Unit 507');
+    await expect(miami.locator('.provisional-tag')).toContainText('check price per sq ft');
+    await miami.getByRole('button', { name: 'Select 3250 NE 2nd Ave on map' }).click();
+    await expect(
+      miami
+        .getByRole('list', { name: 'Score breakdown' })
+        .getByRole('listitem')
+        .filter({ hasText: 'living area' }),
+    ).toContainText('Unknown · scored 0');
+
+    // Rank labels follow score order, whatever the sort.
+    for (const sort of ['price', 'newest', 'score']) {
+      await page.getByLabel('Sort listings').selectOption(sort);
+      await expect(page).toHaveURL(new RegExp(`sort=${sort}`));
+      const ranked = (await page.locator('.ranking-summary strong').allTextContents())
+        .map((text) => /#(\d+) · score (\d+)/.exec(text)!)
+        .map((match) => ({ rank: Number(match[1]), score: Number(match[2]) }))
+        .sort((left, right) => left.rank - right.rank);
+      expect(ranked.map((item) => item.rank)).toEqual(ranked.map((_, index) => index + 1));
+      expect(ranked.map((item) => item.score)).toEqual(
+        ranked.map((item) => item.score).sort((left, right) => right - left),
+      );
+    }
+
+    // Ranking and sorting read local data only.
+    const database = await readDatabase(databasePath);
+    expect(database.rows('SELECT COUNT(*) AS n FROM provider_request_logs')).toEqual([{ n: 0 }]);
+    database.close();
+  } finally {
+    await api?.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('purchase cards show cost, certainty, comparable-rent gap, and risk labels in grayscale', async ({

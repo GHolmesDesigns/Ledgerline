@@ -54,6 +54,40 @@ function score(factors) {
   return Math.round(Object.keys(W).reduce((a, k) => a + (factors[k] == null ? 0 : W[k] * factors[k] / 100), 0));
 }
 
+// Buy factor scores (plan § Interface scope, item 4). Price, HOA, insurance, and living area
+// scale 0–100 across the sample homes' known values; null is Unknown.
+const salePrice = (p) => p.listings.find((l) => l.mode === 'sale').price;
+const FLOOD_SCORES = { X: 100, X500: 80, A: 40, AE: 40, AH: 40, AO: 40, V: 10, VE: 10 };
+const RELATIVE = { price: 'lower', hoa: 'lower', ins: 'lower', size: 'higher' };
+function factorInputs(p) {
+  const line = (names) => p.costLines.find((l) => names.includes(l.line));
+  const total = totalStatus(p.costLines) === 'incomplete' ? null : p.expected.monthlyTotal;
+  const rent = p.rent?.value ?? null;
+  return {
+    price: salePrice(p),
+    // 100 when owning costs no more than rent, down to 0 at twice the rent.
+    cost: total != null && rent ? Math.max(0, Math.min(100, 200 - 100 * total / rent)) : null,
+    flood: FLOOD_SCORES[p.floodZone] ?? null,
+    hoa: line(['hoa'])?.monthly ?? null,
+    ins: line(['homeowners', 'ho6'])?.monthly ?? null,
+    // Flagged implausible area is Unknown.
+    size: p.flags.some((f) => f.field === 'livingAreaSqft') ? null : (p.livingAreaSqft ?? null),
+  };
+}
+const allInputs = data.properties.map(factorInputs);
+function computedFactors(p) {
+  const inputs = factorInputs(p);
+  return Object.fromEntries(Object.keys(W).map((k) => {
+    const v = inputs[k];
+    if (v == null) return [k, null];
+    if (!RELATIVE[k]) return [k, Math.round(v)];
+    const known = allInputs.map((i) => i[k]).filter((x) => x != null);
+    const min = Math.min(...known), max = Math.max(...known);
+    const s = min === max ? 100 : RELATIVE[k] === 'lower' ? 100 * (max - v) / (max - min) : 100 * (v - min) / (max - min);
+    return [k, Math.round(s)];
+  }));
+}
+
 // Lines priced from a county's local rates.
 const COUNTY_RATE_LINES = ['propertyTax', 'homeowners', 'ho6', 'flood', 'nonAdValorem'];
 const INCOMPLETE_TRIGGERS = (p, line) => {
@@ -168,7 +202,11 @@ for (const p of data.properties) {
   const down = price * P.downPaymentPct / 100;
   if (p.expected.upfrontCash != null && p.expected.upfrontCash !== down) fail(`${tag} upfront ${p.expected.upfrontCash} ≠ ${down}`);
 
-  // Score and provisional status.
+  // Factor scores follow the plan's formulas; score and provisional status follow the factors.
+  const factors = computedFactors(p);
+  for (const k of Object.keys(W)) {
+    if (factors[k] !== p.factors[k]) fail(`${tag} ${k} factor ${p.factors[k]} ≠ ${factors[k]}`);
+  }
   const sc = score(p.factors);
   if (sc !== p.expected.score) fail(`${tag} score ${sc} ≠ ${p.expected.score}`);
   const prov = Object.values(p.factors).some((v) => v == null) || p.flags.length > 0;
@@ -179,7 +217,6 @@ for (const p of data.properties) {
 // Ranks follow score order, whatever the sort.
 const byScore = [...data.properties].sort((a, b) => score(b.factors) - score(a.factors));
 byScore.forEach((p, i) => { if (p.expected.rank !== i + 1) fail(`${p.id} rank ${p.expected.rank} ≠ ${i + 1}`); });
-const salePrice = (p) => p.listings.find((l) => l.mode === 'sale').price;
 const byPrice = [...data.properties].sort((a, b) => salePrice(a) - salePrice(b));
 const rankOf = Object.fromEntries(byScore.map((p, i) => [p.id, i + 1]));
 byPrice.forEach((p, i) => {
@@ -187,6 +224,19 @@ byPrice.forEach((p, i) => {
   if (id !== p.id || rankOf[p.id] !== r) fail(`price sort position ${i + 1}: expected ${id} #${r}, got ${p.id} #${rankOf[p.id]}`);
 });
 ok('ranks follow score order under score and price sorts');
+
+// A living-area flag appears exactly when price per sq ft is outside the county's range.
+for (const p of data.properties) {
+  const range = local[p.county];
+  if (range?.pricePerSqftMin == null) continue;
+  const ppsf = Math.round(salePrice(p) / p.livingAreaSqft);
+  const outside = ppsf < range.pricePerSqftMin || ppsf > range.pricePerSqftMax;
+  const flag = p.flags.find((f) => f.field === 'livingAreaSqft');
+  const want = `$${ppsf}/sq ft; this area runs about $${range.pricePerSqftMin}–$${range.pricePerSqftMax}${range.sample ? ' (sample)' : ''}.`;
+  if (outside !== Boolean(flag)) fail(`${p.id} at $${ppsf}/sq ft ${outside ? 'needs' : 'must not have'} a living-area flag`);
+  else if (flag && !flag.message.startsWith(want)) fail(`${p.id} flag "${flag.message}" doesn't start "${want}"`);
+}
+ok('price-per-sq-ft flags follow each county range');
 
 // Exercise the Incomplete wording for the two triggers not present in the
 // sample properties, plus the order and de-duplicated county reason.

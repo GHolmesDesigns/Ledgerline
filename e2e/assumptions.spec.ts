@@ -19,6 +19,8 @@ test('edits local rates and saves them with a source and date', async ({ page })
     await broward.getByLabel('Millage').fill('18.75');
     await broward.getByLabel('Source').fill('Broward tax collector');
     await broward.getByLabel('Date set').fill('2026-10-09');
+    await expect(broward.getByLabel('Millage')).toHaveValue('18.75');
+    await expect(broward.getByLabel('Source')).toHaveValue('Broward tax collector');
     await broward.getByRole('button', { name: 'Save local rates' }).click();
     await expect(broward.getByRole('status')).toContainText('Saved');
     await expect(broward.getByText('Broward tax collector · set 2026-10-09')).toBeVisible();

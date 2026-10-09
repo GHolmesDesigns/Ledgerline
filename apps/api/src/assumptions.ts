@@ -62,11 +62,12 @@ export function seedAssumptions(store: Store) {
     if (!current) {
       store.setLocalAssumption(assumption);
     } else if (
+      // A sample row the user never edited follows the fixture's sample range.
       current.sample &&
-      current.pricePerSqftMin == null &&
-      current.pricePerSqftMax == null &&
       assumption.pricePerSqftMin != null &&
-      assumption.pricePerSqftMax != null
+      assumption.pricePerSqftMax != null &&
+      (current.pricePerSqftMin !== assumption.pricePerSqftMin ||
+        current.pricePerSqftMax !== assumption.pricePerSqftMax)
     ) {
       store.setLocalAssumption({
         ...current,

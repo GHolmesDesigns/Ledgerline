@@ -1,7 +1,12 @@
 import initSqlJs from 'sql.js';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { createApp } from './app.js';
+import { seedAssumptions } from './assumptions.js';
+import { closeDatabase, openDatabase } from './database.js';
 import { createStore } from './store.js';
 
 describe('assumptions API', () => {
@@ -65,7 +70,7 @@ describe('assumptions API', () => {
       const palmBeach = data.local.find((entry) => entry.county === 'Palm Beach')!;
       assert.equal(broward.sample, true);
       assert.equal(broward.millage, 19.5);
-      assert.equal(data.local.find((entry) => entry.county === 'Miami-Dade')?.pricePerSqftMin, 450);
+      assert.equal(data.local.find((entry) => entry.county === 'Miami-Dade')?.pricePerSqftMin, 250);
       assert.equal(palmBeach.set, false);
       assert.equal(palmBeach.millage, null);
 
@@ -96,6 +101,41 @@ describe('assumptions API', () => {
         server.close((error) => (error ? reject(error) : resolve())),
       );
       database.close();
+    }
+  });
+
+  it('moves an unedited sample price-per-sq-ft range to the current sample range', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ledgerline-assumptions-'));
+    const database = await openDatabase(join(directory, 'ledgerline.sqlite'));
+    try {
+      const store = createStore(database);
+      seedAssumptions(store);
+      const county = (name: string) =>
+        store.listLocalAssumptions().find((item) => item.county === name)!;
+      // An earlier sample range, and a range the user set (edits clear the sample tag).
+      store.setLocalAssumption({
+        ...county('Miami-Dade'),
+        pricePerSqftMin: 450,
+        pricePerSqftMax: 650,
+      });
+      store.setLocalAssumption({
+        ...county('Broward'),
+        sample: false,
+        pricePerSqftMin: 300,
+        pricePerSqftMax: 500,
+      });
+      seedAssumptions(store);
+      assert.deepEqual(
+        [county('Miami-Dade').pricePerSqftMin, county('Miami-Dade').pricePerSqftMax],
+        [250, 750],
+      );
+      assert.deepEqual(
+        [county('Broward').pricePerSqftMin, county('Broward').pricePerSqftMax],
+        [300, 500],
+      );
+    } finally {
+      closeDatabase(database);
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 });

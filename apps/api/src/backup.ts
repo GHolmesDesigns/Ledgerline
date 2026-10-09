@@ -15,15 +15,16 @@ import type {
   PropertyValueOverride,
 } from './store.js';
 import { defaultPersonalAssumptions } from './assumptions.js';
+import { readRankingWeights, type RankingWeights } from './ranking-weights.js';
 
-// Personal-data backup (C14): notes, saves, dismissals, saved searches, and property
-// match decisions in one JSON file. Records are keyed by normalized address and unit,
+// Personal-data backup (C14): notes, saves, dismissals, saved searches, ranking weights, and
+// property match decisions in one JSON file. Records are keyed by normalized address and unit,
 // never by internal IDs, so a backup can be imported into a database that has never
 // seen these properties. Listings, snapshots, raw payloads, and provider credentials
 // are deliberately not part of a backup: refresh fetches listings again.
 
 export const BACKUP_FORMAT = 'ledgerline-personal-data';
-export const BACKUP_VERSION = 4;
+export const BACKUP_VERSION = 5;
 
 export interface AddressKey {
   street: string;
@@ -92,6 +93,8 @@ export interface Backup {
   properties: BackupProperty[];
   savedSearches: BackupSavedSearch[];
   localAssumptions: LocalAssumptions[];
+  /** Saved weights per mode; null where the mode still uses the defaults. */
+  rankingWeights: Record<ListingMode, RankingWeights | null>;
   matchDecisions: BackupMatchDecision[];
 }
 
@@ -244,8 +247,17 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
     ),
     savedSearches,
     localAssumptions: store.listLocalAssumptions(),
+    rankingWeights: {
+      sale: savedRankingWeights(store, 'sale'),
+      rent: savedRankingWeights(store, 'rent'),
+    },
     matchDecisions,
   };
+}
+
+function savedRankingWeights(store: Store, mode: ListingMode) {
+  const set = store.getRankingWeights(mode);
+  return set.updatedAt === null ? null : set.weights;
 }
 
 export type BackupMigration = (data: Record<string, unknown>) => Record<string, unknown>;
@@ -284,6 +296,7 @@ const migrationSteps: Record<number, BackupMigration> = {
         )
       : data.properties,
   }),
+  4: (data) => ({ ...data, rankingWeights: { sale: null, rent: null } }),
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -373,6 +386,7 @@ export interface ImportCounts {
   personalAssumptions: number;
   localAssumptions: number;
   costEntries: number;
+  rankingWeights: number;
 }
 
 export interface SkippedRecord {
@@ -382,7 +396,8 @@ export interface SkippedRecord {
     | 'savedSearches'
     | 'matchDecisions'
     | 'localAssumptions'
-    | 'costEntries';
+    | 'costEntries'
+    | 'rankingWeights';
   label: string;
   reason: string;
 }
@@ -406,6 +421,7 @@ const emptyCounts = (): ImportCounts => ({
   personalAssumptions: 0,
   localAssumptions: 0,
   costEntries: 0,
+  rankingWeights: 0,
 });
 
 const isText = (value: unknown): value is string =>
@@ -464,6 +480,11 @@ export function importBackup(
     if (data[section] !== undefined && !Array.isArray(data[section])) {
       throw new BackupError(`The backup's ${section} section is not a list. Nothing was changed.`);
     }
+  }
+  if (data.rankingWeights != null && !isRecord(data.rankingWeights)) {
+    throw new BackupError(
+      "The backup's rankingWeights section is unreadable. Nothing was changed.",
+    );
   }
 
   const added = emptyCounts();
@@ -788,6 +809,24 @@ export function importBackup(
         existingLocal.add(key);
         added.localAssumptions += 1;
       } else alreadyPresent.localAssumptions += 1;
+    }
+    // Weights the database has already saved are kept, like every other record.
+    const rankingWeights = (data.rankingWeights ?? {}) as Record<string, unknown>;
+    for (const mode of ['sale', 'rent'] as const) {
+      if (rankingWeights[mode] == null) continue;
+      const weights = readRankingWeights(mode, rankingWeights[mode]);
+      if (!weights) {
+        skipped.push({
+          section: 'rankingWeights',
+          label: `${mode === 'sale' ? 'Buy' : 'Rent'} ranking weights`,
+          reason: 'The weights are unreadable.',
+        });
+      } else if (store.getRankingWeights(mode).updatedAt !== null) {
+        alreadyPresent.rankingWeights += 1;
+      } else {
+        store.setRankingWeights(mode, weights);
+        added.rankingWeights += 1;
+      }
     }
     // Restore Buy/Rent pairs, but never break a pairing the database already has.
     searchItems.forEach((record, index) => {
