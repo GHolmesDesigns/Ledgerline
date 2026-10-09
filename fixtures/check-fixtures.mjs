@@ -66,6 +66,29 @@ const INCOMPLETE_TRIGGERS = (p, line) => {
   return false;
 };
 
+// Incomplete labels name each active trigger once, in the plan's order. Missing
+// county rates cover several lines but produce just one reason.
+function incompleteReasons(p) {
+  const byLine = Object.fromEntries(p.costLines.map((line) => [line.line, line]));
+  const reasons = [];
+  if (byLine.specialAssessment?.state === 'unknown' && /pending|approved/i.test(p.association?.specialAssessment || '')) {
+    reasons.push('special assessment amount unknown');
+  }
+  if (byLine.nonAdValorem?.state === 'unknown' && p.association?.knownCdd && byLine.nonAdValorem.monthly == null) {
+    reasons.push('CDD amount unknown');
+  }
+  if (byLine.hoa?.state === 'unknown' && ['condo', 'coop', 'townhome'].includes(p.type)) {
+    reasons.push('HOA fee unknown');
+  }
+  if (!p.inConfiguredMarket && p.costLines.some((line) => line.state === 'unknown' && COUNTY_RATE_LINES.includes(line.line))) {
+    reasons.push(`no ${p.county} rates`);
+  }
+  return reasons;
+}
+function incompleteLabel(p) {
+  return 'Incomplete · ' + incompleteReasons(p).join(', ');
+}
+
 for (const p of data.properties) {
   const sale = p.listings.find((l) => l.mode === 'sale');
   const price = sale.price;
@@ -121,6 +144,9 @@ for (const p of data.properties) {
   const st = totalStatus(p.costLines);
   if (p.type === 'single_family' && p.inConfiguredMarket && st === 'incomplete') fail(`${tag} single-family in configured county is Incomplete`);
   if (st !== p.expected.totalStatus) fail(`${tag} status ${st} ≠ expected ${p.expected.totalStatus}`);
+  if (st === 'incomplete' && p.expected.statusLabel !== incompleteLabel(p)) {
+    fail(`${tag} Incomplete label "${p.expected.statusLabel}" ≠ "${incompleteLabel(p)}"`);
+  }
 
   const known = p.costLines.reduce((a, l) => a + (l.monthly ?? 0), 0);
   if (st === 'incomplete') {
@@ -161,6 +187,39 @@ byPrice.forEach((p, i) => {
   if (id !== p.id || rankOf[p.id] !== r) fail(`price sort position ${i + 1}: expected ${id} #${r}, got ${p.id} #${rankOf[p.id]}`);
 });
 ok('ranks follow score order under score and price sorts');
+
+// Exercise the Incomplete wording for the two triggers not present in the
+// sample properties, plus the order and de-duplicated county reason.
+const boca = data.properties.find((p) => p.id === 'boc-618-ne-7th-st');
+const hollywood = data.properties.find((p) => p.id === 'hol-2801-n-ocean-dr-9b');
+const cddCase = {
+  ...boca,
+  inConfiguredMarket: true,
+  association: { ...boca.association, knownCdd: true },
+  costLines: boca.costLines.map((line) => line.line === 'nonAdValorem' ? { ...line, state: 'unknown', monthly: null } : line),
+};
+const hoaCase = {
+  ...boca,
+  inConfiguredMarket: true,
+  type: 'condo',
+  association: { status: 'condo', sameBuildingUnits: 0 },
+  costLines: boca.costLines.map((line) => line.line === 'hoa' ? { ...line, state: 'unknown', monthly: null } : line),
+};
+const combinedCase = {
+  ...cddCase,
+  association: { ...cddCase.association, specialAssessment: 'pending, amount unknown' },
+  costLines: cddCase.costLines.map((line) => line.line === 'specialAssessment' ? { ...line, state: 'unknown', monthly: null } : line),
+};
+for (const [name, property, want] of [
+  ['Boca county rates', boca, 'Incomplete · no Palm Beach rates'],
+  ['Hollywood assessment', hollywood, 'Incomplete · special assessment amount unknown'],
+  ['known CDD', cddCase, 'Incomplete · CDD amount unknown'],
+  ['missing HOA fee', hoaCase, 'Incomplete · HOA fee unknown'],
+  ['multiple triggers', combinedCase, 'Incomplete · special assessment amount unknown, CDD amount unknown'],
+]) {
+  if (incompleteLabel(property) !== want) fail(`${name} label "${incompleteLabel(property)}" ≠ "${want}"`);
+}
+ok('Incomplete labels name each trigger once in plan order');
 
 // "Lowest" goes only to the lowest non-incomplete total in the shortlist.
 const shortlist = data.compareShortlist.map((id) => data.properties.find((p) => p.id === id));
