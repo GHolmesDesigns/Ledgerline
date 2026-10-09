@@ -1,6 +1,6 @@
 # UI specification — Florida Home Dashboard
 
-*Oct 8, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.7, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
+*Oct 8, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.8, which wins any conflict. Every number below is in `fixtures/sample-data.json`.*
 
 Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Ranking & data**. Visual reference: `design/` (see `design/README.md` for which screens are current).
 
@@ -52,9 +52,11 @@ Always shows its source, using the first that applies:
 4. "Unavailable · [reason]" — never fill in a weak number.
 
 ### Scores and ranks
+- Default Buy weights: price 25, own-vs-rent cost 20, flood 20, HOA 15, insurance 10, size 10. Default Rent weights: price 40, flood 25, lease fit 20, size 15. Factor formulas and Unknown inputs follow plan § Interface scope, item 4.
 - **Rank labels (#1, #2…) always follow score order**, whatever sort is selected. Price sort on the sample data shows: $285k #4, $389k #7, $465k #2, $529k #3, $560k #5, $615k #6, $849k #1.
 - Unknown factors score as the worst value (0) and show "Unknown · scored 0" in the breakdown.
 - **Provisional** badge whenever a factor is unknown or the listing has an implausible-value flag, with the reason ("1 factor unknown: comparable rent", "check price per sq ft"). Use a dashed border plus the word, not color alone.
+- Fixture factor values are hand-set sample scores; Issue 35 calculates them from these formulas.
 
 ### Assumptions
 - **Personal:** down payment 20%, 6.50% 30-yr fixed, maintenance 1%/yr.
@@ -136,4 +138,5 @@ Line-by-line amounts and states are in the fixture file.
 1. **CDD line in a county without local rates:** "Unknown · no [county] rates" unless the tax bill has been checked (then Doc). Adds no new Incomplete trigger; the county trigger already applies. Setting the county's rates turns it into "Est. · CDD not checked".
 2. **Townhome insurance:** uses the county's house homeowners default.
 3. **Status chip wording:** always "+n" for Est. lines beyond the two named; Miramar reads "Estimate · needs insurance quote, assessments not checked +1".
-4. **Map and photos (Oct 8, plan 2.7):** Google Maps with a plain-map fallback when no key is set; photos are ones the user uploads; Street View is a link out to Google Maps, never an image shown in the app.
+4. **Ranking factors (Oct 8, plan 2.8):** Buy and Rent factors and weights are fixed as listed above; formulas and unknown behavior are in plan § Interface scope, item 4. Fixture scores remain hand-set until Issue 35.
+5. **Map and photos (Oct 8, plan 2.7):** Google Maps with a plain-map fallback when no key is set; photos are ones the user uploads; Street View is a link out to Google Maps, never an image shown in the app.
