@@ -65,6 +65,11 @@ test('navigation can be reached with the keyboard and has a visible focus style'
   page,
 }) => {
   await page.goto('/');
+  await page.evaluate(() => {
+    document.body.setAttribute('tabindex', '-1');
+    document.body.focus();
+    document.body.removeAttribute('tabindex');
+  });
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
   await page.keyboard.press('Tab');
