@@ -2759,10 +2759,15 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
     }
   };
 
+  // Only the newest request may update the page. An older response that lands late would
+  // otherwise reset the details form over what was typed after the newer one arrived.
+  const latestRefresh = useRef(0);
   const refresh = async () => {
+    const request = ++latestRefresh.current;
     try {
       const response = await fetch(`/api/properties/${propertyId}`);
       const result = (await response.json()) as PropertyDetailData & { error?: string };
+      if (request !== latestRefresh.current) return;
       if (!response.ok) throw new Error(result.error ?? 'Property details are unavailable.');
       setData(result);
       setRiskDraft(
@@ -2788,6 +2793,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       setRiskFloodZone(result.property.floodZone ?? '');
       setError('');
     } catch (reason) {
+      if (request !== latestRefresh.current) return;
       setError(reason instanceof Error ? reason.message : 'Property details are unavailable.');
     }
   };
