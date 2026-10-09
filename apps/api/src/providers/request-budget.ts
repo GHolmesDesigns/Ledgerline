@@ -111,6 +111,12 @@ export class RequestBudget {
     };
   }
 
+  daysUntilReset(): number {
+    const now = this.clock();
+    const { next } = billingPeriod(now, this.billingDay);
+    return Math.max(0, Math.ceil((next.getTime() - now.getTime()) / 86_400_000));
+  }
+
   /** Requests the next refresh of this search is expected to use: its last run, or 1. */
   projectedRefresh(searchId: number): number {
     return Math.max(1, this.store.lastRefreshRequestCount(searchId) ?? 1);

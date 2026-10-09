@@ -127,7 +127,53 @@ export function createApp(
     };
 
     if (request.url === '/api/request-budget' && request.method === 'GET') {
-      json(200, refreshJob.budget.status());
+      const budget = refreshJob.budget.status();
+      const searches = store.listSavedSearches();
+      const measuredSearches = searches.map((search) => ({
+        id: search.id,
+        name: search.name,
+        mode: search.mode,
+        location: search.location,
+        pairedSearchId: search.pairedSearchId,
+        requestsPerRefresh: store.lastRefreshRequestCount(search.id) ?? 1,
+        measured: store.lastRefreshRequestCount(search.id) !== null,
+      }));
+      const requestsPerRefreshAll = measuredSearches.reduce(
+        (total, search) => total + search.requestsPerRefresh,
+        0,
+      );
+      const requestLogs = store.listProviderRequestLogs();
+      const rentEstimatesUsed = requestLogs.filter(
+        (log) => log.purpose === 'rent-estimate' && log.requestedAt >= budget.periodStart,
+      ).length;
+      const latestRefresh = searches
+        .map((search) => search.lastSuccessfulRefreshAt)
+        .filter((at): at is string => at !== null)
+        .sort()
+        .at(-1);
+      const daysRemaining = refreshJob.budget.daysUntilReset();
+      const projections = Object.fromEntries(
+        (
+          [
+            ['weekly', Math.floor(daysRemaining / 7)],
+            ['daily', daysRemaining],
+          ] as const
+        ).map(([period, remainingRuns]) => {
+          const projected = budget.used + remainingRuns * requestsPerRefreshAll + 1;
+          return [period, { remainingRuns, projected, overCeiling: projected > budget.ceiling }];
+        }),
+      );
+      json(200, {
+        ...budget,
+        provider: refreshJob.provider.name,
+        tier: refreshJob.provider.name === 'mock' ? 'Local mock' : 'Developer',
+        lastSuccessfulRefreshAt: latestRefresh ?? null,
+        requestsPerRefreshAll,
+        rentEstimatesUsed,
+        searches: measuredSearches,
+        projections,
+        recommendedTier: refreshJob.provider.name === 'mock' ? null : 'Foundation · $74/mo',
+      });
       return;
     }
     if (request.url === '/api/request-budget' && request.method === 'PUT') {
