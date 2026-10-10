@@ -1543,11 +1543,175 @@ function AppearanceSettings({
   );
 }
 
-function PersonalTagsPlaceholder() {
+type ManagedTag = { id: string; name: string; propertyCount: number };
+
+function PersonalTagsSettings() {
+  const [standardTags, setStandardTags] = useState<Array<{ name: string; propertyCount: number }>>(
+    [],
+  );
+  const [customTags, setCustomTags] = useState<ManagedTag[]>([]);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const refresh = async () => {
+    const response = await fetch('/api/personal-tags');
+    const result = (await response.json()) as {
+      standardTagCounts?: Array<{ name: string; propertyCount: number }>;
+      customTagCounts?: ManagedTag[];
+    };
+    if (!response.ok) throw new Error('Personal tags are unavailable.');
+    setStandardTags(result.standardTagCounts ?? []);
+    const tags = result.customTagCounts ?? [];
+    setCustomTags(tags);
+    setNames(Object.fromEntries(tags.map((tag) => [tag.id, tag.name])));
+  };
+
+  useEffect(() => {
+    void refresh().catch((reason: unknown) =>
+      setError(reason instanceof Error ? reason.message : 'Personal tags are unavailable.'),
+    );
+  }, []);
+
+  const rename = async (tag: ManagedTag) => {
+    setBusyId(tag.id);
+    setError('');
+    setNotice('');
+    try {
+      const response = await fetch(`/api/personal-tags/${tag.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: names[tag.id] ?? tag.name }),
+      });
+      const result = (await response.json()) as { tag?: ManagedTag; error?: string };
+      if (!response.ok || !result.tag) throw new Error(result.error ?? 'Could not rename tag.');
+      await refresh();
+      setNotice(`Renamed to “${result.tag.name}”.`);
+      window.dispatchEvent(new CustomEvent('ledgerline:personal-tags-changed'));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not rename tag.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const remove = async (tag: ManagedTag) => {
+    setBusyId(tag.id);
+    setError('');
+    setNotice('');
+    try {
+      const response = await fetch(`/api/personal-tags/${tag.id}`, { method: 'DELETE' });
+      const result = (await response.json()) as {
+        deleted?: { propertyCount: number };
+        error?: string;
+      };
+      if (!response.ok || !result.deleted) throw new Error(result.error ?? 'Could not delete tag.');
+      setConfirmingId(null);
+      await refresh();
+      setNotice(
+        `Deleted “${tag.name}”. The tag was removed from ${result.deleted.propertyCount} ${result.deleted.propertyCount === 1 ? 'property' : 'properties'}.`,
+      );
+      window.dispatchEvent(new CustomEvent('ledgerline:personal-tags-changed'));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not delete tag.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
-    <section aria-labelledby="personal-tags-heading" className="settings-placeholder">
+    <section aria-labelledby="personal-tags-heading" className="personal-tag-management">
       <h2 id="personal-tags-heading">Personal tags</h2>
-      <p>Personal tags will be available here.</p>
+      <p>Tags describe properties and stay on this computer. Managing them uses local data only.</p>
+      {error && (
+        <p className="search-error" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && <p role="status">{notice}</p>}
+      <h3>Standard tags</h3>
+      <ul>
+        {standardTags.map((tag) => (
+          <li key={tag.name}>
+            {tag.name}{' '}
+            <span>
+              {tag.propertyCount} {tag.propertyCount === 1 ? 'property' : 'properties'}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <h3>Custom tags</h3>
+      {customTags.length === 0 ? (
+        <p>No custom tags yet.</p>
+      ) : (
+        <ul>
+          {customTags.map((tag) => (
+            <li className="managed-personal-tag" key={tag.id}>
+              <label>
+                <span className="sr-only">Rename {tag.name}</span>
+                <input
+                  maxLength={30}
+                  value={names[tag.id] ?? tag.name}
+                  onChange={(event) => {
+                    const name = event.currentTarget.value;
+                    setNames((current) => ({ ...current, [tag.id]: name }));
+                  }}
+                />
+              </label>
+              <span>
+                {tag.propertyCount} {tag.propertyCount === 1 ? 'property' : 'properties'}
+              </span>
+              <button
+                className="text-button"
+                disabled={busyId !== null || names[tag.id]?.trim() === tag.name}
+                onClick={() => void rename(tag)}
+                type="button"
+              >
+                Rename
+              </button>
+              {confirmingId === tag.id ? (
+                <span
+                  className="personal-tag-confirm"
+                  role="group"
+                  aria-label={`Confirm delete ${tag.name}`}
+                >
+                  <span>
+                    Delete “{tag.name}”? {tag.propertyCount}{' '}
+                    {tag.propertyCount === 1 ? 'property will' : 'properties will'} lose this tag.
+                    No property, listing, note, or photo will be deleted.
+                  </span>
+                  <button
+                    className="text-button"
+                    disabled={busyId !== null}
+                    onClick={() => void remove(tag)}
+                    type="button"
+                  >
+                    Confirm delete
+                  </button>
+                  <button
+                    className="text-button"
+                    onClick={() => setConfirmingId(null)}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  className="text-button"
+                  disabled={busyId !== null}
+                  onClick={() => setConfirmingId(tag.id)}
+                  type="button"
+                >
+                  Delete
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -1725,7 +1889,7 @@ const settingsSections = [
   { id: 'ranking-weights', title: 'Ranking weights', component: RankingPanel },
   { id: 'assumptions', title: 'Assumptions', component: AssumptionsSettingsSection },
   { id: 'saved-searches', title: 'Saved searches', component: SavedSearchPanel },
-  { id: 'personal-tags', title: 'Personal tags', component: PersonalTagsPlaceholder },
+  { id: 'personal-tags', title: 'Personal tags', component: PersonalTagsSettings },
   { id: 'rentcast-usage', title: 'RentCast usage', component: RequestBudgetPanel },
   { id: 'keys', title: 'Keys', component: ProviderCredentialsPanel },
   { id: 'property-match-review', title: 'Property match review', component: MatchReviewPanel },
@@ -2370,12 +2534,16 @@ type SearchFilters = {
   yearBuiltMin: string;
   yearBuiltMax: string;
   daysOnMarket: string;
+  selectedTags: string[];
   status: string;
   sort: 'score' | 'newest' | 'price';
   savedOnly: boolean;
   showDismissed: boolean;
 };
-type SearchTextFilter = Exclude<keyof SearchFilters, 'savedOnly' | 'showDismissed'>;
+type SearchTextFilter = Exclude<
+  keyof SearchFilters,
+  'savedOnly' | 'showDismissed' | 'selectedTags'
+>;
 
 type SavedSearch = {
   id: number;
@@ -2406,6 +2574,9 @@ const profileFromSearch = (search: SavedSearch): SearchFilters => ({
   yearBuiltMin: String(search.filters.yearBuiltMin ?? ''),
   yearBuiltMax: String(search.filters.yearBuiltMax ?? ''),
   daysOnMarket: String(search.filters.daysOnMarket ?? ''),
+  selectedTags: Array.isArray(search.filters.selectedTags)
+    ? search.filters.selectedTags.filter((tag): tag is string => typeof tag === 'string')
+    : [],
   status: String(search.filters.status ?? 'active'),
   sort:
     search.filters.sort === 'price' || search.filters.sort === 'score'
@@ -2418,7 +2589,11 @@ const profileFromSearch = (search: SavedSearch): SearchFilters => ({
 const searchUrl = (search: SavedSearch) => {
   const filters = profileFromSearch(search);
   const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) if (value) query.set(key, String(value));
+  for (const [key, value] of Object.entries(filters)) {
+    if (key === 'selectedTags' && Array.isArray(value))
+      value.forEach((tag) => query.append('tag', tag));
+    else if (value) query.set(key, String(value));
+  }
   return `/?${query.toString()}`;
 };
 
@@ -2785,6 +2960,7 @@ const emptyFilters = (mode: 'sale' | 'rent'): SearchFilters => ({
   yearBuiltMin: '',
   yearBuiltMax: '',
   daysOnMarket: '',
+  selectedTags: [],
   status: 'active',
   sort: 'newest',
   savedOnly: false,
@@ -2809,6 +2985,7 @@ function searchFromUrl(): SearchFilters {
     yearBuiltMin: params.get('yearBuiltMin') ?? '',
     yearBuiltMax: params.get('yearBuiltMax') ?? '',
     daysOnMarket: params.get('daysOnMarket') ?? '',
+    selectedTags: params.getAll('tag'),
     status: params.get('status') ?? 'active',
     sort:
       params.get('sort') === 'price' || params.get('sort') === 'score'
@@ -5220,6 +5397,7 @@ function SearchScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [boundaries, setBoundaries] = useState<CountyFeatureCollection | null>(null);
   const [boundaryError, setBoundaryError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -5241,6 +5419,29 @@ function SearchScreen() {
     void refreshSavedSearches();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void fetch('/api/personal-tags')
+        .then(async (response) => {
+          const result = (await response.json()) as {
+            standardTags?: string[];
+            customTags?: string[];
+          };
+          if (!response.ok) throw new Error();
+          if (!cancelled)
+            setAvailableTags([...(result.standardTags ?? []), ...(result.customTags ?? [])]);
+        })
+        .catch(() => undefined);
+    };
+    load();
+    window.addEventListener('ledgerline:personal-tags-changed', load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('ledgerline:personal-tags-changed', load);
+    };
+  }, []);
+
   const savedSearchPayload = (name: string) => ({
     name: name.trim(),
     mode: filters.mode,
@@ -5255,6 +5456,7 @@ function SearchScreen() {
       yearBuiltMin: filters.yearBuiltMin,
       yearBuiltMax: filters.yearBuiltMax,
       daysOnMarket: filters.daysOnMarket,
+      selectedTags: filters.selectedTags,
       status: filters.status,
       sort: filters.sort,
       savedOnly: filters.savedOnly,
@@ -5325,7 +5527,11 @@ function SearchScreen() {
       [filters.mode]: { min: filters.priceMin, max: filters.priceMax },
     }));
     const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(filters)) if (value) query.set(key, String(value));
+    for (const [key, value] of Object.entries(filters)) {
+      if (key === 'selectedTags' && Array.isArray(value))
+        value.forEach((tag) => query.append('tag', tag));
+      else if (value) query.set(key, String(value));
+    }
     const search = query.toString();
     if (window.location.search !== (search ? `?${search}` : '')) {
       window.history.replaceState(
@@ -5492,12 +5698,24 @@ function SearchScreen() {
       priceMin: ranges[mode].min,
       priceMax: ranges[mode].max,
     }));
-  const clear = (key: keyof SearchFilters) => {
+  const clear = (key: keyof SearchFilters | `tag:${string}`) => {
+    if (typeof key === 'string' && key.startsWith('tag:')) {
+      const tag = key.slice(4);
+      setFilters((current) => ({
+        ...current,
+        selectedTags: current.selectedTags.filter((item) => item !== tag),
+      }));
+      return;
+    }
     if (key === 'savedOnly' || key === 'showDismissed') {
       setFilters((current) => ({ ...current, [key]: false }));
       return;
     }
-    update(key, key === 'status' ? 'active' : key === 'sort' ? 'newest' : '');
+    if (key === 'selectedTags') {
+      setFilters((current) => ({ ...current, selectedTags: [] }));
+      return;
+    }
+    update(key as SearchTextFilter, key === 'status' ? 'active' : key === 'sort' ? 'newest' : '');
   };
   const formatPrice = (price: number | null, mode: string, period: string) => {
     if (price === null) return 'Price unavailable';
@@ -5528,10 +5746,11 @@ function SearchScreen() {
       ['yearBuiltMin', filters.yearBuiltMin ? `Built ≥ ${filters.yearBuiltMin}` : ''],
       ['yearBuiltMax', filters.yearBuiltMax ? `Built ≤ ${filters.yearBuiltMax}` : ''],
       ['daysOnMarket', filters.daysOnMarket ? `Listed within ${filters.daysOnMarket} days` : ''],
+      ...filters.selectedTags.map((tag) => [`tag:${tag}`, `My tag · ${tag}`] as const),
       ['status', filters.status !== 'active' ? filters.status : ''],
       ['savedOnly', filters.savedOnly ? 'Saved only' : ''],
       ['showDismissed', filters.showDismissed ? 'Show dismissed' : ''],
-    ] as Array<[keyof SearchFilters, string]>
+    ] as Array<[keyof SearchFilters | `tag:${string}`, string]>
   ).filter((chip) => chip[1]);
   const hiddenSummaryParts: Array<[number, string]> = [
     [hiddenCounts.lotSize ?? 0, 'lot size unknown'],
@@ -5854,6 +6073,38 @@ function SearchScreen() {
             </span>
           )}
         </label>
+        {availableTags.length > 0 && (
+          <fieldset className="personal-tag-filter">
+            <legend>Personal tags · all selected</legend>
+            <div className="personal-tag-filter-options">
+              {availableTags.map((tag) => (
+                <label key={tag}>
+                  <input
+                    checked={filters.selectedTags.some(
+                      (selected) =>
+                        selected.toLocaleLowerCase('en-US') === tag.toLocaleLowerCase('en-US'),
+                    )}
+                    onChange={(event) => {
+                      const checked = event.currentTarget.checked;
+                      setFilters((current) => ({
+                        ...current,
+                        selectedTags: checked
+                          ? [...current.selectedTags, tag]
+                          : current.selectedTags.filter(
+                              (selected) =>
+                                selected.toLocaleLowerCase('en-US') !==
+                                tag.toLocaleLowerCase('en-US'),
+                            ),
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  {tag}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
         <label className="filter-field">
           Status
           <select

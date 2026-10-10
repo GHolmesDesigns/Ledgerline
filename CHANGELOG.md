@@ -20,6 +20,8 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Add an all-selected personal tag filter to Search and manage tag usage in Settings. Standard tags show property counts; custom tags can be renamed across properties or deleted after confirming how many properties lose them. These actions and filtering use local data only (Issue 88 / C50).
+
 - Add property-level personal tags from a standard list or a shared custom-tag catalog; show and edit them on Search cards and Property pages, show them in Compare, and preserve them in format 7 personal-data backups (Issue 87 / C49).
 
 - Filter stored listings by minimum and maximum lot size, year built, and days since the listed date; show removable chips and missing-value counts, preserve the filters in URLs and saved searches, and validate ranges before searching (Issue 86 / C48).

@@ -38,6 +38,8 @@ describe('personal tags API', () => {
       assert.deepEqual(await initial.json(), {
         standardTags: standardPersonalTags,
         customTags: [],
+        standardTagCounts: standardPersonalTags.map((name) => ({ name, propertyCount: 0 })),
+        customTagCounts: [],
       });
 
       const created = await fetch(`${app.url}/api/personal-tags`, {
@@ -113,6 +115,88 @@ describe('personal tags API', () => {
         body: JSON.stringify({ name: 'ROOF DECK' }),
       });
       assert.match(((await duplicate.json()) as { error: string }).error, /already exists/);
+    } finally {
+      await new Promise<void>((resolve) => app.server.close(() => resolve()));
+    }
+  });
+
+  it('filters by every selected tag locally, renames without collisions, and deletes only the tag', async () => {
+    const app = await setup();
+    try {
+      const second = app.store.createProperty({
+        street: '2 Ocean Dr',
+        city: 'Miami',
+        zip: '33131',
+      });
+      const third = app.store.createProperty({ street: '3 Ocean Dr', city: 'Miami', zip: '33131' });
+      const custom = app.store.createCustomTag('Rooftop deck');
+      for (const property of [app.property, second]) {
+        app.store.setPropertyTag(property.id, 'Pool', true);
+        app.store.setPropertyTag(property.id, custom.name, true);
+      }
+      app.store.setPropertyTag(third.id, 'Pool', true);
+      app.store.addNote(app.property.id, 'Keep this note');
+      app.store.upsertListing(app.property.id, {
+        provider: 'mock',
+        providerId: 'one',
+        mode: 'sale',
+        price: 400000,
+        pricePeriod: 'total',
+        status: 'active',
+      });
+      app.store.upsertListing(second.id, {
+        provider: 'mock',
+        providerId: 'two',
+        mode: 'sale',
+        price: 450000,
+        pricePeriod: 'total',
+        status: 'active',
+      });
+      const beforeRequests = app.store.listProviderRequestLogs().length;
+      const search = await fetch(`${app.url}/api/listings?mode=sale&tag=Pool&tag=Rooftop%20deck`);
+      assert.equal(search.status, 200);
+      const result = (await search.json()) as { items: Array<{ property: { id: string } }> };
+      assert.deepEqual(
+        result.items.map((item) => item.property.id).sort(),
+        [app.property.id, second.id].sort(),
+      );
+      assert.equal(app.store.listProviderRequestLogs().length, beforeRequests);
+
+      const renamed = await fetch(`${app.url}/api/personal-tags/${custom.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Roof garden' }),
+      });
+      assert.equal(renamed.status, 200);
+      assert.equal(((await renamed.json()) as { tag: { name: string } }).tag.name, 'Roof garden');
+      assert.deepEqual(
+        app.store.listPropertyTags(second.id).map((tag) => tag.name),
+        ['Pool', 'Roof garden'],
+      );
+
+      const collision = await fetch(`${app.url}/api/personal-tags/${custom.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'pool' }),
+      });
+      assert.equal(collision.status, 400);
+      assert.match(((await collision.json()) as { error: string }).error, /already exists/);
+
+      const removed = await fetch(`${app.url}/api/personal-tags/${custom.id}`, {
+        method: 'DELETE',
+      });
+      assert.deepEqual(await removed.json(), { deleted: { id: custom.id, propertyCount: 2 } });
+      assert.deepEqual(
+        app.store.listPropertyTags(app.property.id).map((tag) => tag.name),
+        ['Pool'],
+      );
+      assert.equal(app.store.getProperty(app.property.id)?.id, app.property.id);
+      assert.deepEqual(
+        app.store.listNotes(app.property.id).map((note) => note.body),
+        ['Keep this note'],
+      );
+      assert.equal(app.store.listListings(app.property.id).length, 1);
+      assert.deepEqual(app.store.listCustomTags(), []);
     } finally {
       await new Promise<void>((resolve) => app.server.close(() => resolve()));
     }
