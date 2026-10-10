@@ -236,6 +236,7 @@ describe('personal-data backup', () => {
       personalAssumptions: 0,
       localAssumptions: 0,
       costEntries: 0,
+      photos: 0,
       rankingWeights: 0,
     });
     assert.equal(second.alreadyPresent.notes, 3);

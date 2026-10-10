@@ -76,6 +76,15 @@ export interface Property extends Required<PropertyInput> {
   updatedAt: string;
 }
 
+export interface PropertyPhoto {
+  id: string;
+  propertyId: string;
+  path: string;
+  source: string;
+  dateAdded: string;
+  order: number;
+}
+
 export interface ListingInput {
   provider: string;
   providerId: string;
@@ -1109,6 +1118,74 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         createdAt: String(row.created_at),
         updatedAt: String(row.updated_at),
       }));
+    },
+
+    addPropertyPhoto(
+      propertyId: string,
+      input: Omit<PropertyPhoto, 'id' | 'propertyId' | 'order'> & { order?: number },
+    ) {
+      return transaction(() => {
+        requireProperty(propertyId);
+        const order =
+          input.order ??
+          Number(
+            one(
+              'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next FROM property_photos WHERE property_id = ?',
+              [propertyId],
+            )?.next ?? 0,
+          );
+        const id = `photo_${randomUUID()}`;
+        run(
+          'INSERT INTO property_photos (id, property_id, path, source, date_added, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+          [id, propertyId, input.path, input.source, input.dateAdded, order],
+        );
+        return {
+          id,
+          propertyId,
+          path: input.path,
+          source: input.source,
+          dateAdded: input.dateAdded,
+          order,
+        } satisfies PropertyPhoto;
+      });
+    },
+
+    listPropertyPhotos(propertyId: string): PropertyPhoto[] {
+      return all(
+        'SELECT id, property_id, path, source, date_added, sort_order FROM property_photos WHERE property_id = ? ORDER BY sort_order, id',
+        [propertyId],
+      ).map((row) => ({
+        id: String(row.id),
+        propertyId: String(row.property_id),
+        path: String(row.path),
+        source: String(row.source),
+        dateAdded: String(row.date_added),
+        order: Number(row.sort_order),
+      }));
+    },
+
+    getPropertyPhoto(photoId: string): PropertyPhoto | null {
+      const row = one(
+        'SELECT id, property_id, path, source, date_added, sort_order FROM property_photos WHERE id = ?',
+        [photoId],
+      );
+      return row
+        ? {
+            id: String(row.id),
+            propertyId: String(row.property_id),
+            path: String(row.path),
+            source: String(row.source),
+            dateAdded: String(row.date_added),
+            order: Number(row.sort_order),
+          }
+        : null;
+    },
+
+    deletePropertyPhoto(photoId: string) {
+      const row = one('SELECT property_id FROM property_photos WHERE id = ?', [photoId]);
+      if (!row) return null;
+      transaction(() => run('DELETE FROM property_photos WHERE id = ?', [photoId]));
+      return String(row.property_id);
     },
 
     addCostEntry(propertyId: string, input: PropertyCostEntryInput): PropertyCostEntry {

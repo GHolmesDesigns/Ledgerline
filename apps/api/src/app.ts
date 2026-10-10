@@ -26,6 +26,13 @@ import { findComparableRent } from './comparable-rent.js';
 import { createFemaNfhlLookup, type FloodZoneLookup } from './fema-nfhl.js';
 import { findImplausibleFlags } from './implausible.js';
 import { readRankingWeights } from './ranking-weights.js';
+import {
+  deletePropertyPhotoFile,
+  photoMimeType,
+  propertyPhotoExists,
+  readPropertyPhoto,
+  savePropertyPhoto,
+} from './property-photos.js';
 
 function costEstimateFor(
   store: Store,
@@ -132,6 +139,12 @@ export function createApp(
       response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
       response.end(JSON.stringify(body));
     };
+    const photosFor = (propertyId: string) =>
+      store.listPropertyPhotos(propertyId).map((photo) => ({
+        ...photo,
+        missing: !propertyPhotoExists(photo.path),
+        url: `/api/photos/${photo.id}`,
+      }));
     const readBody = async (): Promise<Record<string, unknown>> => {
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -149,6 +162,78 @@ export function createApp(
         databaseReady = false;
       }
       json(databaseReady ? 200 : 503, { status: databaseReady ? 'ok' : 'unavailable' });
+      return;
+    }
+
+    const photoFileAction = request.url?.match(/^\/api\/photos\/(photo_[A-Za-z0-9_-]+)$/);
+    if (photoFileAction && request.method === 'GET') {
+      const photo = store.getPropertyPhoto(photoFileAction[1]);
+      const bytes = photo ? readPropertyPhoto(photo.path) : null;
+      if (!photo || !bytes) {
+        json(404, { error: 'Photo file is missing.' });
+        return;
+      }
+      response.writeHead(200, {
+        'content-type': photoMimeType(photo.path),
+        'content-length': bytes.length,
+        'cache-control': 'private, max-age=3600',
+        'x-content-type-options': 'nosniff',
+      });
+      response.end(bytes);
+      return;
+    }
+
+    const propertyPhotoAction = request.url?.match(
+      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)\/photos(?:\/(photo_[A-Za-z0-9_-]+))?$/,
+    );
+    if (propertyPhotoAction && request.method === 'POST' && !propertyPhotoAction[2]) {
+      const propertyId = propertyPhotoAction[1];
+      if (!store.getProperty(propertyId)) {
+        json(404, { error: 'Property not found.' });
+        return;
+      }
+      try {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        let oversized = false;
+        for await (const chunk of request) {
+          const bytes = Buffer.from(chunk);
+          size += bytes.length;
+          if (size <= 10 * 1024 * 1024) chunks.push(bytes);
+          else oversized = true;
+        }
+        if (oversized) throw new Error('Image is too large. Choose a file no larger than 10 MB.');
+        const contentType = String(request.headers['content-type'] ?? '')
+          .split(';')[0]
+          .trim()
+          .toLowerCase();
+        const bytes = Buffer.concat(chunks);
+        const saved = savePropertyPhoto(bytes, contentType);
+        const source = String(request.headers['x-photo-source'] ?? 'Uploaded by me').trim();
+        if (!source || source.length > 200) {
+          deletePropertyPhotoFile(saved.filename);
+          throw new Error('Photo source must be 1 to 200 characters.');
+        }
+        const photo = store.addPropertyPhoto(propertyId, {
+          path: saved.filename,
+          source,
+          dateAdded: new Date().toISOString(),
+        });
+        json(201, { photo: { ...photo, missing: false, url: `/api/photos/${photo.id}` } });
+      } catch (error) {
+        json(400, { error: error instanceof Error ? error.message : 'Unable to save this photo.' });
+      }
+      return;
+    }
+    if (propertyPhotoAction && request.method === 'DELETE' && propertyPhotoAction[2]) {
+      const photo = store.getPropertyPhoto(propertyPhotoAction[2]);
+      if (!photo || photo.propertyId !== propertyPhotoAction[1]) {
+        json(404, { error: 'Photo not found.' });
+        return;
+      }
+      store.deletePropertyPhoto(photo.id);
+      deletePropertyPhotoFile(photo.path);
+      json(200, { deleted: true });
       return;
     }
 
@@ -805,6 +890,7 @@ export function createApp(
       });
       json(200, {
         property,
+        photos: photosFor(propertyId),
         listings: listings.map((listing) => ({
           ...listing,
           localSnapshots: store.listSnapshots(listing.id),
@@ -1093,6 +1179,7 @@ export function createApp(
         const items = store.transaction(() =>
           store.searchListings(criteria).map((item) => ({
             ...item,
+            property: { ...item.property, photos: photosFor(item.property.id) },
             // Detected for display and scoring only; property detail stores them.
             listing: {
               ...item.listing,

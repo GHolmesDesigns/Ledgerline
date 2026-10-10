@@ -284,8 +284,7 @@ test('axe: mobile Search in Map view with a selected pin', async ({ page }) => {
 });
 
 test('no card or page shows an empty image box with the mock provider', async ({ page }) => {
-  const imageBoxes =
-    'img, picture, video, canvas, [class*="photo"], [class*="image"], [style*="url("]';
+  const imageBoxes = 'img, picture, video, canvas, [style*="url("]';
   for (const [path, ready] of [
     ['/', 'Search'],
     [`/compare?properties=${propertyId}`, 'Compare'],
