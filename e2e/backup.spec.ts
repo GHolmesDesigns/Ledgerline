@@ -61,7 +61,11 @@ test('export, delete the data folder, restart, and import restores personal data
     await routeApiTo(page, () => api!);
     await page.goto('/settings');
     const ranking = page.getByRole('region', { name: 'Ranking weights' });
-    await ranking.getByLabel('price weight').fill('37');
+    const priceWeight = ranking.getByRole('slider', { name: 'price weight' });
+    await priceWeight.focus();
+    await priceWeight.press('Home');
+    for (let value = 0; value < 37; value += 1) await priceWeight.press('ArrowRight');
+    await expect(priceWeight.locator('..').locator('.ranking-weight-value')).toHaveText('37');
     await ranking.getByRole('button', { name: 'Save Buy weights' }).click();
     await expect(ranking.getByRole('status')).toHaveText('Saved');
     const backup = page.getByRole('region', { name: 'Backup and restore' });
