@@ -79,22 +79,25 @@ test('keyed property page loads one map and pin, with Street View above it', asy
     return Boolean(link.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING);
   });
   expect(order).toBe(true);
-  const mapCalls = await page.evaluate(() => {
-    const calls = (
-      window as unknown as {
-        __propertyMaps: {
-          maps: Array<{ options: { center: { lat: number; lng: number } } }>;
-          markers: Array<{ position: { lat: number; lng: number } }>;
+  const expectedPosition = { lat: location.latitude, lng: location.longitude };
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const calls = (
+          window as unknown as {
+            __propertyMaps?: {
+              maps: Array<{ options: { center: { lat: number; lng: number } } }>;
+              markers: Array<{ position: { lat: number; lng: number } }>;
+            };
+          }
+        ).__propertyMaps;
+        return {
+          centers: calls?.maps.map(({ options }) => options.center) ?? [],
+          pins: calls?.markers.map(({ position }) => position) ?? [],
         };
-      }
-    ).__propertyMaps;
-    return {
-      centers: calls.maps.map(({ options }) => options.center),
-      pins: calls.markers.map(({ position }) => position),
-    };
-  });
-  expect(mapCalls.centers).toEqual([{ lat: location.latitude, lng: location.longitude }]);
-  expect(mapCalls.pins).toEqual([{ lat: location.latitude, lng: location.longitude }]);
+      }),
+    )
+    .toEqual({ centers: [expectedPosition], pins: [expectedPosition] });
   expect(mapsScripts).toBe(1);
   expect(providerRequests).toEqual([]);
   await expect(page.locator('img[src*="streetview"], iframe[src*="streetview"]')).toHaveCount(0);

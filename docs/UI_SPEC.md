@@ -54,7 +54,7 @@ Always shows its source, using the first that applies:
 
 1. "same home · listed [date]"
 2. "[n] local comps · median · within [distance]" (comps viewable)
-3. "RentCast estimate · range $low–$high · [date]" (on request only, 1 request)
+3. "[Provider] estimate · range $low–$high · [date]" (on request only; a local mock estimate is labeled Mock and uses no provider request)
 4. "Unavailable · [reason]" — never fill in a weak number.
 
 ### Scores and ranks
@@ -83,7 +83,7 @@ Light, Dark, or System (default), set in Settings → Appearance. Both themes ke
 
 ### Header
 
-"RentCast · Developer · 23 / 45 requests · 50 included" with a usage bar, "29 days left · resets Nov 7", last refresh time, and "browsing uses no requests". These match the RentCast dashboard: Settings holds the billing day and any outside requests (for example the Milestone 0 pull), shows how many counted requests were errors that RentCast does not bill, and shows any unexplained difference from the dashboard's "used" figure. Refresh button: "Refresh this search · ~2 requests (measured)".
+"RentCast · Developer · 23 / 45 requests · 50 included" with a usage bar, "29 days left · resets Nov 7", last refresh time, and "browsing uses no requests". For the live RentCast provider, these match its dashboard: Settings holds the billing day and any outside requests (for example the Milestone 0 pull), shows how many counted requests were errors that RentCast does not bill, and shows any unexplained difference from the dashboard's "used" figure. Local mock calls are excluded from the external-provider count. Refresh button: "Refresh this search · ~2 requests (measured)".
 
 ### Sample-data note
 
@@ -147,7 +147,7 @@ Line-by-line amounts and states are in the fixture file.
   - Maintenance $708 Calc
   - Total $7,171 · "Estimate · needs flood quote"; gap "≈ +$1,971"; upfront cash $169,800
 - **Verification checklist:** Tax bill checked ✓ · HOA confirmed none ✓ · Homeowners quote ✓ · Flood quote ☐ (the remaining item behind "Estimate"), with an "Enter flood quote" action.
-- Rent panel: primary "same home · listed Sep 28"; expandable "Local comps (4)" table (address, beds, sq ft, distance, rent, last seen; median $5,225); button "Get RentCast rent estimate · 1 request · 22 left this month".
+- Rent panel: primary "same home · listed Sep 28"; expandable "Local comps (4)" table (address, beds, sq ft, distance, rent, last seen; median $5,225); button names the active provider, and for the local mock says no external request is used.
 - Insurance card: roof 2020, built 1964, impact windows.
 - Insurance card records roof year, wind-mitigation features, and the source and date; its configurable carrier-review age limit shows "may limit carriers" when the roof is older. Flood zone, source, and date are editable on property detail.
 - Condo & association card records milestone inspection, Miami-Dade or Broward recertification, reserve-study status, special-assessment status and amount/payment type, rental and approval restrictions, and source/date. It is omitted for single-family properties.
@@ -157,18 +157,18 @@ Line-by-line amounts and states are in the fixture file.
 
 ### Settings (`/settings`)
 
-- Sections, in order: Appearance, Ranking weights, Assumptions (personal and local rates plus comparable-rent rules), Saved searches, Personal tags, RentCast usage, Keys, Property match review, Backup and restore, About.
+- Sections, in order: Appearance, Ranking weights, Assumptions (personal and local rates plus comparable-rent rules), Saved searches, Personal tags, Provider usage, Keys, Property match review, Backup and restore, About.
 - Every section is linked from the Settings section list and has a stable hash anchor. Search, Compare, and Property links open the relevant Settings section. Each section can be reordered by dragging its handle, with the keyboard (Enter/Space to pick up or drop, arrows to move, Escape to cancel), or on a phone with Move up/Move down buttons. The order is a local display preference, persists across reloads, and Reset order restores the listed default. New sections are merged at their default position. The order is not part of personal-data backups.
 - Appearance offers Light, Dark, and System (default). The choice applies immediately, follows OS color-scheme changes in System mode, and persists in local display preferences; it is excluded from personal-data backups.
 - Property pages and Search cards show property-owned tags as "My tag" chips, with a picker for standard tags and custom tags. Compare has a "My tags" row. Custom tag rename, delete, and Search filtering are handled by C50.
 - **Personal tags** section: standard and custom tags with the number of properties using each; rename and delete custom tags (delete asks first and says how many properties lose it); standard tags cannot be deleted.
-- **RentCast usage** section: billing day, plan's included requests, ceiling, outside requests, the dashboard's "used" figure with its date, the app's own count, errors RentCast does not bill, and any unexplained difference. Search, Compare, and Property link to the matching section instead of editing settings in place.
+- **Provider usage** section: billing day, plan's included requests, ceiling, outside requests, the dashboard's "used" figure with its date, the app's real-provider count, provider errors not billed, and any unexplained difference. Local mock calls do not use the external-provider ceiling. Search, Compare, and Property link to the matching section instead of editing settings in place.
 - **Saved searches** list: name, mode, location, refresh interval, last refresh result, an editable name (required, trimmed; saved with "Save changes"; the row also shows mode and location because names need not be unique), and a Delete button on each row with a confirmation. Deleting removes only the search and its schedule, never properties, listings, notes, saves, or photos.
 - **Ranking weights** are sliders (value shown as text, arrow keys adjust), with live ranking of all 7 listings in score order, provisional badges and short reasons.
 - **Personal assumptions** panel: down payment, rate, term, maintenance.
 - **Local assumptions** table, one row per county: Miami-Dade, Broward, and Palm Beach ("Not set · Set local rates"). Columns: millage; typical non-ad valorem $/yr; homeowners default (house); HO-6 default (condo); flood default X / AE / VE; source and date. Every value tagged "sample".
 - **Comparable-rent rules** (editable): same property type; same bedrooms; living area ±20%; radius 1 mi; seen within 30 days; minimum 3 comps. Note: "Dense Miami areas may need a smaller radius."
-- **Data source & request budget:** saved searches as Buy/Rent pairs per area with measured requests per refresh (Broward 1+1, Miami 33131–33137 2+1); flagged Buy-only area "North Miami 33161 · No Rent search · local comps unavailable · Add Rent search"; "Rent estimates: +1 request each · 1 used this month"; weekly vs. daily projections against the 45 ceiling (weekly ≈ 42, daily ≈ 168 → over, needs Foundation $74/mo); over-ceiling warning. Show the provider's radius capability before a radius refresh.
+- **Data source & request budget:** saved searches as Buy/Rent pairs per area with measured requests per refresh (Broward 1+1, Miami 33131–33137 2+1); flagged Buy-only area "North Miami 33161 · No Rent search · local comps unavailable · Add Rent search"; external-provider rent estimates use +1 request each, while local mock estimates use no external requests; weekly vs. daily projections against the 45 ceiling (weekly ≈ 42, daily ≈ 168 → over, needs Foundation $74/mo); over-ceiling warning. Show the provider's radius capability before a radius refresh.
 - **Property match review:** "1500 Bay Rd, Unit 1204" (new rent listing) vs. "1500 Bay Rd (no unit)" (existing property with 1 note): Link / Keep separate / Undo.
 - **Saved-search refresh:** each profile shows its last successful refresh, "Stale" after its configured interval, or a failed refresh with the attempt time and error. "Refresh now" runs one profile; "Refresh due searches" runs every profile whose interval has elapsed.
 - Nearby-coordinate matching can be enabled by setting `MATCH_REVIEW_DISTANCE_METERS`; without a threshold, address-based ambiguity rules still apply.

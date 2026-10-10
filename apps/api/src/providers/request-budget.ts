@@ -86,8 +86,8 @@ function validDate(value: unknown, name: string): string {
 }
 
 /**
- * The monthly ceiling on provider requests. Every code path that can reach a provider
- * asks this first, so the rule holds for the UI, the scheduler, and direct API calls.
+ * The monthly ceiling on external-provider requests. Every code path that can call an
+ * external provider asks this first, so the rule holds for the UI, scheduler, and API calls.
  */
 export class RequestBudget {
   constructor(
@@ -191,8 +191,8 @@ export class RequestBudget {
           entry.requestDate < next.toISOString().slice(0, 10),
       )
       .reduce((sum, entry) => sum + entry.count, 0);
-    // Failed calls are counted in the app ledger, but RentCast does not bill them.
-    // Started calls remain counted until their result is known.
+    // Failed real-provider calls stay in the app ledger, but the provider does not bill them.
+    // Started real-provider calls remain counted until their result is known.
     const used = appCount - errorCount + outsideCount;
     const dashboardUsedValue = this.store.getSetting(DASHBOARD_USED_KEY);
     const dashboardReadDateValue = this.store.getSetting(DASHBOARD_READ_DATE_KEY);

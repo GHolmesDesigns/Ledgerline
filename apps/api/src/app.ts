@@ -674,7 +674,10 @@ export function createApp(
       );
       const requestLogs = store.listProviderRequestLogs();
       const rentEstimatesUsed = requestLogs.filter(
-        (log) => log.purpose === 'rent-estimate' && log.requestedAt >= budget.periodStart,
+        (log) =>
+          log.provider !== 'mock' &&
+          log.purpose === 'rent-estimate' &&
+          log.requestedAt >= budget.periodStart,
       ).length;
       const latestRefresh = searches
         .map((search) => search.lastSuccessfulRefreshAt)
@@ -682,6 +685,7 @@ export function createApp(
         .sort()
         .at(-1);
       const daysRemaining = refreshJob.budget.daysUntilReset();
+      const hasExternalProvider = refreshJob.provider.name !== 'mock';
       const projections = Object.fromEntries(
         (
           [
@@ -689,7 +693,9 @@ export function createApp(
             ['daily', daysRemaining],
           ] as const
         ).map(([period, remainingRuns]) => {
-          const projected = budget.used + remainingRuns * requestsPerRefreshAll + 1;
+          const projected = hasExternalProvider
+            ? budget.used + remainingRuns * requestsPerRefreshAll + 1
+            : budget.used;
           return [period, { remainingRuns, projected, overCeiling: projected > budget.ceiling }];
         }),
       );
