@@ -2522,7 +2522,13 @@ function PropertyRankingBreakdowns({ data }: { data: PropertyDetailData }) {
 
 type SearchFilters = {
   mode: 'sale' | 'rent';
+  locationMode: 'city' | 'zip' | 'radius';
   location: string;
+  radiusCenterType: 'address' | 'coordinates';
+  centerAddress: string;
+  centerLat: string;
+  centerLng: string;
+  radiusMi: string;
   priceMin: string;
   priceMax: string;
   beds: string;
@@ -2562,7 +2568,16 @@ type SavedSearch = {
 
 const profileFromSearch = (search: SavedSearch): SearchFilters => ({
   ...emptyFilters(search.mode),
-  location: search.location,
+  locationMode:
+    search.filters.locationMode === 'zip' || search.filters.locationMode === 'radius'
+      ? search.filters.locationMode
+      : 'city',
+  location: search.filters.locationMode === 'radius' ? '' : search.location,
+  radiusCenterType: search.filters.radiusCenterType === 'coordinates' ? 'coordinates' : 'address',
+  centerAddress: String(search.filters.centerAddress ?? ''),
+  centerLat: String(search.filters.centerLat ?? ''),
+  centerLng: String(search.filters.centerLng ?? ''),
+  radiusMi: String(search.filters.radiusMi ?? ''),
   priceMin: search.priceMin?.toString() ?? '',
   priceMax: search.priceMax?.toString() ?? '',
   beds: String(search.filters.beds ?? ''),
@@ -2948,7 +2963,13 @@ function SavedSearchPanel() {
 
 const emptyFilters = (mode: 'sale' | 'rent'): SearchFilters => ({
   mode,
+  locationMode: 'city',
   location: '',
+  radiusCenterType: 'address',
+  centerAddress: '',
+  centerLat: '',
+  centerLng: '',
+  radiusMi: '',
   priceMin: '',
   priceMax: '',
   beds: '',
@@ -2973,7 +2994,16 @@ function searchFromUrl(): SearchFilters {
   const mode = params.get('mode') === 'rent' ? 'rent' : 'sale';
   return {
     ...emptyFilters(mode),
+    locationMode:
+      params.get('locationMode') === 'zip' || params.get('locationMode') === 'radius'
+        ? (params.get('locationMode') as SearchFilters['locationMode'])
+        : 'city',
     location: params.get('location') ?? '',
+    radiusCenterType: params.get('radiusCenterType') === 'coordinates' ? 'coordinates' : 'address',
+    centerAddress: params.get('centerAddress') ?? '',
+    centerLat: params.get('centerLat') ?? '',
+    centerLng: params.get('centerLng') ?? '',
+    radiusMi: params.get('radiusMi') ?? '',
     priceMin: params.get('priceMin') ?? '',
     priceMax: params.get('priceMax') ?? '',
     beds: params.get('beds') ?? '',
@@ -2998,6 +3028,26 @@ function searchFromUrl(): SearchFilters {
 
 function searchFilterErrors(filters: SearchFilters): Record<string, string> {
   const errors: Record<string, string> = {};
+  if (filters.locationMode === 'zip' && !/^\d{5}$/.test(filters.location))
+    errors.location = 'Enter a five-digit ZIP code.';
+  if (filters.locationMode === 'radius') {
+    const radius = Number(filters.radiusMi);
+    if (!filters.radiusMi || !Number.isFinite(radius) || radius < 0.1 || radius > 25)
+      errors.radiusMi = 'Radius must be from 0.1 to 25.0 miles.';
+    if (filters.radiusCenterType === 'address') {
+      if (!filters.centerAddress.trim()) errors.centerAddress = 'Enter a stored street address.';
+      else if (!filters.centerLat || !filters.centerLng)
+        errors.centerAddress = 'Address not resolved. Enter latitude and longitude instead.';
+    }
+    if (filters.radiusCenterType === 'coordinates' || (filters.centerLat && filters.centerLng)) {
+      const latitude = Number(filters.centerLat);
+      const longitude = Number(filters.centerLng);
+      if (!filters.centerLat || !Number.isFinite(latitude) || latitude < -90 || latitude > 90)
+        errors.centerLat = 'Latitude must be between -90 and 90.';
+      if (!filters.centerLng || !Number.isFinite(longitude) || longitude < -180 || longitude > 180)
+        errors.centerLng = 'Longitude must be between -180 and 180.';
+    }
+  }
   const checkNumber = (key: string, value: string, integer = false) => {
     if (!value) return;
     const parsed = Number(value);
@@ -3029,16 +3079,38 @@ function searchFilterErrors(filters: SearchFilters): Record<string, string> {
   return errors;
 }
 
+function radiusRing(center: { latitude: number; longitude: number }, miles: number) {
+  const angularDistance = miles / 3958.7613;
+  const latitude = (center.latitude * Math.PI) / 180;
+  const longitude = (center.longitude * Math.PI) / 180;
+  return Array.from({ length: 64 }, (_, index) => {
+    const bearing = (index * 2 * Math.PI) / 64;
+    const pointLatitude = Math.asin(
+      Math.sin(latitude) * Math.cos(angularDistance) +
+        Math.cos(latitude) * Math.sin(angularDistance) * Math.cos(bearing),
+    );
+    const pointLongitude =
+      longitude +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latitude),
+        Math.cos(angularDistance) - Math.sin(latitude) * Math.sin(pointLatitude),
+      );
+    return [(pointLongitude * 180) / Math.PI, (pointLatitude * 180) / Math.PI] as [number, number];
+  });
+}
+
 function CountyMap({
   boundaries,
   items,
   selectedId,
   onSelect,
+  radius,
 }: {
   boundaries: CountyFeatureCollection;
   items: SearchListing[];
   selectedId: string | null;
   onSelect: (listingId: string) => void;
+  radius?: { latitude: number; longitude: number; miles: number; label: string };
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -3064,7 +3136,10 @@ function CountyMap({
     maxLat: Math.max(...latitudes),
   };
   const points = items.map((item, index) => pinCoordinates(item.property, index, boundaries));
-  const bounds = resultBounds(points) ?? countyBounds;
+  const ring = radius ? radiusRing(radius, radius.miles) : [];
+  const bounds =
+    resultBounds([...points, ...ring.map(([longitude, latitude]) => ({ longitude, latitude }))]) ??
+    countyBounds;
   const padding = 34;
   const project = createGeoProjection(bounds, width, height, padding);
   const pathFor = (rings: number[][][][]) =>
@@ -3144,6 +3219,31 @@ function CountyMap({
                 </g>
               );
             })}
+            {radius && (
+              <>
+                <path
+                  aria-label={radius.label}
+                  className="search-radius-circle"
+                  d={`${ring
+                    .map(([longitude, latitude], index) => {
+                      const point = project(longitude, latitude);
+                      return `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)},${point.y.toFixed(1)}`;
+                    })
+                    .join(' ')} Z`}
+                />
+                {(() => {
+                  const point = project(radius.longitude, radius.latitude);
+                  return (
+                    <g aria-label="Radius center" role="img">
+                      <circle className="search-radius-center" cx={point.x} cy={point.y} r="7" />
+                      <text className="search-radius-center-label" x={point.x} y={point.y + 4}>
+                        C
+                      </text>
+                    </g>
+                  );
+                })()}
+              </>
+            )}
             {items.map((item, index) => {
               const pin = mapPin(index);
               const isSelected = item.listing.id === selectedId;
@@ -3228,11 +3328,13 @@ function SearchResultsMap({
   items,
   selectedId,
   onSelect,
+  radius,
 }: {
   boundaries: CountyFeatureCollection;
   items: SearchListing[];
   selectedId: string | null;
   onSelect: (listingId: string) => void;
+  radius?: { latitude: number; longitude: number; miles: number; label: string };
 }) {
   const [key, setKey] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -3270,6 +3372,7 @@ function SearchResultsMap({
         items={items}
         selectedId={selectedId}
         onSelect={onSelect}
+        radius={radius}
       />
     );
   }
@@ -3281,6 +3384,7 @@ function SearchResultsMap({
       selectedId={selectedId}
       onSelect={onSelect}
       onFailure={() => setFailed(true)}
+      radius={radius}
     />
   );
 }
@@ -5403,6 +5507,7 @@ function SearchScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
   const [compareMessage, setCompareMessage] = useState('');
+  const [centerResolutionStatus, setCenterResolutionStatus] = useState('');
   const { weights: rankingWeights, error: rankingError } = useRankingWeights();
 
   const refreshSavedSearches = async () => {
@@ -5418,6 +5523,61 @@ function SearchScreen() {
   useEffect(() => {
     void refreshSavedSearches();
   }, []);
+
+  useEffect(() => {
+    if (
+      filters.locationMode !== 'radius' ||
+      filters.radiusCenterType !== 'address' ||
+      !filters.centerAddress.trim()
+    ) {
+      setCenterResolutionStatus('');
+      return;
+    }
+    let cancelled = false;
+    const address = filters.centerAddress.trim();
+    setCenterResolutionStatus('Checking stored property addresses…');
+    const timer = window.setTimeout(() => {
+      void fetch(`/api/search-center?${new URLSearchParams({ address })}`)
+        .then(async (response) => {
+          const result = (await response.json()) as {
+            status?: string;
+            latitude?: number;
+            longitude?: number;
+          };
+          if (!response.ok) throw new Error('Stored addresses are unavailable.');
+          if (cancelled) return;
+          if (
+            result.status === 'resolved' &&
+            result.latitude !== undefined &&
+            result.longitude !== undefined
+          ) {
+            setFilters((current) =>
+              current.centerAddress.trim() === address
+                ? {
+                    ...current,
+                    centerLat: String(result.latitude),
+                    centerLng: String(result.longitude),
+                  }
+                : current,
+            );
+            setCenterResolutionStatus('Address resolved from a stored property.');
+          } else {
+            setCenterResolutionStatus(
+              result.status === 'ambiguous'
+                ? 'Address matches more than one stored property. Enter latitude and longitude.'
+                : result.status === 'missing-coordinates'
+                  ? 'Stored property has no coordinates. Enter latitude and longitude.'
+                  : 'Address not stored. Enter latitude and longitude.',
+            );
+          }
+        })
+        .catch(() => !cancelled && setCenterResolutionStatus('Stored address lookup failed.'));
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [filters.locationMode, filters.radiusCenterType, filters.centerAddress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -5445,8 +5605,17 @@ function SearchScreen() {
   const savedSearchPayload = (name: string) => ({
     name: name.trim(),
     mode: filters.mode,
-    location: filters.location.trim(),
+    location:
+      filters.locationMode === 'radius'
+        ? `${filters.radiusCenterType === 'address' ? filters.centerAddress.trim() : `${filters.centerLat}, ${filters.centerLng}`} · ${filters.radiusMi} mi`
+        : filters.location.trim(),
     filters: {
+      locationMode: filters.locationMode,
+      radiusCenterType: filters.radiusCenterType,
+      centerAddress: filters.centerAddress,
+      centerLat: filters.centerLat,
+      centerLng: filters.centerLng,
+      radiusMi: filters.radiusMi,
       beds: filters.beds,
       baths: filters.baths,
       propertyType: filters.propertyType,
@@ -5715,6 +5884,18 @@ function SearchScreen() {
       setFilters((current) => ({ ...current, selectedTags: [] }));
       return;
     }
+    if (key === 'location') {
+      setFilters((current) => ({
+        ...current,
+        locationMode: 'city',
+        location: '',
+        centerAddress: '',
+        centerLat: '',
+        centerLng: '',
+        radiusMi: '',
+      }));
+      return;
+    }
     update(key as SearchTextFilter, key === 'status' ? 'active' : key === 'sort' ? 'newest' : '');
   };
   const formatPrice = (price: number | null, mode: string, period: string) => {
@@ -5728,7 +5909,14 @@ function SearchScreen() {
   };
   const chips = (
     [
-      ['location', filters.location],
+      [
+        'location',
+        filters.locationMode === 'zip'
+          ? `ZIP ${filters.location}`
+          : filters.locationMode === 'radius'
+            ? `Within ${filters.radiusMi && Number.isFinite(Number(filters.radiusMi)) ? Number(filters.radiusMi).toString() : '—'} mi of ${filters.radiusCenterType === 'address' ? filters.centerAddress || 'address' : `${filters.centerLat || 'latitude'}, ${filters.centerLng || 'longitude'}`}`
+            : filters.location,
+      ],
       ['priceMin', filters.priceMin ? `Min $${Number(filters.priceMin).toLocaleString()}` : ''],
       ['priceMax', filters.priceMax ? `Max $${Number(filters.priceMax).toLocaleString()}` : ''],
       ['beds', filters.beds ? `${filters.beds}+ beds` : ''],
@@ -5887,15 +6075,138 @@ function SearchScreen() {
         </form>
       )}
       <div className="filter-panel" aria-label="Search filters" role="group">
-        <label className="filter-field location-field">
+        <label className="filter-field">
           Location
-          <input
-            aria-label="City or ZIP"
-            placeholder="City or ZIP"
-            value={filters.location}
-            onChange={(event) => update('location', event.target.value)}
-          />
+          <select
+            aria-label="Location search type"
+            value={filters.locationMode}
+            onChange={(event) =>
+              setFilters((current) => ({
+                ...current,
+                locationMode: event.target.value as SearchFilters['locationMode'],
+                location: '',
+              }))
+            }
+          >
+            <option value="zip">ZIP</option>
+            <option value="radius">Radius</option>
+            <option value="city">City text</option>
+          </select>
         </label>
+        {filters.locationMode === 'city' || filters.locationMode === 'zip' ? (
+          <label className="filter-field location-field">
+            {filters.locationMode === 'zip' ? 'ZIP code' : 'City text'}
+            <input
+              aria-label={filters.locationMode === 'zip' ? 'ZIP code' : 'City or ZIP'}
+              placeholder={filters.locationMode === 'zip' ? 'Five-digit ZIP' : 'City or ZIP'}
+              inputMode={filters.locationMode === 'zip' ? 'numeric' : undefined}
+              value={filters.location}
+              onChange={(event) => update('location', event.target.value)}
+            />
+            {filterErrors.location && <span className="field-error">{filterErrors.location}</span>}
+          </label>
+        ) : (
+          <>
+            <label className="filter-field">
+              Center type
+              <select
+                aria-label="Radius center type"
+                value={filters.radiusCenterType}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    radiusCenterType: event.target.value as SearchFilters['radiusCenterType'],
+                    centerLat: '',
+                    centerLng: '',
+                  }))
+                }
+              >
+                <option value="address">Street address</option>
+                <option value="coordinates">Coordinates</option>
+              </select>
+            </label>
+            {filters.radiusCenterType === 'address' ? (
+              <label className="filter-field location-field">
+                Street address
+                <input
+                  aria-label="Radius street address"
+                  value={filters.centerAddress}
+                  onChange={(event) =>
+                    setFilters((current) => ({
+                      ...current,
+                      centerAddress: event.target.value,
+                      centerLat: '',
+                      centerLng: '',
+                    }))
+                  }
+                />
+                {filters.centerLat && filters.centerLng && (
+                  <span role="status">
+                    Resolved point · {filters.centerLat}, {filters.centerLng}
+                  </span>
+                )}
+                {centerResolutionStatus && <span role="status">{centerResolutionStatus}</span>}
+                {filterErrors.centerAddress && (
+                  <span className="field-error">{filterErrors.centerAddress}</span>
+                )}
+              </label>
+            ) : (
+              <>
+                <label className="filter-field">
+                  Latitude
+                  <input
+                    aria-label="Center latitude"
+                    inputMode="decimal"
+                    type="number"
+                    min="-90"
+                    max="90"
+                    step="any"
+                    value={filters.centerLat}
+                    onChange={(event) => update('centerLat', event.target.value)}
+                  />
+                  {filterErrors.centerLat && (
+                    <span className="field-error">{filterErrors.centerLat}</span>
+                  )}
+                </label>
+                <label className="filter-field">
+                  Longitude
+                  <input
+                    aria-label="Center longitude"
+                    inputMode="decimal"
+                    type="number"
+                    min="-180"
+                    max="180"
+                    step="any"
+                    value={filters.centerLng}
+                    onChange={(event) => update('centerLng', event.target.value)}
+                  />
+                  {filterErrors.centerLng && (
+                    <span className="field-error">{filterErrors.centerLng}</span>
+                  )}
+                </label>
+              </>
+            )}
+            <label className="filter-field">
+              Radius (mi)
+              <input
+                aria-label="Radius in miles"
+                inputMode="decimal"
+                type="number"
+                min="0.1"
+                max="25"
+                step="0.1"
+                value={filters.radiusMi}
+                onChange={(event) => update('radiusMi', event.target.value)}
+              />
+              {filterErrors.radiusMi && (
+                <span className="field-error">{filterErrors.radiusMi}</span>
+              )}
+            </label>
+            <p className="radius-provider-note">
+              Radius search uses stored listings only. Provider radius refresh is not verified yet.
+            </p>
+          </>
+        )}
         <label className="filter-field">
           {filters.mode === 'rent' ? 'Rent min' : 'Price min'}
           <input
@@ -6457,6 +6768,24 @@ function SearchScreen() {
                   items={visibleItems}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
+                  radius={
+                    filters.locationMode === 'radius' &&
+                    !!filters.centerLat &&
+                    !!filters.centerLng &&
+                    !!filters.radiusMi &&
+                    Number.isFinite(Number(filters.centerLat)) &&
+                    Number.isFinite(Number(filters.centerLng)) &&
+                    Number.isFinite(Number(filters.radiusMi)) &&
+                    Number(filters.radiusMi) >= 0.1 &&
+                    Number(filters.radiusMi) <= 25
+                      ? {
+                          latitude: Number(filters.centerLat),
+                          longitude: Number(filters.centerLng),
+                          miles: Number(filters.radiusMi),
+                          label: `Search radius: ${filters.radiusMi} miles around ${filters.radiusCenterType === 'address' ? filters.centerAddress : `${filters.centerLat}, ${filters.centerLng}`}`,
+                        }
+                      : undefined
+                  }
                 />
               ) : (
                 <section aria-label="Results map" className="map-panel">

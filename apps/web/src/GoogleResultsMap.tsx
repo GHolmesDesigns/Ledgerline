@@ -6,6 +6,7 @@ import {
   type MapInstance,
   type MapsApi,
   type MapsEvent,
+  type CircleInstance,
   type MarkerInstance,
   type PolygonInstance,
 } from './googleMapsLoader';
@@ -21,6 +22,7 @@ type MapItem = {
   };
   listing: { id: string; price: number | null; mode: 'sale' | 'rent' };
 };
+type SearchRadius = { latitude: number; longitude: number; miles: number; label: string };
 
 export function GoogleResultsMap({
   apiKey,
@@ -29,6 +31,7 @@ export function GoogleResultsMap({
   selectedId,
   onSelect,
   onFailure,
+  radius,
 }: {
   apiKey: string;
   boundaries: CountyFeatureCollection;
@@ -36,11 +39,14 @@ export function GoogleResultsMap({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onFailure: () => void;
+  radius?: SearchRadius;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapInstance | null>(null);
   const markers = useRef<MarkerInstance[]>([]);
   const polygons = useRef<PolygonInstance[]>([]);
+  const searchCircle = useRef<CircleInstance | null>(null);
+  const centerMarker = useRef<MarkerInstance | null>(null);
   const listeners = useRef<MapsEvent[]>([]);
   const [maps, setMaps] = useState<MapsApi | null>(null);
 
@@ -110,6 +116,10 @@ export function GoogleResultsMap({
       markers.current = [];
       polygons.current.forEach((polygon) => polygon.setMap(null));
       polygons.current = [];
+      searchCircle.current?.setMap(null);
+      searchCircle.current = null;
+      centerMarker.current?.setMap(null);
+      centerMarker.current = null;
       map.current = null;
     };
   }, [maps, boundaries]);
@@ -151,6 +161,55 @@ export function GoogleResultsMap({
       instance.fitBounds(viewport);
     }
   }, [maps, boundaries, items, onSelect]);
+
+  useEffect(() => {
+    if (!maps || !map.current) return;
+    searchCircle.current?.setMap(null);
+    searchCircle.current = null;
+    centerMarker.current?.setMap(null);
+    centerMarker.current = null;
+    if (!radius) return;
+    const instance = map.current;
+    const center = { lat: radius.latitude, lng: radius.longitude };
+    searchCircle.current = new maps.Circle({
+      map: instance,
+      center,
+      radius: radius.miles * 1609.344,
+      strokeColor: '#00aebc',
+      strokeOpacity: 0.9,
+      strokeWeight: 2,
+      fillColor: '#00c2d1',
+      fillOpacity: 0.12,
+      clickable: false,
+    });
+    centerMarker.current = new maps.Marker({
+      map: instance,
+      position: center,
+      title: radius.label,
+      label: { text: 'C', color: '#ffffff', fontWeight: '700' },
+      icon: {
+        path: maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#101820',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+      },
+      clickable: false,
+    });
+    const latitudeDelta = radius.miles / 69;
+    const longitudeDelta = radius.miles / (69 * Math.cos((radius.latitude * Math.PI) / 180));
+    const viewport = new maps.LatLngBounds();
+    viewport.extend({
+      lat: radius.latitude - latitudeDelta,
+      lng: radius.longitude - longitudeDelta,
+    });
+    viewport.extend({
+      lat: radius.latitude + latitudeDelta,
+      lng: radius.longitude + longitudeDelta,
+    });
+    map.current.fitBounds(viewport);
+  }, [maps, radius?.latitude, radius?.longitude, radius?.miles]);
 
   useEffect(() => {
     markers.current.forEach((marker, index) => {

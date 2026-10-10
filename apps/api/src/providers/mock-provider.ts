@@ -129,6 +129,7 @@ export const mockProviderCapabilities: ProviderCapabilities = {
   history: true,
   hoaFee: true,
   rentEstimates: true,
+  radiusSearch: false,
 };
 
 interface SyntheticRentCastListing {

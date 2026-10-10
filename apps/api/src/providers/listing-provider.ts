@@ -20,6 +20,8 @@ export interface ProviderCapabilities {
   history: boolean;
   hoaFee: boolean;
   rentEstimates: boolean;
+  /** True only after a real provider radius request has been verified. */
+  radiusSearch?: boolean;
 }
 
 export interface ProviderListing {

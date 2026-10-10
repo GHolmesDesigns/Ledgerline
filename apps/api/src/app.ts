@@ -28,6 +28,12 @@ import { createFemaNfhlLookup, type FloodZoneLookup } from './fema-nfhl.js';
 import { findImplausibleFlags } from './implausible.js';
 import { readRankingWeights } from './ranking-weights.js';
 import {
+  addressMatches,
+  isValidCoordinates,
+  isValidZip,
+  propertyIsWithinRadius,
+} from './search-area.js';
+import {
   deletePropertyPhotoFile,
   photoMimeType,
   propertyPhotoExists,
@@ -1210,9 +1216,34 @@ export function createApp(
           .flatMap((value) => value.split(','))
           .map((value) => value.trim().toLocaleLowerCase('en-US'))
           .filter(Boolean);
+        const locationMode = url.searchParams.get('locationMode') ?? 'city';
+        if (!['city', 'zip', 'radius'].includes(locationMode))
+          throw new Error('Choose ZIP, Radius, or City text for Location.');
+        const zip = url.searchParams.get('location') ?? '';
+        if (locationMode === 'zip' && !isValidZip(zip))
+          throw new Error('Enter a five-digit ZIP code.');
+        const radiusCenter = {
+          latitude: Number(url.searchParams.get('centerLat')),
+          longitude: Number(url.searchParams.get('centerLng')),
+        };
+        const radiusMiles = numberParam('radiusMi');
+        if (locationMode === 'radius') {
+          if (radiusMiles === undefined || radiusMiles < 0.1 || radiusMiles > 25)
+            throw new Error('Radius must be from 0.1 to 25.0 miles.');
+          if (
+            url.searchParams.get('centerLat') === null ||
+            url.searchParams.get('centerLat') === '' ||
+            url.searchParams.get('centerLng') === null ||
+            url.searchParams.get('centerLng') === '' ||
+            !isValidCoordinates(radiusCenter)
+          )
+            throw new Error('Enter a valid latitude and longitude.');
+        }
         const criteria: ListingSearchCriteria = {
           mode,
-          location: url.searchParams.get('location') ?? undefined,
+          location:
+            locationMode === 'city' ? (url.searchParams.get('location') ?? undefined) : undefined,
+          zip: locationMode === 'zip' ? zip : undefined,
           priceMin: numberParam('priceMin'),
           priceMax: numberParam('priceMax'),
           beds: numberParam('beds'),
@@ -1345,12 +1376,52 @@ export function createApp(
             );
             if (ageDays > daysOnMarket) return false;
           }
+          if (locationMode === 'radius') {
+            if (
+              !propertyIsWithinRadius(
+                radiusCenter,
+                property.latitude,
+                property.longitude,
+                radiusMiles!,
+              )
+            )
+              return false;
+          }
           return true;
         });
         json(200, { items, criteria, hiddenCounts });
       } catch (error) {
         json(400, { error: error instanceof Error ? error.message : 'Unable to search listings.' });
       }
+      return;
+    }
+
+    if (request.method === 'GET' && request.url?.startsWith('/api/search-center')) {
+      const url = new URL(request.url, 'http://localhost');
+      const address = url.searchParams.get('address')?.trim() ?? '';
+      if (!address) {
+        json(400, { error: 'Enter a stored property address.' });
+        return;
+      }
+      const matches = store
+        .listProperties()
+        .filter((property) => addressMatches(address, property));
+      if (matches.length !== 1) {
+        json(200, { status: matches.length === 0 ? 'unresolved' : 'ambiguous' });
+        return;
+      }
+      const property = matches[0]!;
+      if (property.latitude == null || property.longitude == null) {
+        json(200, { status: 'missing-coordinates', propertyId: property.id });
+        return;
+      }
+      json(200, {
+        status: 'resolved',
+        propertyId: property.id,
+        address: `${property.street}${property.unit ? ` #${property.unit}` : ''}, ${property.city} ${property.zip}`,
+        latitude: property.latitude,
+        longitude: property.longitude,
+      });
       return;
     }
 

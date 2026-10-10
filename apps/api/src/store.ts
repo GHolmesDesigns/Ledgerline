@@ -282,6 +282,7 @@ export type SavedSearchUpdate = Partial<SavedSearchInput>;
 export interface ListingSearchCriteria {
   mode: ListingMode;
   location?: string;
+  zip?: string;
   priceMin?: number;
   priceMax?: number;
   beds?: number;
@@ -1047,6 +1048,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
           `%${criteria.location.trim().toLocaleLowerCase('en-US')}%`,
         );
       }
+      if (criteria.zip) add('p.zip = ?', criteria.zip);
       if (criteria.priceMin !== undefined) add('l.price >= ?', criteria.priceMin);
       if (criteria.priceMax !== undefined) add('l.price <= ?', criteria.priceMax);
       if (criteria.beds !== undefined) add('p.beds >= ?', criteria.beds);
