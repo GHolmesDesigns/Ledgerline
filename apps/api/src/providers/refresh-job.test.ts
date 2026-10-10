@@ -85,6 +85,29 @@ function provider(
 }
 
 describe('saved-search refresh job', () => {
+  it('refreshes only mock listings inside the saved radius', async () => {
+    const { store, search } = await setup();
+    store.updateSavedSearch(search.id, {
+      location: 'Fort Lauderdale · 0.1 mi',
+      locationMode: 'radius',
+      centerLatitude: 26.19,
+      centerLongitude: -80.115,
+      radiusMi: 0.1,
+    });
+    const mock = new MockListingProvider([
+      record(1, { property: { ...record(1).property, latitude: 26.19, longitude: -80.115 } }),
+      record(2, { property: { ...record(2).property, latitude: 25.77, longitude: -80.19 } }),
+      record(3, { property: { ...record(3).property, latitude: null, longitude: null } }),
+    ]);
+    assert.equal(mock.capabilities.radiusSearch, true);
+    const result = await new RefreshJob(store, mock).refresh(search.id);
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.imported?.listings, 1);
+    assert.equal(store.listProviderRequestLogs(search.id).length, 1);
+    assert.equal(store.searchListings({ mode: 'sale', showDismissed: true }).length, 1);
+  });
+
   it('blocks saved radius refreshes until the provider declares verified radius support', async () => {
     const { store, search } = await setup();
     store.updateSavedSearch(search.id, {

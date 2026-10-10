@@ -81,7 +81,41 @@ test('ZIP is exact and radius searches use stored coordinates and resolved addre
     );
     const savedOption = savedSearch.locator('option', { hasText: 'Fort Lauderdale radius' });
     await savedSearch.selectOption((await savedOption.getAttribute('value'))!);
-    await expect(page.getByLabel('Radius in miles')).toHaveValue('25.0');
+    await expect(page.getByLabel('Radius in miles')).toHaveValue('25');
+    await expect(page.getByLabel('Radius street address')).toHaveValue(
+      '2207 N.E. 32nd Court, Fort Lauderdale, FL 33308',
+    );
+    await page.goto('/settings#saved-searches');
+    const radiusRow = page
+      .locator('.saved-search-row')
+      .filter({ hasText: 'Fort Lauderdale radius' });
+    await expect(radiusRow).toContainText('Radius refresh supported by mock.');
+    await radiusRow.getByRole('button', { name: 'Add Rent search' }).click();
+    await expect(radiusRow).toContainText('Paired Rent search on');
+    await page.goto('/');
+    const pairedRadiusRent = await page.evaluate(async () => {
+      const response = await fetch('/api/saved-searches');
+      const result = (await response.json()) as {
+        items: Array<{
+          id: number;
+          mode: string;
+          locationMode: string;
+          centerAddress: string | null;
+          centerLatitude: number | null;
+          centerLongitude: number | null;
+          radiusMi: number | null;
+        }>;
+      };
+      return result.items.find((item) => item.mode === 'rent' && item.locationMode === 'radius');
+    });
+    expect(pairedRadiusRent).toMatchObject({
+      centerAddress: '2207 N.E. 32nd Court, Fort Lauderdale, FL 33308',
+      centerLatitude: 26.19,
+      centerLongitude: -80.115,
+      radiusMi: 25,
+    });
+    await page.getByLabel('Open saved search').selectOption(String(pairedRadiusRent!.id));
+    await expect(page.getByLabel('Radius in miles')).toHaveValue('25');
     await expect(page.getByLabel('Radius street address')).toHaveValue(
       '2207 N.E. 32nd Court, Fort Lauderdale, FL 33308',
     );

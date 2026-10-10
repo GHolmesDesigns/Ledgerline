@@ -2556,6 +2556,12 @@ type SavedSearch = {
   name: string;
   mode: 'sale' | 'rent';
   location: string;
+  locationMode: 'city' | 'zip' | 'radius';
+  zip: string | null;
+  centerAddress: string | null;
+  centerLatitude: number | null;
+  centerLongitude: number | null;
+  radiusMi: number | null;
   filters: Record<string, unknown>;
   priceMin: number | null;
   priceMax: number | null;
@@ -2568,16 +2574,18 @@ type SavedSearch = {
 
 const profileFromSearch = (search: SavedSearch): SearchFilters => ({
   ...emptyFilters(search.mode),
-  locationMode:
-    search.filters.locationMode === 'zip' || search.filters.locationMode === 'radius'
-      ? search.filters.locationMode
-      : 'city',
-  location: search.filters.locationMode === 'radius' ? '' : search.location,
-  radiusCenterType: search.filters.radiusCenterType === 'coordinates' ? 'coordinates' : 'address',
-  centerAddress: String(search.filters.centerAddress ?? ''),
-  centerLat: String(search.filters.centerLat ?? ''),
-  centerLng: String(search.filters.centerLng ?? ''),
-  radiusMi: String(search.filters.radiusMi ?? ''),
+  locationMode: search.locationMode,
+  location:
+    search.locationMode === 'radius'
+      ? ''
+      : search.locationMode === 'zip'
+        ? (search.zip ?? '')
+        : search.location,
+  radiusCenterType: search.centerAddress ? 'address' : 'coordinates',
+  centerAddress: search.centerAddress ?? '',
+  centerLat: search.centerLatitude?.toString() ?? '',
+  centerLng: search.centerLongitude?.toString() ?? '',
+  radiusMi: search.radiusMi?.toString() ?? '',
   priceMin: search.priceMin?.toString() ?? '',
   priceMax: search.priceMax?.toString() ?? '',
   beds: String(search.filters.beds ?? ''),
@@ -2625,12 +2633,27 @@ function SavedSearchPanel() {
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
+  const [providerCapability, setProviderCapability] = useState<{
+    name: string;
+    radiusSearch: boolean;
+  } | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const refresh = async () => {
     try {
       const response = await fetch('/api/saved-searches');
       if (!response.ok) throw new Error('Could not load saved searches.');
       setItems(((await response.json()) as { items: SavedSearch[] }).items);
+      const capabilityResponse = await fetch('/api/provider-capabilities');
+      if (capabilityResponse.ok) {
+        const capability = (await capabilityResponse.json()) as {
+          name: string;
+          capabilities: { radiusSearch?: boolean };
+        };
+        setProviderCapability({
+          name: capability.name,
+          radiusSearch: capability.capabilities.radiusSearch === true,
+        });
+      }
       const usage = await fetchRequestUsage();
       setRequestCounts(
         Object.fromEntries(
@@ -2680,6 +2703,12 @@ function SavedSearchPanel() {
           name: `${search.location} · Rent`,
           mode: 'rent',
           location: search.location,
+          locationMode: search.locationMode,
+          zip: search.zip,
+          centerAddress: search.centerAddress,
+          centerLatitude: search.centerLatitude,
+          centerLongitude: search.centerLongitude,
+          radiusMi: search.radiusMi,
           filters,
           refreshIntervalDays: search.refreshIntervalDays,
         }),
@@ -2857,6 +2886,13 @@ function SavedSearchPanel() {
                         </span>
                       )}
                       <span role="status">{refreshStatus(search)}</span>
+                      {search.locationMode === 'radius' && (
+                        <span>
+                          {providerCapability?.radiusSearch
+                            ? `Radius refresh supported by ${providerCapability.name}.`
+                            : `Radius refresh unavailable: ${providerCapability?.name ?? 'provider'} has not verified radius search.`}
+                        </span>
+                      )}
                     </div>
                     <label className="saved-search-edit">
                       Name
@@ -5609,13 +5645,16 @@ function SearchScreen() {
       filters.locationMode === 'radius'
         ? `${filters.radiusCenterType === 'address' ? filters.centerAddress.trim() : `${filters.centerLat}, ${filters.centerLng}`} · ${filters.radiusMi} mi`
         : filters.location.trim(),
+    locationMode: filters.locationMode,
+    zip: filters.locationMode === 'zip' ? filters.location.trim() : null,
+    centerAddress:
+      filters.locationMode === 'radius' && filters.radiusCenterType === 'address'
+        ? filters.centerAddress.trim()
+        : null,
+    centerLatitude: filters.locationMode === 'radius' ? Number(filters.centerLat) : null,
+    centerLongitude: filters.locationMode === 'radius' ? Number(filters.centerLng) : null,
+    radiusMi: filters.locationMode === 'radius' ? Number(filters.radiusMi) : null,
     filters: {
-      locationMode: filters.locationMode,
-      radiusCenterType: filters.radiusCenterType,
-      centerAddress: filters.centerAddress,
-      centerLat: filters.centerLat,
-      centerLng: filters.centerLng,
-      radiusMi: filters.radiusMi,
       beds: filters.beds,
       baths: filters.baths,
       propertyType: filters.propertyType,

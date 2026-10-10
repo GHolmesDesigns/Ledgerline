@@ -24,7 +24,7 @@ import { readRankingWeights, type RankingWeights } from './ranking-weights.js';
 // are deliberately not part of a backup: refresh fetches listings again.
 
 export const BACKUP_FORMAT = 'ledgerline-personal-data';
-export const BACKUP_VERSION = 7;
+export const BACKUP_VERSION = 8;
 
 export interface AddressKey {
   street: string;
@@ -65,6 +65,12 @@ export interface BackupSavedSearch {
   name: string;
   mode: ListingMode;
   location: string;
+  locationMode: 'city' | 'zip' | 'radius';
+  zip: string | null;
+  centerAddress: string | null;
+  centerLatitude: number | null;
+  centerLongitude: number | null;
+  radiusMi: number | null;
   filters: Record<string, unknown>;
   priceMin: number | null;
   priceMax: number | null;
@@ -236,6 +242,12 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
     name: search.name,
     mode: search.mode,
     location: search.location,
+    locationMode: search.locationMode,
+    zip: search.zip,
+    centerAddress: search.centerAddress,
+    centerLatitude: search.centerLatitude,
+    centerLongitude: search.centerLongitude,
+    radiusMi: search.radiusMi,
     filters: search.filters,
     priceMin: search.priceMin,
     priceMax: search.priceMax,
@@ -319,6 +331,22 @@ const migrationSteps: Record<number, BackupMigration> = {
     properties: Array.isArray(data.properties)
       ? data.properties.map((item) => (isRecord(item) ? { ...item, tags: [] } : item))
       : data.properties,
+  }),
+  7: (data) => ({
+    ...data,
+    savedSearches: (Array.isArray(data.savedSearches) ? data.savedSearches : []).map((item) =>
+      isRecord(item)
+        ? {
+            ...item,
+            locationMode: 'city',
+            zip: null,
+            centerAddress: null,
+            centerLatitude: null,
+            centerLongitude: null,
+            radiusMi: null,
+          }
+        : item,
+    ),
   }),
 };
 
@@ -488,8 +516,26 @@ const describeAddress = (address: BackupAddress | null) =>
     ? `${address.street}${address.unit ? `, Unit ${address.unit}` : ''}, ${address.city}`
     : '';
 
-const searchIdentity = (search: { mode: string; name: string; location: string }) =>
-  [search.mode, search.name.trim().toLowerCase(), search.location.trim().toLowerCase()].join('|');
+const searchIdentity = (search: {
+  mode: string;
+  name: string;
+  location: string;
+  locationMode?: string;
+  zip?: string | null;
+  centerLatitude?: number | null;
+  centerLongitude?: number | null;
+  radiusMi?: number | null;
+}) =>
+  [
+    search.mode,
+    search.name.trim().toLowerCase(),
+    search.locationMode ?? 'city',
+    search.location.trim().toLowerCase(),
+    search.zip ?? '',
+    search.centerLatitude ?? '',
+    search.centerLongitude ?? '',
+    search.radiusMi ?? '',
+  ].join('|');
 
 /**
  * Merges a backup into the database. Properties are matched by normalized address and
@@ -844,6 +890,19 @@ export function importBackup(
       const priceMax = nullableNumber(record.priceMax);
       const interval = nullableNumber(record.refreshIntervalDays);
       const filters = record.filters ?? {};
+      const locationMode: BackupSavedSearch['locationMode'] =
+        record.locationMode === 'zip' || record.locationMode === 'radius'
+          ? record.locationMode
+          : 'city';
+      const invalidLocationMode =
+        fromVersion >= 8 &&
+        record.locationMode !== 'city' &&
+        record.locationMode !== 'zip' &&
+        record.locationMode !== 'radius';
+      const zip = nullableText(record.zip) ?? null;
+      const centerLatitude = nullableNumber(record.centerLatitude) ?? null;
+      const centerLongitude = nullableNumber(record.centerLongitude) ?? null;
+      const radiusMi = nullableNumber(record.radiusMi) ?? null;
       const problem =
         !isText(record.name) || !isText(record.location)
           ? 'The name or area is missing.'
@@ -860,7 +919,22 @@ export function importBackup(
                 ? 'The refresh interval is not valid.'
                 : !isRecord(filters)
                   ? 'The filters are unreadable.'
-                  : null;
+                  : invalidLocationMode
+                    ? 'The saved location mode is unreadable.'
+                    : locationMode === 'zip' && !/^\d{5}$/.test(zip ?? '')
+                      ? 'The saved ZIP is unreadable.'
+                      : locationMode === 'radius' &&
+                          (centerLatitude === null ||
+                            centerLatitude < -90 ||
+                            centerLatitude > 90 ||
+                            centerLongitude === null ||
+                            centerLongitude < -180 ||
+                            centerLongitude > 180 ||
+                            radiusMi === null ||
+                            radiusMi < 0.1 ||
+                            radiusMi > 25)
+                        ? 'The saved radius location is unreadable.'
+                        : null;
       if (problem) {
         skipped.push({ section: 'savedSearches', label, reason: problem });
         return;
@@ -869,6 +943,12 @@ export function importBackup(
         name: (record.name as string).trim(),
         mode: record.mode as ListingMode,
         location: (record.location as string).trim(),
+        locationMode,
+        zip,
+        centerAddress: nullableText(record.centerAddress) ?? null,
+        centerLatitude,
+        centerLongitude,
+        radiusMi,
         filters: filters as Record<string, unknown>,
         priceMin,
         priceMax,

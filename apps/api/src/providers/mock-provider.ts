@@ -7,6 +7,7 @@ import type {
   ProviderListing,
   SearchCriteria,
 } from './listing-provider.js';
+import { isWithinRadius } from '../search-area.js';
 
 interface SampleListing {
   mode: 'sale' | 'rent';
@@ -129,7 +130,7 @@ export const mockProviderCapabilities: ProviderCapabilities = {
   history: true,
   hoaFee: true,
   rentEstimates: true,
-  radiusSearch: false,
+  radiusSearch: true,
 };
 
 interface SyntheticRentCastListing {
@@ -434,12 +435,25 @@ export class MockListingProvider implements ListingProvider {
   async search(criteria: SearchCriteria, page: number) {
     const filtered = this.listings.filter((record) => {
       if (criteria.mode && record.listing.mode !== criteria.mode) return false;
-      if (criteria.location) {
+      if (criteria.location && !criteria.radius) {
         const needle = criteria.location.toLocaleLowerCase('en-US');
         const haystack = `${record.property.city} ${record.property.zip}`.toLocaleLowerCase(
           'en-US',
         );
         if (!haystack.includes(needle)) return false;
+      }
+      if (criteria.radius) {
+        const { latitude, longitude } = record.property;
+        if (
+          latitude == null ||
+          longitude == null ||
+          !isWithinRadius(
+            { latitude: criteria.radius.latitude, longitude: criteria.radius.longitude },
+            { latitude, longitude },
+            criteria.radius.miles,
+          )
+        )
+          return false;
       }
       const price = record.listing.price;
       if (criteria.priceMin != null && price != null && price < criteria.priceMin) return false;

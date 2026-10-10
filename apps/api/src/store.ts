@@ -180,6 +180,12 @@ export interface SavedSearchInput {
   name: string;
   mode: ListingMode;
   location: string;
+  locationMode?: 'city' | 'zip' | 'radius';
+  zip?: string | null;
+  centerAddress?: string | null;
+  centerLatitude?: number | null;
+  centerLongitude?: number | null;
+  radiusMi?: number | null;
   filters?: Record<string, unknown>;
   priceMin?: number | null;
   priceMax?: number | null;
@@ -307,6 +313,45 @@ export interface SavedSearch extends Required<SavedSearchInput> {
   updatedAt: string;
 }
 
+type SearchArea = Pick<
+  SavedSearchInput,
+  'location' | 'locationMode' | 'zip' | 'centerLatitude' | 'centerLongitude' | 'radiusMi'
+>;
+
+function searchAreaKey(search: SearchArea) {
+  switch (search.locationMode ?? 'city') {
+    case 'zip':
+      return `zip|${(search.zip ?? search.location).trim()}`;
+    case 'radius':
+      return `radius|${search.centerLatitude}|${search.centerLongitude}|${search.radiusMi}`;
+    default:
+      return `city|${search.location.trim().toLocaleLowerCase('en-US')}`;
+  }
+}
+
+function sameSearchArea(first: SearchArea, second: SearchArea) {
+  return searchAreaKey(first) === searchAreaKey(second);
+}
+
+function validateSearchLocation(search: SearchArea) {
+  const mode = search.locationMode ?? 'city';
+  if (mode === 'zip' && !/^\d{5}$/.test((search.zip ?? '').trim()))
+    throw new Error('ZIP searches need a five-digit ZIP code.');
+  if (mode === 'radius') {
+    if (
+      search.centerLatitude == null ||
+      search.centerLatitude < -90 ||
+      search.centerLatitude > 90 ||
+      search.centerLongitude == null ||
+      search.centerLongitude < -180 ||
+      search.centerLongitude > 180
+    )
+      throw new Error('Radius searches need valid resolved coordinates.');
+    if (search.radiusMi == null || search.radiusMi < 0.1 || search.radiusMi > 25)
+      throw new Error('Radius must be from 0.1 to 25.0 miles.');
+  }
+}
+
 export interface ProviderRequestLog {
   id: number;
   provider: string;
@@ -378,7 +423,8 @@ const listingColumns = `id, property_id, provider, provider_id, mls_name, mls_nu
 
 const searchColumns = `id, name, mode, location, filters, price_min, price_max, paired_search_id,
   refresh_interval_days, last_successful_refresh_at, last_refresh_attempt_at, last_refresh_error,
-  created_at, updated_at`;
+  created_at, updated_at, location_mode, zip, center_address, center_latitude,
+  center_longitude, radius_mi`;
 
 export function createStore(database: Database, options: StoreOptions = {}) {
   const now = () => (options.clock ?? (() => new Date()))().toISOString();
@@ -517,6 +563,12 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       name: String(row.name),
       mode: row.mode as ListingMode,
       location: String(row.location),
+      locationMode: row.location_mode as SavedSearch['locationMode'],
+      zip: text(row.zip),
+      centerAddress: text(row.center_address),
+      centerLatitude: number(row.center_latitude),
+      centerLongitude: number(row.center_longitude),
+      radiusMi: number(row.radius_mi),
       filters: JSON.parse(String(row.filters)) as Record<string, unknown>,
       priceMin: number(row.price_min),
       priceMax: number(row.price_max),
@@ -1460,10 +1512,13 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       timestamps: { createdAt?: string; updatedAt?: string } = {},
     ): SavedSearch {
       return transaction(() => {
+        validateSearchLocation(input);
         const at = now();
         run(
           `INSERT INTO saved_searches (name, mode, location, filters, price_min, price_max,
-             refresh_interval_days, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             refresh_interval_days, created_at, updated_at, location_mode, zip, center_address,
+             center_latitude, center_longitude, radius_mi)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             input.name,
             input.mode,
@@ -1474,6 +1529,12 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             input.refreshIntervalDays ?? null,
             timestamps.createdAt ?? at,
             timestamps.updatedAt ?? timestamps.createdAt ?? at,
+            input.locationMode ?? 'city',
+            input.zip ?? null,
+            input.centerAddress ?? null,
+            input.centerLatitude ?? null,
+            input.centerLongitude ?? null,
+            input.radiusMi ?? null,
           ],
         );
         const id = lastInsertId();
@@ -1789,14 +1850,10 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         if (next.refreshIntervalDays != null && next.refreshIntervalDays <= 0) {
           throw new Error('Refresh interval must be a positive number of days.');
         }
+        validateSearchLocation(next);
         if (current.pairedSearchId !== null) {
           const paired = store.getSavedSearch(current.pairedSearchId);
-          if (
-            paired &&
-            (paired.mode === next.mode ||
-              paired.location.trim().toLocaleLowerCase('en-US') !==
-                next.location.trim().toLocaleLowerCase('en-US'))
-          ) {
+          if (paired && (paired.mode === next.mode || !sameSearchArea(paired, next))) {
             throw new Error(
               'Update or unpair the matching search before changing its mode or area.',
             );
@@ -1805,7 +1862,8 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         const at = now();
         run(
           `UPDATE saved_searches SET name = ?, mode = ?, location = ?, filters = ?, price_min = ?,
-             price_max = ?, refresh_interval_days = ?, updated_at = ? WHERE id = ?`,
+             price_max = ?, refresh_interval_days = ?, updated_at = ?, location_mode = ?, zip = ?,
+             center_address = ?, center_latitude = ?, center_longitude = ?, radius_mi = ? WHERE id = ?`,
           [
             next.name.trim(),
             next.mode,
@@ -1815,6 +1873,12 @@ export function createStore(database: Database, options: StoreOptions = {}) {
             next.priceMax ?? null,
             next.refreshIntervalDays ?? null,
             at,
+            next.locationMode,
+            next.zip,
+            next.centerAddress,
+            next.centerLatitude,
+            next.centerLongitude,
+            next.radiusMi,
             searchId,
           ],
         );
@@ -1834,10 +1898,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         if (!first || !second) throw new Error('Both saved searches must exist to pair them');
         if (first.mode === second.mode)
           throw new Error('A pair is one Buy search and one Rent search');
-        if (
-          first.location.trim().toLocaleLowerCase('en-US') !==
-          second.location.trim().toLocaleLowerCase('en-US')
-        ) {
+        if (!sameSearchArea(first, second)) {
           throw new Error('Paired searches must cover the same area.');
         }
         // Unpair anything either search was paired with before.

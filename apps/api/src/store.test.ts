@@ -435,8 +435,43 @@ describe('saved searches', () => {
     });
     assert.deepEqual(search.filters, { beds: 3, type: ['single_family'] });
     assert.equal(search.refreshIntervalDays, null);
+    assert.equal(search.locationMode, 'city');
     assert.equal(search.pairedSearchId, null);
     assert.deepEqual(store.listSavedSearches(), [search]);
+  });
+
+  it('pairs radius searches by resolved center and radius, not by their display labels', () => {
+    const buy = store.createSavedSearch({
+      name: 'Buy near Fort Lauderdale',
+      mode: 'sale',
+      location: 'Fort Lauderdale · 1 mi',
+      locationMode: 'radius',
+      centerAddress: '2207 NE 32nd Ct, Fort Lauderdale, FL',
+      centerLatitude: 26.19,
+      centerLongitude: -80.115,
+      radiusMi: 1,
+    });
+    const rent = store.createSavedSearch({
+      name: 'Rent near Fort Lauderdale',
+      mode: 'rent',
+      location: 'Fort Lauderdale · 1 mi',
+      locationMode: 'radius',
+      centerAddress: 'Fort Lauderdale saved property address',
+      centerLatitude: 26.19,
+      centerLongitude: -80.115,
+      radiusMi: 1,
+    });
+    const other = store.createSavedSearch({
+      name: 'Other radius',
+      mode: 'rent',
+      location: 'Fort Lauderdale · 1 mi',
+      locationMode: 'radius',
+      centerLatitude: 26.2,
+      centerLongitude: -80.115,
+      radiusMi: 1,
+    });
+    store.pairSavedSearches(buy.id, rent.id);
+    assert.throws(() => store.pairSavedSearches(buy.id, other.id), /same area/i);
   });
 
   it('pairs a Buy search with a Rent search in both directions', () => {

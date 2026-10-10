@@ -3,6 +3,7 @@ import type { ListingInput, PropertyInput } from '../store.js';
 export interface SearchCriteria {
   mode?: 'sale' | 'rent';
   location?: string;
+  radius?: { latitude: number; longitude: number; miles: number };
   priceMin?: number | null;
   priceMax?: number | null;
   beds?: number;
