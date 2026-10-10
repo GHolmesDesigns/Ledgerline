@@ -1,8 +1,140 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readDatabase, routeApiTo, seedDatabase, startApi, type Api } from './support/api';
+
+type PropertyDetail = {
+  property: Record<string, unknown>;
+  listings: Array<Record<string, unknown>>;
+  [key: string]: unknown;
+};
+
+/** The API response for prop_1, a single-family home with one Buy and one Rent listing. */
+function propertyDetail(): PropertyDetail {
+  return {
+    property: {
+      id: 'prop_1',
+      street: '2207 NE 32nd Ct',
+      unit: null,
+      city: 'Fort Lauderdale',
+      zip: '33308',
+      county: 'Broward',
+      propertyType: 'single_family',
+      beds: 3,
+      bathsTotal: 2,
+      bathsFull: 2,
+      bathsHalf: 0,
+      livingAreaSqft: 1850,
+      lotSizeSqft: 9148,
+      yearBuilt: 1964,
+      latitude: 26.15,
+      longitude: -80.12,
+      parcelId: null,
+    },
+    listings: [
+      {
+        id: 'sale-1',
+        mode: 'sale',
+        price: 849000,
+        pricePeriod: 'total',
+        status: 'active',
+        provider: 'mock',
+        providerLastSeenDate: '2026-10-06',
+        providerListedDate: '2026-08-20',
+        firstFetchedAt: '2026-08-20T12:00:00Z',
+        lastFetchedAt: '2026-10-06T12:00:00Z',
+        fieldQuality: {},
+        providerHistory: [],
+        localSnapshots: [
+          { id: 1, fetchedAt: '2026-10-06T12:00:00Z', price: 849000, status: 'active' },
+        ],
+        mlsName: 'MIAMI',
+        mlsNumber: 'A123',
+        agentName: 'A. Agent',
+        agentPhone: null,
+        agentEmail: null,
+        officeName: null,
+        officePhone: null,
+        officeEmail: null,
+        sourceUrl: null,
+      },
+      {
+        id: 'rent-1',
+        mode: 'rent',
+        price: 5200,
+        pricePeriod: 'month',
+        status: 'active',
+        provider: 'mock',
+        providerLastSeenDate: '2026-10-06',
+        firstFetchedAt: '2026-09-28T12:00:00Z',
+        lastFetchedAt: '2026-10-06T12:00:00Z',
+        fieldQuality: {},
+        providerHistory: [],
+        localSnapshots: [
+          { id: 2, fetchedAt: '2026-10-06T12:00:00Z', price: 5200, status: 'active' },
+        ],
+        mlsName: null,
+        mlsNumber: null,
+        agentName: null,
+        agentPhone: null,
+        agentEmail: null,
+        officeName: null,
+        officePhone: null,
+        officeEmail: null,
+        sourceUrl: null,
+      },
+    ],
+    notes: [],
+    saved: false,
+    dismissed: false,
+    comparableRent: {
+      figure: { value: 5200 },
+      label: 'same home · listed Sep 28',
+      stale: false,
+      comps: [],
+    },
+    costEstimate: {
+      lines: [
+        {
+          key: 'principalInterest',
+          label: 'Principal and interest',
+          monthly: 4293,
+          state: 'Calc',
+          note: '$679,200 loan · 6.50% · 30 yr',
+        },
+        {
+          key: 'propertyTax',
+          label: 'Property tax',
+          monthly: 1380,
+          state: 'Calc',
+          note: 'Broward millage (sample) · set Oct 7 · from county tax collector',
+        },
+        {
+          key: 'homeowners',
+          label: 'Homeowners insurance',
+          monthly: 610,
+          state: 'Quote',
+          note: 'entered Oct 5',
+        },
+        {
+          key: 'flood',
+          label: 'Flood insurance',
+          monthly: 180,
+          state: 'Est.',
+          note: 'enter a quote',
+        },
+      ],
+      totalStatus: 'Estimate',
+      statusLabel: 'Estimate · needs flood quote',
+      totalLabel: '$7,171/mo',
+      monthlyTotal: 7171,
+      knownSubtotal: 7171,
+      upfrontCash: 169800,
+      upfrontLabel: '$169,800',
+    },
+  };
+}
 
 test('property detail shows facts, separate history sources, and manual verification links', async ({
   page,
@@ -14,130 +146,7 @@ test('property detail shows facts, separate history sources, and manual verifica
     }
   });
   await page.route('**/api/properties/prop_1', (route) =>
-    route.fulfill({
-      json: {
-        property: {
-          id: 'prop_1',
-          street: '2207 NE 32nd Ct',
-          unit: null,
-          city: 'Fort Lauderdale',
-          zip: '33308',
-          county: 'Broward',
-          propertyType: 'single_family',
-          beds: 3,
-          bathsTotal: 2,
-          bathsFull: 2,
-          bathsHalf: 0,
-          livingAreaSqft: 1850,
-          lotSizeSqft: 9148,
-          yearBuilt: 1964,
-          latitude: 26.15,
-          longitude: -80.12,
-          parcelId: null,
-        },
-        listings: [
-          {
-            id: 'sale-1',
-            mode: 'sale',
-            price: 849000,
-            pricePeriod: 'total',
-            status: 'active',
-            provider: 'mock',
-            providerLastSeenDate: '2026-10-06',
-            providerListedDate: '2026-08-20',
-            firstFetchedAt: '2026-08-20T12:00:00Z',
-            lastFetchedAt: '2026-10-06T12:00:00Z',
-            fieldQuality: {},
-            providerHistory: [],
-            localSnapshots: [
-              { id: 1, fetchedAt: '2026-10-06T12:00:00Z', price: 849000, status: 'active' },
-            ],
-            mlsName: 'MIAMI',
-            mlsNumber: 'A123',
-            agentName: 'A. Agent',
-            agentPhone: null,
-            agentEmail: null,
-            officeName: null,
-            officePhone: null,
-            officeEmail: null,
-            sourceUrl: null,
-          },
-          {
-            id: 'rent-1',
-            mode: 'rent',
-            price: 5200,
-            pricePeriod: 'month',
-            status: 'active',
-            provider: 'mock',
-            providerLastSeenDate: '2026-10-06',
-            firstFetchedAt: '2026-09-28T12:00:00Z',
-            lastFetchedAt: '2026-10-06T12:00:00Z',
-            fieldQuality: {},
-            providerHistory: [],
-            localSnapshots: [
-              { id: 2, fetchedAt: '2026-10-06T12:00:00Z', price: 5200, status: 'active' },
-            ],
-            mlsName: null,
-            mlsNumber: null,
-            agentName: null,
-            agentPhone: null,
-            agentEmail: null,
-            officeName: null,
-            officePhone: null,
-            officeEmail: null,
-            sourceUrl: null,
-          },
-        ],
-        notes: [],
-        saved: false,
-        dismissed: false,
-        comparableRent: {
-          figure: { value: 5200 },
-          label: 'same home · listed Sep 28',
-          stale: false,
-          comps: [],
-        },
-        costEstimate: {
-          lines: [
-            {
-              key: 'principalInterest',
-              label: 'Principal and interest',
-              monthly: 4293,
-              state: 'Calc',
-              note: '$679,200 loan · 6.50% · 30 yr',
-            },
-            {
-              key: 'propertyTax',
-              label: 'Property tax',
-              monthly: 1380,
-              state: 'Calc',
-              note: 'Broward millage (sample) · set Oct 7 · from county tax collector',
-            },
-            {
-              key: 'homeowners',
-              label: 'Homeowners insurance',
-              monthly: 610,
-              state: 'Quote',
-              note: 'entered Oct 5',
-            },
-            {
-              key: 'flood',
-              label: 'Flood insurance',
-              monthly: 180,
-              state: 'Est.',
-              note: 'enter a quote',
-            },
-          ],
-          totalStatus: 'Estimate',
-          statusLabel: 'Estimate · needs flood quote',
-          totalLabel: '$7,171/mo',
-          monthlyTotal: 7171,
-          knownSubtotal: 7171,
-          upfrontCash: 169800,
-          upfrontLabel: '$169,800',
-        },
-      },
-    }),
+    route.fulfill({ json: propertyDetail() }),
   );
 
   await page.goto('/property/prop_1');
@@ -176,98 +185,60 @@ test.describe('property header Listing link', () => {
     { name: 'a specific provider listing URL', sourceUrl: redfinListing, direct: true },
   ];
 
+  // The response is mocked in the browser, as in the first test: no API process, database, or
+  // network call, so nothing here can stall on a slow machine.
+  const showProperty = async (page: Page, change: (detail: PropertyDetail) => void) => {
+    const detail = propertyDetail();
+    change(detail);
+    await page.route('**/api/properties/prop_1', (route) => route.fulfill({ json: detail }));
+    await page.goto('/property/prop_1');
+  };
+
   for (const { name, sourceUrl, direct } of cases) {
     test(`uses ${direct ? 'the provider listing' : 'a Redfin search'} for ${name}`, async ({
       page,
     }) => {
-      const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-listing-link-'));
-      let api: Api | undefined;
-      try {
-        const databasePath = join(root, 'ledgerline.sqlite');
-        seedDatabase(databasePath);
-        api = await startApi(databasePath);
-        const listingResponse = await fetch(api.url('/api/listings?mode=sale'));
-        const listings = (await listingResponse.json()) as {
-          items: Array<{ property: { id: string; street: string } }>;
-        };
-        const fortLauderdale = listings.items.find(
-          ({ property }) => property.street === '2207 NE 32nd Ct',
-        )!;
-        await routeApiTo(page, () => api!);
-        await page.route(`**/api/properties/${fortLauderdale.property.id}`, async (route) => {
-          const response = await fetch(api!.url(`/api/properties/${fortLauderdale.property.id}`));
-          const body = (await response.json()) as { listings: Array<{ sourceUrl: string | null }> };
-          for (const listing of body.listings) listing.sourceUrl = sourceUrl;
-          await route.fulfill({ json: body });
-        });
-
-        await page.goto(`/property/${fortLauderdale.property.id}`);
-        const link = page.locator('.property-listing-link');
-        if (direct) {
-          await expect(link).toHaveText('Listing');
-          await expect(link).toHaveAttribute('href', redfinListing);
-        } else {
-          await expect(link).toHaveText('Find on Redfin');
-          const href = (await link.getAttribute('href'))!;
-          const url = new URL(href);
-          expect(url.origin + url.pathname).toBe('https://www.google.com/search');
-          const query = url.searchParams.get('q')!;
-          expect(query).toBe('site:redfin.com 2207 NE 32nd Ct Fort Lauderdale FL 33308');
-        }
-        await expect(link).toHaveAttribute('target', '_blank');
-        // A homepage URL is not a listing, so it must not appear as "Open provider listing".
-        const providerLinks = page.getByRole('link', { name: 'Open provider listing' });
-        if (direct) await expect(providerLinks.first()).toBeVisible();
-        else await expect(providerLinks).toHaveCount(0);
-      } finally {
-        await api?.stop();
-        rmSync(root, { recursive: true, force: true });
+      await showProperty(page, (detail) => {
+        for (const listing of detail.listings) listing.sourceUrl = sourceUrl;
+      });
+      const link = page.locator('.property-listing-link');
+      if (direct) {
+        await expect(link).toHaveText('Listing');
+        await expect(link).toHaveAttribute('href', redfinListing);
+      } else {
+        await expect(link).toHaveText('Find on Redfin');
+        const url = new URL((await link.getAttribute('href'))!);
+        expect(url.origin + url.pathname).toBe('https://www.google.com/search');
+        expect(url.searchParams.get('q')).toBe(
+          'site:redfin.com 2207 NE 32nd Ct Fort Lauderdale FL 33308',
+        );
       }
+      await expect(link).toHaveAttribute('target', '_blank');
+      // A homepage URL is not a listing, so it must not appear as "Open provider listing".
+      const providerLinks = page.getByRole('link', { name: 'Open provider listing' });
+      if (direct) await expect(providerLinks.first()).toBeVisible();
+      else await expect(providerLinks).toHaveCount(0);
     });
   }
 
   // Redfin writes "329 SE 3rd St Unit 501T". A quoted "329 Se 3rd St 501T, …" phrase, or an MLS
   // name Redfin doesn't print, made Google answer "did not match any documents" for real condos.
   test('searches a condo by "Unit", unquoted, without the MLS name or number', async ({ page }) => {
-    const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-listing-link-'));
-    let api: Api | undefined;
-    try {
-      const databasePath = join(root, 'ledgerline.sqlite');
-      seedDatabase(databasePath);
-      api = await startApi(databasePath);
-      const listingResponse = await fetch(api.url('/api/listings?mode=sale'));
-      const listings = (await listingResponse.json()) as {
-        items: Array<{ property: { id: string; street: string } }>;
-      };
-      const home = listings.items.find(({ property }) => property.street === '2207 NE 32nd Ct')!;
-      await routeApiTo(page, () => api!);
-      await page.route(`**/api/properties/${home.property.id}`, async (route) => {
-        const response = await fetch(api!.url(`/api/properties/${home.property.id}`));
-        const body = (await response.json()) as {
-          property: { street: string; unit: string | null; city: string; zip: string };
-          listings: Array<{ sourceUrl: string | null; mlsName: string; mlsNumber: string }>;
-        };
-        Object.assign(body.property, {
-          street: '329 Se 3rd St',
-          unit: '501T',
-          city: 'Hallandale Beach',
-          zip: '33009',
-        });
-        for (const listing of body.listings) {
-          Object.assign(listing, { sourceUrl: null, mlsName: 'MiamiMLS', mlsNumber: 'A12078069' });
-        }
-        await route.fulfill({ json: body });
+    await showProperty(page, (detail) => {
+      Object.assign(detail.property, {
+        street: '329 Se 3rd St',
+        unit: '501T',
+        city: 'Hallandale Beach',
+        zip: '33009',
       });
-
-      await page.goto(`/property/${home.property.id}`);
-      const link = page.locator('.property-listing-link');
-      await expect(link).toHaveText('Find on Redfin');
-      const query = new URL((await link.getAttribute('href'))!).searchParams.get('q');
-      expect(query).toBe('site:redfin.com 329 Se 3rd St Unit 501T Hallandale Beach FL 33009');
-    } finally {
-      await api?.stop();
-      rmSync(root, { recursive: true, force: true });
-    }
+      for (const listing of detail.listings) {
+        Object.assign(listing, { sourceUrl: null, mlsName: 'MiamiMLS', mlsNumber: 'A12078069' });
+      }
+    });
+    const link = page.locator('.property-listing-link');
+    await expect(link).toHaveText('Find on Redfin');
+    const query = new URL((await link.getAttribute('href'))!).searchParams.get('q');
+    expect(query).toBe('site:redfin.com 329 Se 3rd St Unit 501T Hallandale Beach FL 33009');
   });
 });
 
