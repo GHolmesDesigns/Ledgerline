@@ -993,8 +993,41 @@ h1 {
   font-family: var(--font-display);
   font-size: clamp(1.4rem, 3vw, 2rem);
 }
+.property-address-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
 .property-detail-heading p {
   color: var(--color-muted);
+}
+.property-street-view {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+.property-map-panel {
+  padding: 12px;
+}
+.property-map-canvas {
+  height: clamp(280px, 36vw, 420px);
+  margin-top: 0;
+}
+.property-map-pin {
+  fill: #00c2d1;
+  stroke: #101820;
+  stroke-width: 3;
+}
+.property-map-pin-center {
+  fill: #101820;
+}
+.property-map-unavailable {
+  margin: 0;
+  padding: 18px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
 }
 .property-detail-section {
   display: grid;
