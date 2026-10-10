@@ -63,13 +63,55 @@ describe('local provider credentials', () => {
 
       const status = await fetch(`${api.url}/api/provider-credentials`);
       const statusBody = await status.text();
-      assert.deepEqual(JSON.parse(statusBody), { configured: true });
+      assert.deepEqual(JSON.parse(statusBody), { configured: true, googleMapsConfigured: false });
       assert.equal(statusBody.includes(secret), false);
 
       const invalid = await fetch(`${api.url}/api/provider-credentials`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ rentCastApiKey: `${secret}\nLEAK=true` }),
+      });
+      assert.equal(invalid.status, 400);
+      assert.equal((await invalid.text()).includes(secret), false);
+    } finally {
+      await api.close();
+      database.close();
+    }
+  });
+
+  it('stores the Google Maps key locally and reveals it only through the runtime map route', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'ledgerline-maps-key-'));
+    directories.push(directory);
+    const file = join(directory, '.env');
+    const credentials = new ProviderCredentials(file);
+    const SQL = await initSqlJs();
+    const database = new SQL.Database();
+    const store = createStore(database);
+    const api = await serve(database, store, undefined, credentials);
+    const secret = 'fake-google-maps-key-123';
+    try {
+      const saved = await fetch(`${api.url}/api/google-maps-key`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ googleMapsApiKey: secret }),
+      });
+      assert.deepEqual(await saved.json(), { configured: true });
+      assert.equal(credentials.getGoogleMapsKey(), secret);
+      assert.match(readFileSync(file, 'utf8'), /GOOGLE_MAPS_API_KEY=/);
+
+      const status = await fetch(`${api.url}/api/provider-credentials`);
+      const statusText = await status.text();
+      assert.deepEqual(JSON.parse(statusText), { configured: false, googleMapsConfigured: true });
+      assert.equal(statusText.includes(secret), false);
+
+      const runtime = await fetch(`${api.url}/api/google-maps-key`);
+      assert.equal(runtime.headers.get('cache-control'), 'no-store');
+      assert.deepEqual(await runtime.json(), { key: secret });
+
+      const invalid = await fetch(`${api.url}/api/google-maps-key`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ googleMapsApiKey: `${secret}\nLEAK=true` }),
       });
       assert.equal(invalid.status, 400);
       assert.equal((await invalid.text()).includes(secret), false);

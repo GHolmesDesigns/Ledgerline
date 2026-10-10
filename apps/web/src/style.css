@@ -2044,6 +2044,32 @@ h1 {
   touch-action: pan-y;
   cursor: grab;
 }
+.google-map-canvas {
+  height: clamp(360px, 48vw, 560px);
+  margin-top: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+}
+.google-map-pin-list {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  overflow-x: auto;
+}
+.google-map-pin-list button {
+  min-height: 44px;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.google-map-pin-list button[aria-pressed='true'] {
+  background: var(--color-ink);
+  color: var(--color-surface);
+}
 .county-map-canvas:active {
   cursor: grabbing;
 }

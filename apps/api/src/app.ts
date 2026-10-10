@@ -461,7 +461,27 @@ export function createApp(
     };
 
     if (request.url === '/api/provider-credentials' && request.method === 'GET') {
-      json(200, { configured: credentials.isRentCastConfigured() });
+      json(200, {
+        configured: credentials.isRentCastConfigured(),
+        googleMapsConfigured: credentials.isGoogleMapsConfigured(),
+      });
+      return;
+    }
+    if (request.url === '/api/google-maps-key' && request.method === 'GET') {
+      // This is the sole runtime exception: Maps JavaScript runs in the browser.
+      // Never include the value in general settings/status responses.
+      response.setHeader('Cache-Control', 'no-store');
+      json(200, { key: credentials.getGoogleMapsKey() });
+      return;
+    }
+    if (request.url === '/api/google-maps-key' && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        credentials.setGoogleMapsKey(body.googleMapsApiKey);
+        json(200, { configured: true });
+      } catch {
+        json(400, { error: 'Unable to save the Google Maps key.' });
+      }
       return;
     }
     if (request.url === '/api/provider-credentials' && request.method === 'PUT') {
