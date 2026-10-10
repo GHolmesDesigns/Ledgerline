@@ -196,6 +196,80 @@ test('score ranks stay attached to listings when the display sort changes', asyn
   await expect(cards.nth(1).locator('.ranking-summary strong')).toContainText('#2');
 });
 
+test('lot size, year, and days filters persist in the URL and saved searches', async ({ page }) => {
+  let saved: Record<string, unknown> | null = null;
+  await page.route('**/api/saved-searches', async (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      saved = {
+        ...body,
+        id: 8,
+        pairedSearchId: null,
+        lastSuccessfulRefreshAt: null,
+        lastRefreshAttemptAt: null,
+        lastRefreshError: null,
+      };
+      await route.fulfill({ status: 201, json: { item: saved } });
+      return;
+    }
+    await route.fulfill({ json: { items: saved ? [saved] : [] } });
+  });
+  await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
+  await page.route('**/api/listings?**', (route) => route.fulfill({ json: { items: [] } }));
+
+  await page.goto('/');
+  await page.getByLabel('Minimum lot size').fill('4000');
+  await page.getByLabel('Maximum lot size').fill('9000');
+  await page.getByLabel('Year built minimum').fill('1990');
+  await page.getByLabel('Year built maximum').fill('2020');
+  await page.getByLabel('Listed within days').fill('30');
+  await expect(page).toHaveURL(/minLotSize=4000/);
+  await expect(page).toHaveURL(/maxLotSize=9000/);
+  await expect(page).toHaveURL(/yearBuiltMin=1990/);
+  await expect(page).toHaveURL(/yearBuiltMax=2020/);
+  await expect(page).toHaveURL(/daysOnMarket=30/);
+  await expect(page.getByRole('button', { name: 'Remove Lot ≥ 4,000 sq ft' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Save current search' }).click();
+  await page.getByLabel('Saved search name').fill('Recent homes');
+  await page.getByRole('button', { name: 'Save search' }).click();
+  await expect
+    .poll(() => saved)
+    .toMatchObject({
+      filters: {
+        minLotSize: '4000',
+        maxLotSize: '9000',
+        yearBuiltMin: '1990',
+        yearBuiltMax: '2020',
+        daysOnMarket: '30',
+      },
+    });
+  await page.reload();
+  await page.getByLabel('Open saved search').selectOption('8');
+  await expect(page.getByLabel('Minimum lot size')).toHaveValue('4000');
+  await expect(page.getByLabel('Year built maximum')).toHaveValue('2020');
+  await expect(page.getByLabel('Listed within days')).toHaveValue('30');
+});
+
+test('inverted filter ranges show inline errors without requesting listings', async ({ page }) => {
+  let searches = 0;
+  await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
+  await page.route('**/api/listings?**', async (route) => {
+    searches += 1;
+    await route.fulfill({ json: { items: [] } });
+  });
+  await page.goto('/');
+  await page.getByLabel('Minimum lot size').fill('9000');
+  await page.getByLabel('Maximum lot size').fill('1000');
+  const callsAtInvalidRange = searches;
+  await expect(page.getByText('Minimum lot size cannot exceed maximum.')).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Correct the filter values' }),
+  ).toBeVisible();
+  await page.waitForTimeout(100);
+  expect(searches).toBe(callsAtInvalidRange);
+});
+
 test('changing a ranking weight updates scores and rank order', async ({ page }) => {
   const small = sale(200000, 'Smaller home') as {
     property: { livingAreaSqft?: number; floodZone?: string | null };

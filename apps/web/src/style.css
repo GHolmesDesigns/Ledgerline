@@ -1657,6 +1657,11 @@ h1 {
   font-size: 12px;
   font-weight: 600;
 }
+.filter-error {
+  color: #8a0049;
+  font-size: 12px;
+  font-weight: 500;
+}
 .filter-field input:not([type='checkbox']),
 .filter-field select,
 .sort-control select {
@@ -2886,6 +2891,7 @@ h1 {
   color: #ffe784;
 }
 :root[data-theme='dark'] .search-error,
+:root[data-theme='dark'] .filter-error,
 :root[data-theme='dark'] .review-reason,
 :root[data-theme='dark'] .property-risk-warning {
   color: #ff91bb;

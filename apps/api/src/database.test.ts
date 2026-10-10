@@ -95,6 +95,78 @@ describe('local API bootstrap', () => {
   });
 });
 
+describe('stored listing filters', () => {
+  it('filters lot size, year built, and days on market locally and reports missing values', async () => {
+    const database = await temporaryDatabase();
+    const store = createStore(database);
+    const listedRecently = new Date(Date.now() - 5 * 86400000).toISOString();
+    const createListing = (
+      street: string,
+      property: { lotSizeSqft?: number | null; yearBuilt?: number | null },
+      listedDate: string | null,
+    ) => {
+      const saved = store.createProperty({
+        street,
+        city: 'Fort Lauderdale',
+        zip: '33308',
+        ...property,
+      });
+      store.upsertListing(saved.id, {
+        provider: 'mock',
+        providerId: street,
+        mode: 'sale',
+        price: 500000,
+        pricePeriod: 'total',
+        status: 'active',
+        providerListedDate: listedDate,
+      });
+      return saved.id;
+    };
+    const matching = createListing(
+      '1 Match St',
+      { lotSizeSqft: 5000, yearBuilt: 2000 },
+      listedRecently,
+    );
+    createListing('2 Unknown St', { lotSizeSqft: null, yearBuilt: 1990 }, null);
+    createListing('3 Outside St', { lotSizeSqft: 7000, yearBuilt: null }, '2020-01-01');
+    const server = createApp(database, store);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    const root = `http://127.0.0.1:${address.port}/api/listings`;
+    try {
+      const combined = await fetch(
+        `${root}?mode=sale&minLotSize=4000&maxLotSize=6000&yearBuiltMin=1995&yearBuiltMax=2020&daysOnMarket=14`,
+      );
+      assert.equal(combined.status, 200);
+      const result = (await combined.json()) as {
+        items: Array<{ property: { id: string } }>;
+        hiddenCounts: { lotSize: number; yearBuilt: number; daysOnMarket: number };
+      };
+      assert.deepEqual(
+        result.items.map((item) => item.property.id),
+        [matching],
+      );
+      assert.deepEqual(result.hiddenCounts, { lotSize: 1, yearBuilt: 1, daysOnMarket: 1 });
+
+      const lotOnly = await fetch(`${root}?mode=sale&minLotSize=5000&maxLotSize=5000`);
+      assert.deepEqual(
+        ((await lotOnly.json()) as { items: Array<{ property: { id: string } }> }).items.map(
+          (item) => item.property.id,
+        ),
+        [matching],
+      );
+      const inverted = await fetch(`${root}?mode=sale&minLotSize=9000&maxLotSize=1000`);
+      assert.equal(inverted.status, 400);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+      database.close();
+    }
+  });
+});
+
 describe('property cost-entry API', () => {
   it('stores document records, includes them in property detail, and blocks no-flood choices in A/V zones', async () => {
     const database = await temporaryDatabase();
