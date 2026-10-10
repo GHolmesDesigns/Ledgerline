@@ -212,8 +212,7 @@ test.describe('property header Listing link', () => {
           const url = new URL(href);
           expect(url.origin + url.pathname).toBe('https://www.google.com/search');
           const query = url.searchParams.get('q')!;
-          expect(query).toContain('site:redfin.com');
-          expect(query).toContain('2207 NE 32nd Ct, Fort Lauderdale, FL 33308');
+          expect(query).toBe('site:redfin.com 2207 NE 32nd Ct Fort Lauderdale FL 33308');
         }
         await expect(link).toHaveAttribute('target', '_blank');
         // A homepage URL is not a listing, so it must not appear as "Open provider listing".
@@ -226,6 +225,50 @@ test.describe('property header Listing link', () => {
       }
     });
   }
+
+  // Redfin writes "329 SE 3rd St Unit 501T". A quoted "329 Se 3rd St 501T, …" phrase, or an MLS
+  // name Redfin doesn't print, made Google answer "did not match any documents" for real condos.
+  test('searches a condo by "Unit", unquoted, without the MLS name or number', async ({ page }) => {
+    const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-listing-link-'));
+    let api: Api | undefined;
+    try {
+      const databasePath = join(root, 'ledgerline.sqlite');
+      seedDatabase(databasePath);
+      api = await startApi(databasePath);
+      const listingResponse = await fetch(api.url('/api/listings?mode=sale'));
+      const listings = (await listingResponse.json()) as {
+        items: Array<{ property: { id: string; street: string } }>;
+      };
+      const home = listings.items.find(({ property }) => property.street === '2207 NE 32nd Ct')!;
+      await routeApiTo(page, () => api!);
+      await page.route(`**/api/properties/${home.property.id}`, async (route) => {
+        const response = await fetch(api!.url(`/api/properties/${home.property.id}`));
+        const body = (await response.json()) as {
+          property: { street: string; unit: string | null; city: string; zip: string };
+          listings: Array<{ sourceUrl: string | null; mlsName: string; mlsNumber: string }>;
+        };
+        Object.assign(body.property, {
+          street: '329 Se 3rd St',
+          unit: '501T',
+          city: 'Hallandale Beach',
+          zip: '33009',
+        });
+        for (const listing of body.listings) {
+          Object.assign(listing, { sourceUrl: null, mlsName: 'MiamiMLS', mlsNumber: 'A12078069' });
+        }
+        await route.fulfill({ json: body });
+      });
+
+      await page.goto(`/property/${home.property.id}`);
+      const link = page.locator('.property-listing-link');
+      await expect(link).toHaveText('Find on Redfin');
+      const query = new URL((await link.getAttribute('href'))!).searchParams.get('q');
+      expect(query).toBe('site:redfin.com 329 Se 3rd St Unit 501T Hallandale Beach FL 33009');
+    } finally {
+      await api?.stop();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 test('unknown property IDs show a not-found state', async ({ page }) => {

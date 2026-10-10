@@ -4030,13 +4030,10 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
     saleListing ??
     listings[0];
   const linkedListingSourceUrl = usableListingSourceUrl(linkedListing?.sourceUrl);
-  const listingSearch = [
-    `site:redfin.com "${property.street}${property.unit ? ` ${property.unit}` : ''}, ${property.city}, FL ${property.zip}"`,
-    linkedListing?.mlsName,
-    linkedListing?.mlsNumber,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  // Unquoted, with "Unit": Redfin writes "329 SE 3rd St Unit 501T", so an exact-phrase match on
+  // "329 Se 3rd St 501T, …" finds nothing. The MLS name and number are left out because one
+  // that Redfin doesn't print the same way turns a good address match into zero results.
+  const listingSearch = `site:redfin.com ${property.street}${property.unit ? ` Unit ${property.unit}` : ''} ${property.city} FL ${property.zip}`;
   const listingUrl =
     linkedListingSourceUrl ??
     `https://www.google.com/search?q=${encodeURIComponent(listingSearch)}`;

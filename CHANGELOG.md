@@ -1,13 +1,13 @@
 # Changelog
 
-The project version is in `package.json`, and each release is tagged `vX.Y.Z`. The plan has its own version and bump rule (see the plan's Version history); each release below names the plan version it follows.
+The project version is in `package.json` and is what the sidebar and Settings About show. It has its own bump rule, below, and does not follow the plan's version. The plan has its own version and bump rule (see the plan's Version history); each version below names the plan version in force when it was made, for reference only.
 
 ## Bump rule
 
 Until 1.0.0, versions are `0.MINOR.PATCH`:
 
 - **Minor:** a milestone is done, with all of its acceptance checks passing. 0.1.0 = Milestone 1, 0.2.0 = Milestone 2, 0.3.0 = Milestone 3.
-- **Patch:** any other release: fixes, document or fixture changes, or work toward the next milestone.
+- **Patch:** any other change: fixes, features, tests, fixture or document changes, or work toward the next milestone.
 - **1.0.0:** Milestone 4 (the 30-day review) is done.
 
 From 1.0.0 on:
@@ -16,10 +16,19 @@ From 1.0.0 on:
 - **Minor:** a new or changed feature.
 - **Patch:** fixes and document changes.
 
-To release: move the notes under "Unreleased" to a new heading with the version, date, and plan version; set the version in `package.json`; commit; and tag that commit `vX.Y.Z`.
+The app runs only on this computer and is updated by deploying `main`, so there is no separate release step. **Every pull request that changes the app, its tests, or its documents sets the next version itself:**
 
-## Unreleased
+1. Work out the next version from the rules above (a patch unless a milestone is done).
+2. Set it in `package.json` and in the two project entries at the top of `package-lock.json`.
+3. Add a heading `## X.Y.Z · YYYY-MM-DD · plan N.N` above the previous version, with the PR's notes under it. If an earlier PR already added that version and has not merged, rebase and use the next number.
 
+Deploying does not change the version; it ships whatever `main` holds, so the sidebar shows the deployed version. Tag a commit `vX.Y.Z` only when asked.
+
+## 0.0.2 · 2026-10-10 · plan 2.15
+
+First version since the 0.0.1 planning baseline. It holds everything built since then, as listed here; later versions list only their own changes.
+
+- Fix the "Find on Redfin" search returning no results: search the address unquoted and with "Unit" (Redfin writes "Unit 501T"), and leave out the MLS name and number, which made Google answer "did not match any documents" for real condos.
 - Fix the property-header Listing link: ignore Redfin homepage `?location=` URLs as non-listing destinations, use valid provider listing URLs when available, and otherwise open a Redfin-restricted Google search with the full property address and MLS number.
 - Show the reorderable Settings sections as nested links in the desktop sidebar.
 - Persist ZIP, City text, and radius locations as saved-search fields; pair radius searches by resolved center and radius, retain location details in format 8 backups, and show whether the active provider supports radius refresh (Issue 90 / C52).
