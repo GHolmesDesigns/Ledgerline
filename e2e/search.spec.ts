@@ -92,15 +92,37 @@ test('Buy and Rent switch preserve separate price ranges and the URL', async ({ 
   });
 
   await page.goto('/');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Rent data may be incomplete' }),
+  ).toHaveCount(0);
   await page.getByLabel('Price minimum').fill('250000');
   await expect(page).toHaveURL(/priceMin=250000/);
   await page.getByRole('button', { name: 'Rent', exact: true }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Rent data may be incomplete' }),
+  ).toBeVisible();
   await expect(page.getByLabel('Rent minimum')).toHaveValue('');
   await page.getByLabel('Rent minimum').fill('3000');
   await expect(page.locator('.listing-card .listing-price')).toHaveText('$5,200/mo');
   await page.getByRole('button', { name: 'Buy', exact: true }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Rent data may be incomplete' }),
+  ).toHaveCount(0);
   await expect(page.getByLabel('Price minimum')).toHaveValue('250000');
   await expect(page).toHaveURL(/mode=sale.*priceMin=250000/);
+});
+
+test('Rent data notice stays visible on mobile with no matching listings', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/?mode=rent&location=00000');
+  await expect(page.getByText('No listings match these filters.')).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Rent data may be incomplete' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Buy', exact: true }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Rent data may be incomplete' }),
+  ).toHaveCount(0);
 });
 
 test('price sorting changes the query and shows full photo-free result cards', async ({ page }) => {

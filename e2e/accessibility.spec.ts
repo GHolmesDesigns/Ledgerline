@@ -70,6 +70,14 @@ for (const viewport of viewports) {
   test.describe(`${viewport.name} viewport`, () => {
     test.use({ viewport: viewport.size });
 
+    test('Rent Search notice is visible and passes axe', async ({ page }) => {
+      await open(page, '/?mode=rent', 'Search');
+      await expect(
+        page.getByRole('status').filter({ hasText: 'Rent data may be incomplete' }),
+      ).toBeVisible();
+      expect(await seriousViolations(page)).toEqual([]);
+    });
+
     test('Search this address keeps readable contrast in every interaction state', async ({
       page,
     }) => {
