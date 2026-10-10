@@ -22,7 +22,7 @@ A personal, local-only web app for finding, ranking, and comparing Florida homes
 
 ## Versions
 
-The project version is in `package.json`, and each release is tagged `vX.Y.Z`. Releases and the bump rule are in [CHANGELOG.md](CHANGELOG.md). Until 1.0.0, each completed milestone is a minor release (0.1.0 = Milestone 1). The plan has its own version and rule, in its Version history section.
+The project version is in `package.json` and shows in the app's sidebar. Every pull request sets the next one; the history and bump rule are in [CHANGELOG.md](CHANGELOG.md). Until 1.0.0, each completed milestone is a minor bump (0.1.0 = Milestone 1) and everything else is a patch. The project version is independent of the plan's version; the plan has its own rule, in its Version history section. The plan has its own version and rule, in its Version history section.
 
 ## Check the fixtures
 
