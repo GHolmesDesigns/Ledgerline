@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Add a Redfin Listing link to the property header that opens a new tab with the full property address, and show the reorderable Settings sections as nested links in the desktop sidebar.
 - Persist ZIP, City text, and radius locations as saved-search fields; pair radius searches by resolved center and radius, retain location details in format 8 backups, and show whether the active provider supports radius refresh (Issue 90 / C52).
 - Run browser tests with one worker in CI after parallel runs caused intermittent timeouts and incomplete Google Maps test setup.
 - Add local ZIP and radius search to Search, including exact ZIP matching, stored-property address resolution, coordinate validation, URL and saved-search state, radius overlays on both map views, and blocking of unverified provider radius refreshes (Issue 89 / C51).
