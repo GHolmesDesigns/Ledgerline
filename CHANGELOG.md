@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Persist ZIP, City text, and radius locations as saved-search fields; pair radius searches by resolved center and radius, retain location details in format 8 backups, and show whether the active provider supports radius refresh (Issue 90 / C52).
 - Run browser tests with one worker in CI after parallel runs caused intermittent timeouts and incomplete Google Maps test setup.
 - Add local ZIP and radius search to Search, including exact ZIP matching, stored-property address resolution, coordinate validation, URL and saved-search state, radius overlays on both map views, and blocking of unverified provider radius refreshes (Issue 89 / C51).
 - Add an all-selected personal tag filter to Search and manage tag usage in Settings. Standard tags show property counts; custom tags can be renamed across properties or deleted after confirming how many properties lose them. These actions and filtering use local data only (Issue 88 / C50).

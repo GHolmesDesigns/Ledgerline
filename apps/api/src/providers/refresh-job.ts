@@ -24,6 +24,17 @@ function criteriaFor(search: SavedSearch): SearchCriteria {
   return {
     mode: search.mode,
     location: search.location,
+    radius:
+      search.locationMode === 'radius' &&
+      search.centerLatitude !== null &&
+      search.centerLongitude !== null &&
+      search.radiusMi !== null
+        ? {
+            latitude: search.centerLatitude,
+            longitude: search.centerLongitude,
+            miles: search.radiusMi,
+          }
+        : undefined,
     priceMin: search.priceMin,
     priceMax: search.priceMax,
     beds: numberFilter(filters.beds),

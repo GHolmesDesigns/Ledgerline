@@ -557,6 +557,32 @@ export function createApp(
         }
         result.location = body.location.trim();
       }
+      if (!partial || has('locationMode')) {
+        const value = body.locationMode ?? 'city';
+        if (value !== 'city' && value !== 'zip' && value !== 'radius')
+          throw new Error('Location mode must be City text, ZIP, or Radius.');
+        result.locationMode = value;
+      }
+      for (const key of ['zip', 'centerAddress'] as const) {
+        if (!partial || has(key)) {
+          const value = body[key];
+          if (value !== undefined && value !== null && typeof value !== 'string')
+            throw new Error(`${key} must be text or null.`);
+          result[key] = (value as string | null | undefined)?.trim() ?? null;
+        }
+      }
+      for (const key of ['centerLatitude', 'centerLongitude', 'radiusMi'] as const) {
+        if (!partial || has(key)) {
+          const value = body[key];
+          if (
+            value !== undefined &&
+            value !== null &&
+            (typeof value !== 'number' || !Number.isFinite(value))
+          )
+            throw new Error(`${key} must be a finite number or null.`);
+          result[key] = value as number | null | undefined;
+        }
+      }
       if (!partial || has('filters')) {
         if (
           body.filters !== undefined &&
@@ -1124,6 +1150,10 @@ export function createApp(
 
     if (request.method === 'GET' && request.url === '/api/saved-searches') {
       json(200, { items: store.listSavedSearches() });
+      return;
+    }
+    if (request.method === 'GET' && request.url === '/api/provider-capabilities') {
+      json(200, { name: refreshJob.provider.name, capabilities: refreshJob.provider.capabilities });
       return;
     }
     if (request.method === 'POST' && request.url === '/api/saved-searches') {

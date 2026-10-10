@@ -1,8 +1,9 @@
 import initSqlJs, { type Database } from 'sql.js';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, it } from 'node:test';
 import { closeDatabase, openDatabase } from './database.js';
 import { createApp } from './app.js';
@@ -53,6 +54,7 @@ describe('local API bootstrap', () => {
       { version: 14, name: '014_outside_requests.sql' },
       { version: 15, name: '015_property_photos.sql' },
       { version: 16, name: '016_personal_tags.sql' },
+      { version: 17, name: '017_saved_search_locations.sql' },
     ]);
     const firstStore = createStore(first);
     firstStore.addOutsideProviderRequest({
@@ -64,7 +66,7 @@ describe('local API bootstrap', () => {
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 16 },
+      { count: 17 },
     ]);
     assert.deepEqual(
       createStore(second)
@@ -73,6 +75,29 @@ describe('local API bootstrap', () => {
       [['2026-10-08', 15, 'Milestone 0']],
     );
     closeDatabase(second);
+  });
+
+  it('migrates existing saved searches as City text while retaining their profile data', async () => {
+    const SQL = await initSqlJs();
+    const database = new SQL.Database();
+    const migrations = fileURLToPath(new URL('../migrations/', import.meta.url));
+    for (let version = 1; version <= 16; version += 1) {
+      const filename = readdirSync(migrations).find((item) =>
+        item.startsWith(`${String(version).padStart(3, '0')}_`),
+      );
+      if (!filename) throw new Error(`Missing migration ${version}`);
+      database.run(readFileSync(join(migrations, filename), 'utf8'));
+    }
+    database.run(
+      `INSERT INTO saved_searches (name, mode, location, filters, price_min, price_max, created_at, updated_at)
+       VALUES ('Legacy', 'sale', 'Miami 33131', '{"beds":"2"}', 200000, 500000, '2026-10-01', '2026-10-01')`,
+    );
+    database.run(readFileSync(join(migrations, '017_saved_search_locations.sql'), 'utf8'));
+    const search = createStore(database).listSavedSearches()[0]!;
+    assert.equal(search.locationMode, 'city');
+    assert.equal(search.location, 'Miami 33131');
+    assert.deepEqual(search.filters, { beds: '2' });
+    database.close();
   });
 
   it('serves health and binds to the loopback interface only', async () => {

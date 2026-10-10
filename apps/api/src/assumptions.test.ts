@@ -22,7 +22,7 @@ describe('assumptions API', () => {
       CREATE TABLE property_notes (id INTEGER PRIMARY KEY, property_id TEXT, body TEXT, created_at TEXT, updated_at TEXT);
       CREATE TABLE property_favorites (property_id TEXT PRIMARY KEY, created_at TEXT);
       CREATE TABLE property_dismissals (property_id TEXT PRIMARY KEY, dismissed_at TEXT);
-      CREATE TABLE saved_searches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, mode TEXT, location TEXT, filters TEXT, price_min INTEGER, price_max INTEGER, paired_search_id INTEGER, refresh_interval_days INTEGER, last_successful_refresh_at TEXT, last_refresh_attempt_at TEXT, last_refresh_error TEXT, created_at TEXT, updated_at TEXT);
+      CREATE TABLE saved_searches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, mode TEXT, location TEXT, filters TEXT, price_min INTEGER, price_max INTEGER, paired_search_id INTEGER, refresh_interval_days INTEGER, last_successful_refresh_at TEXT, last_refresh_attempt_at TEXT, last_refresh_error TEXT, created_at TEXT, updated_at TEXT, location_mode TEXT DEFAULT 'city', zip TEXT, center_address TEXT, center_latitude REAL, center_longitude REAL, radius_mi REAL);
       CREATE TABLE match_review_queue (id INTEGER PRIMARY KEY, incoming_listing TEXT, candidate_property_id TEXT, reason TEXT, decision TEXT, decided_at TEXT, created_at TEXT, created_listing_id TEXT, created_property_id TEXT);
       CREATE TABLE provider_request_logs (id INTEGER PRIMARY KEY, provider TEXT, saved_search_id INTEGER, property_id TEXT, requested_at TEXT, purpose TEXT, page INTEGER, status TEXT, result_count INTEGER, error_message TEXT);
       CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT);

@@ -158,6 +158,84 @@ async function seedPersonalData(store: Store, decision: 'link' | 'keep_separate'
 }
 
 describe('personal-data backup', () => {
+  it('round-trips radius center details and treats a format 7 search without location fields as City text', async () => {
+    const source = await freshStore();
+    const buy = source.store.createSavedSearch({
+      name: 'Fort Lauderdale radius · Buy',
+      mode: 'sale',
+      location: '2207 N.E. 32nd Court, Fort Lauderdale · 1.5 mi',
+      locationMode: 'radius',
+      centerAddress: '2207 N.E. 32nd Court, Fort Lauderdale, FL 33308',
+      centerLatitude: 26.19,
+      centerLongitude: -80.115,
+      radiusMi: 1.5,
+    });
+    const rent = source.store.createSavedSearch({
+      name: 'Fort Lauderdale radius · Rent',
+      mode: 'rent',
+      location: buy.location,
+      locationMode: 'radius',
+      centerAddress: buy.centerAddress,
+      centerLatitude: buy.centerLatitude,
+      centerLongitude: buy.centerLongitude,
+      radiusMi: buy.radiusMi,
+    });
+    source.store.pairSavedSearches(buy.id, rent.id);
+    const backup = JSON.parse(JSON.stringify(exportBackup(source.store, exportedAt)));
+    assert.equal(backup.formatVersion, 8);
+    assert.equal((backup.savedSearches[0] as Record<string, unknown>).locationMode, 'radius');
+    assert.equal(
+      (backup.savedSearches[0] as Record<string, unknown>).centerAddress,
+      '2207 N.E. 32nd Court, Fort Lauderdale, FL 33308',
+    );
+    assert.equal((backup.savedSearches[0] as Record<string, unknown>).centerLatitude, 26.19);
+    assert.equal((backup.savedSearches[0] as Record<string, unknown>).centerLongitude, -80.115);
+    assert.equal((backup.savedSearches[0] as Record<string, unknown>).radiusMi, 1.5);
+
+    const target = await freshStore();
+    importBackup(target.store, backup);
+    const restored = target.store.listSavedSearches();
+    assert.equal(restored[0]!.locationMode, 'radius');
+    assert.equal(restored[0]!.centerAddress, buy.centerAddress);
+    assert.equal(restored[0]!.centerLatitude, 26.19);
+    assert.equal(restored[0]!.centerLongitude, -80.115);
+    assert.equal(restored[0]!.radiusMi, 1.5);
+    assert.equal(restored[0]!.pairedSearchId, restored[1]!.id);
+
+    const legacySearches = (backup.savedSearches as Array<Record<string, unknown>>).map(
+      (search) => {
+        const legacySearch = { ...search };
+        for (const key of [
+          'locationMode',
+          'zip',
+          'centerAddress',
+          'centerLatitude',
+          'centerLongitude',
+          'radiusMi',
+        ])
+          delete legacySearch[key];
+        return legacySearch;
+      },
+    );
+    const legacy = { ...backup, formatVersion: 7, savedSearches: legacySearches };
+    const oldTarget = await freshStore();
+    importBackup(oldTarget.store, legacy);
+    assert.ok(
+      oldTarget.store.listSavedSearches().every((search) => search.locationMode === 'city'),
+    );
+
+    const malformedTarget = await freshStore();
+    const malformed = {
+      ...backup,
+      savedSearches: [
+        { ...(backup.savedSearches[0] as Record<string, unknown>), locationMode: 'unsupported' },
+      ],
+    };
+    const malformedReport = importBackup(malformedTarget.store, malformed);
+    assert.match(malformedReport.skipped[0]?.reason ?? '', /location mode is unreadable/i);
+    assert.equal(malformedTarget.store.listSavedSearches().length, 0);
+  });
+
   it('round-trips notes, saves, dismissals, saved searches, and match decisions into an empty database', async () => {
     const source = await freshStore();
     await seedPersonalData(source.store, 'keep_separate');
@@ -411,7 +489,7 @@ describe('personal-data backup', () => {
       customTags: string[];
       properties: Array<{ address: { street: string }; tags: string[] }>;
     };
-    assert.equal(backup.formatVersion, 7);
+    assert.equal(backup.formatVersion, 8);
     assert.deepEqual(backup.customTags, ['Rooftop deck']);
     assert.deepEqual(backup.properties[0]!.tags, ['Pool', 'Rooftop deck']);
 
@@ -515,7 +593,7 @@ describe('personal-data backup', () => {
         },
       ],
       savedSearches: [
-        { name: 'Fine', mode: 'rent', location: 'Miami 33131' },
+        { name: 'Fine', mode: 'rent', location: 'Miami 33131', locationMode: 'city' },
         { name: 'Bad range', mode: 'sale', location: 'Miami', priceMin: 9, priceMax: 1 },
         { name: 'Bad mode', mode: 'lease', location: 'Miami' },
       ],
