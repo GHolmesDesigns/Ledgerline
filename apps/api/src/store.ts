@@ -1068,18 +1068,17 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
     getComparableRentFigure(propertyId: string): ComparableRentFigure | null {
       const row = one('SELECT * FROM comparable_rent_figures WHERE property_id = ?', [propertyId]);
-      const provider =
+      const logged =
         row && row.source === 'rent_estimate'
-          ? text(
-              one(
-                `SELECT provider FROM provider_request_logs
-                 WHERE property_id = ? AND purpose = 'rent-estimate' AND status = 'succeeded'
-                   AND requested_at <= ?
-                 ORDER BY requested_at DESC, id DESC LIMIT 1`,
-                [propertyId, String(row.computed_at)],
-              )?.provider,
+          ? one(
+              `SELECT provider FROM provider_request_logs
+               WHERE property_id = ? AND purpose = 'rent-estimate' AND status = 'succeeded'
+                 AND requested_at <= ?
+               ORDER BY requested_at DESC, id DESC LIMIT 1`,
+              [propertyId, String(row.computed_at)],
             )
-          : null;
+          : undefined;
+      const provider = logged ? text(logged.provider) : null;
       return row
         ? {
             propertyId: String(row.property_id),

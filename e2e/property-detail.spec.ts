@@ -450,19 +450,20 @@ test('comparable rent uses same-home priority, shows stored comps, and saves min
     expect(budgetAfterOpeningDetail.used).toBe(budgetBefore.used);
     await page.getByRole('button', { name: 'Save property' }).click();
     const estimateButton = page.getByRole('button', {
-      name: /Get RentCast rent estimate · 1 request · \d+ left this month/,
+      name: /Get mock rent estimate · no external request · \d+ left this month/,
     });
     await expect(estimateButton).toBeVisible();
     await estimateButton.click();
     await expect(
-      page.getByText(/\$2,300\/mo · RentCast estimate · range \$2,000–\$2,600 ·/),
+      page.getByText(/\$2,300\/mo · Mock estimate · range \$2,000–\$2,600 ·/),
     ).toBeVisible();
     const budgetAfterEstimate = (await (await fetch(api.url('/api/request-budget'))).json()) as {
       used: number;
       rentEstimatesUsed: number;
     };
-    expect(budgetAfterEstimate.used).toBe(budgetBefore.used + 1);
-    expect(budgetAfterEstimate.rentEstimatesUsed).toBe(1);
+    // The local mock is simulated, so it uses none of the external-provider ceiling.
+    expect(budgetAfterEstimate.used).toBe(budgetBefore.used);
+    expect(budgetAfterEstimate.rentEstimatesUsed).toBe(0);
     await page.goto('/settings');
     await page.getByLabel('Minimum comps').fill('2');
     await page.getByRole('button', { name: 'Save comparable-rent rules' }).click();
@@ -478,9 +479,9 @@ test('comparable rent uses same-home priority, shows stored comps, and saves min
     });
     await page.goto(`/property/${bocaRaton.property.id}`);
     await page.getByRole('button', { name: 'Save property' }).click();
-    const blockedEstimate = page.getByRole('button', { name: /Get RentCast rent estimate/ });
-    await expect(blockedEstimate).toBeDisabled();
-    await expect(page.getByText(/Request ceiling reached/)).toBeVisible();
+    const mockEstimate = page.getByRole('button', { name: /Get mock rent estimate/ });
+    await expect(mockEstimate).toBeEnabled();
+    await expect(page.getByText(/Request ceiling reached/)).toHaveCount(0);
     const budgetAfter = (await (await fetch(api.url('/api/request-budget'))).json()) as {
       used: number;
     };

@@ -734,6 +734,8 @@ type ComparableRentRules = {
 type ComparableRent = {
   figure: {
     source: 'same_home' | 'local_comps' | 'rent_estimate' | 'unavailable';
+    /** The provider that returned a saved estimate; null when its request was not logged. */
+    provider?: string | null;
     value: number | null;
     low: number | null;
     high: number | null;
@@ -4870,12 +4872,10 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
                 type="button"
               >
                 {rentEstimateBusy
-                  ? `Requesting ${requestUsage?.provider === 'mock' ? 'mock' : requestUsage?.provider ?? 'provider'} estimate…`
-                  : `${data.comparableRent?.figure.source === 'rent_estimate' ? 'Refresh' : 'Get'} ${requestUsage?.provider === 'mock' ? 'mock' : requestUsage?.provider ?? 'provider'} rent estimate · ${requestUsage?.provider === 'mock' ? 'no external request' : '1 request'} · ${requestUsage?.remaining ?? '…'} left this month`}
+                  ? `Requesting ${requestUsage?.provider === 'mock' ? 'mock' : (requestUsage?.provider ?? 'provider')} estimate…`
+                  : `${data.comparableRent?.figure.source === 'rent_estimate' ? 'Refresh' : 'Get'} ${requestUsage?.provider === 'mock' ? 'mock' : (requestUsage?.provider ?? 'provider')} rent estimate · ${requestUsage?.provider === 'mock' ? 'no external request' : '1 request'} · ${requestUsage?.remaining ?? '…'} left this month`}
               </button>
-              {requestUsage &&
-                requestUsage.provider !== 'mock' &&
-                requestUsage.remaining < 1 && (
+              {requestUsage && requestUsage.provider !== 'mock' && requestUsage.remaining < 1 && (
                 <p role="status">
                   Request ceiling reached. Resets{' '}
                   {new Date(requestUsage.nextReset).toLocaleDateString()}.
