@@ -238,6 +238,8 @@ describe('personal-data backup', () => {
       costEntries: 0,
       photos: 0,
       rankingWeights: 0,
+      tags: 0,
+      customTags: 0,
     });
     assert.equal(second.alreadyPresent.notes, 3);
     assert.equal(second.alreadyPresent.savedSearches, 2);
@@ -396,6 +398,51 @@ describe('personal-data backup', () => {
     );
     assert.deepEqual(exportBackup(target.store, exportedAt), before);
     assert.equal(target.store.listSavedSearches().length, 0);
+  });
+
+  it('round-trips property tags and the custom tag list, and upgrades format 6', async () => {
+    const source = await freshStore();
+    const property = source.store.createProperty({ ...bayRoad });
+    source.store.createCustomTag('Rooftop deck');
+    source.store.setPropertyTag(property.id, 'Rooftop deck', true);
+    source.store.setPropertyTag(property.id, 'Pool', true);
+    const backup = JSON.parse(JSON.stringify(exportBackup(source.store, exportedAt))) as {
+      formatVersion: number;
+      customTags: string[];
+      properties: Array<{ address: { street: string }; tags: string[] }>;
+    };
+    assert.equal(backup.formatVersion, 7);
+    assert.deepEqual(backup.customTags, ['Rooftop deck']);
+    assert.deepEqual(backup.properties[0]!.tags, ['Pool', 'Rooftop deck']);
+
+    const target = await freshStore();
+    const imported = importBackup(target.store, backup);
+    const restored = target.store.findPropertyByAddress(bayRoad)!;
+    assert.deepEqual(
+      target.store.listPropertyTags(restored.id).map((tag) => tag.name),
+      ['Pool', 'Rooftop deck'],
+    );
+    assert.deepEqual(
+      target.store.listCustomTags().map((tag) => tag.name),
+      ['Rooftop deck'],
+    );
+    assert.equal(imported.added.tags, 2);
+    assert.equal(imported.added.customTags, 1);
+    const duplicateImport = importBackup(target.store, backup);
+    assert.equal(duplicateImport.alreadyPresent.tags, 2);
+    assert.equal(duplicateImport.alreadyPresent.customTags, 1);
+
+    const older = {
+      ...backup,
+      formatVersion: 6,
+      customTags: undefined,
+      properties: backup.properties,
+    };
+    const oldTarget = await freshStore();
+    const oldReport = importBackup(oldTarget.store, older);
+    assert.equal(oldReport.migratedFromVersion, 6);
+    assert.equal(oldReport.added.tags, 0);
+    assert.equal(oldTarget.store.listCustomTags().length, 0);
   });
 
   it('upgrades an older format version through its migration steps', async () => {
