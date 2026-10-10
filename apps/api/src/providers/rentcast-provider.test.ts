@@ -87,6 +87,7 @@ describe('RentCast listing provider', () => {
       history: true,
       hoaFee: true,
       rentEstimates: true,
+      radiusSearch: false,
     });
     const saleUrl = new URL(calls[0]!.url);
     assert.equal(saleUrl.pathname, '/v1/listings/sale');
