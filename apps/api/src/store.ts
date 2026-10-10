@@ -85,6 +85,27 @@ export interface PropertyPhoto {
   order: number;
 }
 
+export interface PersonalTag {
+  name: string;
+  dateAdded?: string;
+}
+
+export const standardPersonalTags = [
+  'Pool',
+  'Pet friendly',
+  'Waterfront',
+  'Water view',
+  'Garage',
+  'Fenced yard',
+  'Gated community',
+  'In-unit washer/dryer',
+  'Elevator',
+  'Balcony',
+  'Needs work',
+] as const;
+
+const normalizedTagName = (name: string) => name.trim().toLocaleLowerCase('en-US');
+
 export interface ListingInput {
   provider: string;
   providerId: string;
@@ -730,6 +751,76 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       return all(`SELECT ${propertyColumns} FROM properties ORDER BY created_at, id`).map(
         toProperty,
       );
+    },
+
+    listCustomTags() {
+      return all(
+        'SELECT id, name, created_at FROM custom_tags ORDER BY name COLLATE NOCASE, id',
+      ).map((row) => ({
+        id: String(row.id),
+        name: String(row.name),
+        createdAt: String(row.created_at),
+      }));
+    },
+
+    createCustomTag(name: string) {
+      const cleanName = name.trim();
+      if (!cleanName) throw new Error('Enter a tag name.');
+      if (cleanName.length > 30) throw new Error('Tags must be 30 characters or fewer.');
+      const normalizedName = normalizedTagName(cleanName);
+      if (
+        standardPersonalTags.some((tag) => normalizedTagName(tag) === normalizedName) ||
+        one('SELECT 1 FROM custom_tags WHERE normalized_name = ?', [normalizedName])
+      ) {
+        throw new Error('That tag already exists.');
+      }
+      const id = `tag_${randomUUID()}`;
+      const createdAt = now();
+      transaction(() =>
+        run('INSERT INTO custom_tags (id, name, normalized_name, created_at) VALUES (?, ?, ?, ?)', [
+          id,
+          cleanName,
+          normalizedName,
+          createdAt,
+        ]),
+      );
+      return { id, name: cleanName, createdAt };
+    },
+
+    listPropertyTags(propertyId: string): PersonalTag[] {
+      return all(
+        'SELECT tag_name, date_added FROM property_tags WHERE property_id = ? ORDER BY tag_name COLLATE NOCASE',
+        [propertyId],
+      ).map((row) => ({ name: String(row.tag_name), dateAdded: String(row.date_added) }));
+    },
+
+    setPropertyTag(propertyId: string, name: string, enabled: boolean) {
+      requireProperty(propertyId);
+      const cleanName = name.trim();
+      const normalizedName = normalizedTagName(cleanName);
+      const customTag = one('SELECT name FROM custom_tags WHERE normalized_name = ?', [
+        normalizedName,
+      ]);
+      const standardTag = standardPersonalTags.find(
+        (tag) => normalizedTagName(tag) === normalizedName,
+      );
+      if (!standardTag && !customTag) throw new Error('Choose a standard or custom tag.');
+      const tagName = standardTag ?? String(customTag?.name);
+      transaction(() => {
+        if (enabled) {
+          run(
+            `INSERT OR IGNORE INTO property_tags (property_id, tag_name, normalized_name, date_added)
+             VALUES (?, ?, ?, ?)`,
+            [propertyId, tagName, normalizedName, now()],
+          );
+        } else {
+          run('DELETE FROM property_tags WHERE property_id = ? AND normalized_name = ?', [
+            propertyId,
+            normalizedName,
+          ]);
+        }
+      });
+      return store.listPropertyTags(propertyId);
     },
 
     // Listings

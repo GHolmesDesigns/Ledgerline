@@ -11,6 +11,7 @@ import {
   type ReviewListingInput,
   type Store,
   type PropertyRiskDetails,
+  standardPersonalTags,
 } from './store.js';
 import { MockListingProvider } from './providers/mock-provider.js';
 import { BackupError, exportBackup, importBackup } from './backup.js';
@@ -139,12 +140,6 @@ export function createApp(
       response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
       response.end(JSON.stringify(body));
     };
-    const photosFor = (propertyId: string) =>
-      store.listPropertyPhotos(propertyId).map((photo) => ({
-        ...photo,
-        missing: !propertyPhotoExists(photo.path),
-        url: `/api/photos/${photo.id}`,
-      }));
     const readBody = async (): Promise<Record<string, unknown>> => {
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -154,6 +149,30 @@ export function createApp(
       }
       return value as Record<string, unknown>;
     };
+    const photosFor = (propertyId: string) =>
+      store.listPropertyPhotos(propertyId).map((photo) => ({
+        ...photo,
+        missing: !propertyPhotoExists(photo.path),
+        url: `/api/photos/${photo.id}`,
+      }));
+    if (request.method === 'GET' && request.url === '/api/personal-tags') {
+      json(200, {
+        standardTags: standardPersonalTags,
+        customTags: store.listCustomTags().map(({ name }) => name),
+      });
+      return;
+    }
+    if (request.method === 'POST' && request.url === '/api/personal-tags') {
+      try {
+        const body = await readBody();
+        if (typeof body.name !== 'string') throw new Error('Enter a tag name.');
+        const tag = store.createCustomTag(body.name);
+        json(201, { tag });
+      } catch (error) {
+        json(400, { error: error instanceof Error ? error.message : 'Unable to create tag.' });
+      }
+      return;
+    }
     if (request.method === 'GET' && request.url === '/api/health') {
       let databaseReady = true;
       try {
@@ -713,7 +732,7 @@ export function createApp(
     }
 
     const propertyAction = request.url?.match(
-      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal|risk-details))?(?:\?.*)?$/,
+      /^\/api\/properties\/(prop_[A-Za-z0-9_-]+)(?:\/(notes|favorite|dismissal|risk-details|tags))?(?:\?.*)?$/,
     );
     const implausibleAction = request.url?.match(
       /^\/api\/listings\/(lst_[A-Za-z0-9_-]+)\/implausible$/,
@@ -890,6 +909,7 @@ export function createApp(
       });
       json(200, {
         property,
+        tags: store.listPropertyTags(propertyId).map((tag) => tag.name),
         photos: photosFor(propertyId),
         listings: listings.map((listing) => ({
           ...listing,
@@ -903,6 +923,19 @@ export function createApp(
         saved: store.isFavorite(propertyId),
         dismissed: store.isDismissed(propertyId),
       });
+      return;
+    }
+    if (propertyAction && propertyAction[2] === 'tags' && request.method === 'PUT') {
+      try {
+        const body = await readBody();
+        if (typeof body.name !== 'string' || typeof body.enabled !== 'boolean')
+          throw new Error('Choose a tag and whether it should be added or removed.');
+        const tags = store.setPropertyTag(propertyAction[1], body.name, body.enabled);
+        json(200, { tags: tags.map((tag) => tag.name) });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to update tags.';
+        json(message.startsWith('Unknown property ID:') ? 404 : 400, { error: message });
+      }
       return;
     }
     if (propertyAction && propertyAction[2] === 'risk-details' && request.method === 'PUT') {
@@ -1199,7 +1232,11 @@ export function createApp(
         const matchingBase = store.transaction(() =>
           store.searchListings(criteria).map((item) => ({
             ...item,
-            property: { ...item.property, photos: photosFor(item.property.id) },
+            property: {
+              ...item.property,
+              photos: photosFor(item.property.id),
+              personalTags: store.listPropertyTags(item.property.id).map((tag) => tag.name),
+            },
             // Detected for display and scoring only; property detail stores them.
             listing: {
               ...item.listing,

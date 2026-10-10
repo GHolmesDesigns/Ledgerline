@@ -73,6 +73,8 @@ describe('migrations', () => {
       'property_dismissals',
       'saved_searches',
       'match_review_queue',
+      'custom_tags',
+      'property_tags',
     ];
     const schema = () =>
       rows(

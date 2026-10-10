@@ -1552,6 +1552,165 @@ function PersonalTagsPlaceholder() {
   );
 }
 
+function PersonalTagPicker({
+  propertyId,
+  tags: initialTags = [],
+}: {
+  propertyId: string;
+  tags: string[];
+}) {
+  const [tags, setTags] = useState(initialTags);
+  const [standardTags, setStandardTags] = useState<string[]>([]);
+  const [customTags, setCustomTags] = useState<string[]>([]);
+  const [customName, setCustomName] = useState('');
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+
+  useEffect(() => setTags(initialTags), [initialTags]);
+
+  const loadCatalog = async () => {
+    const response = await fetch('/api/personal-tags');
+    const result = (await response.json()) as {
+      standardTags?: string[];
+      customTags?: string[];
+    };
+    if (!response.ok) throw new Error('Tag options are unavailable.');
+    setStandardTags(result.standardTags ?? []);
+    setCustomTags(result.customTags ?? []);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/personal-tags')
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          standardTags?: string[];
+          customTags?: string[];
+        };
+        if (!response.ok) throw new Error();
+        if (!cancelled) {
+          setStandardTags(result.standardTags ?? []);
+          setCustomTags(result.customTags ?? []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError('Tag options are unavailable. Start the local API and try again.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const setTag = async (name: string, enabled: boolean) => {
+    setError('');
+    setStatus('');
+    try {
+      const response = await fetch(`/api/properties/${propertyId}/tags`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, enabled }),
+      });
+      const result = (await response.json()) as { tags?: string[]; error?: string };
+      if (!response.ok || !result.tags)
+        throw new Error(result.error ?? 'Could not update this tag.');
+      setTags(result.tags);
+      setStatus(enabled ? `${name} added.` : `${name} removed.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update this tag.');
+    }
+  };
+
+  const createCustomTag = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setStatus('');
+    try {
+      const response = await fetch('/api/personal-tags', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: customName }),
+      });
+      const result = (await response.json()) as { tag?: { name: string }; error?: string };
+      if (!response.ok || !result.tag)
+        throw new Error(result.error ?? 'Could not create this tag.');
+      setCustomName('');
+      await loadCatalog();
+      window.dispatchEvent(new CustomEvent('ledgerline:personal-tags-changed'));
+      await setTag(result.tag.name, true);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not create this tag.');
+    }
+  };
+
+  useEffect(() => {
+    const refresh = () => void loadCatalog().catch(() => undefined);
+    window.addEventListener('ledgerline:personal-tags-changed', refresh);
+    return () => window.removeEventListener('ledgerline:personal-tags-changed', refresh);
+  }, []);
+
+  return (
+    <div className="personal-tags" onClick={(event) => event.stopPropagation()}>
+      <div className="personal-tag-chips" aria-label="My tags" role="group">
+        {tags.map((tag) => (
+          <span className="personal-tag-chip" key={tag}>
+            <small>My tag</small>
+            {tag}
+          </span>
+        ))}
+      </div>
+      <details
+        className="personal-tag-picker"
+        onToggle={(event) => {
+          if (event.currentTarget.open) void loadCatalog().catch(() => undefined);
+        }}
+      >
+        <summary>My tags · {tags.length}</summary>
+        <div className="personal-tag-options" role="group" aria-label="Property tags">
+          {[...standardTags, ...customTags].map((tag) => {
+            const selected = tags.some(
+              (current) => current.toLocaleLowerCase() === tag.toLocaleLowerCase(),
+            );
+            return (
+              <button
+                aria-pressed={selected}
+                className="personal-tag-option"
+                key={tag}
+                onClick={() => void setTag(tag, !selected)}
+                type="button"
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+        <form className="personal-tag-create" onSubmit={(event) => void createCustomTag(event)}>
+          <label>
+            Add custom tag
+            <input
+              maxLength={30}
+              onChange={(event) => setCustomName(event.currentTarget.value)}
+              value={customName}
+            />
+          </label>
+          <button className="secondary-button" type="submit">
+            Add custom tag
+          </button>
+        </form>
+        {error && (
+          <p className="personal-tag-message" role="alert">
+            {error}
+          </p>
+        )}
+        {status && (
+          <p className="personal-tag-message" role="status">
+            {status}
+          </p>
+        )}
+      </details>
+    </div>
+  );
+}
+
 function AssumptionsSettingsSection() {
   return (
     <div className="settings-section-panels">
@@ -1909,6 +2068,8 @@ type BackupCounts = {
   savedSearches: number;
   matchDecisions: number;
   rankingWeights: number;
+  tags: number;
+  customTags: number;
 };
 
 type BackupReport = {
@@ -1929,6 +2090,8 @@ const backupCountLabels: Array<[keyof BackupCounts, string, string]> = [
   ['personalAssumptions', 'personal assumption set', 'personal assumption sets'],
   ['localAssumptions', 'local rate set', 'local rate sets'],
   ['rankingWeights', 'ranking weight set', 'ranking weight sets'],
+  ['tags', 'property tag', 'property tags'],
+  ['customTags', 'custom tag', 'custom tags'],
 ];
 
 const describeBackupCounts = (counts: BackupCounts) =>
@@ -2091,6 +2254,7 @@ type SearchListing = {
     floodZone?: string | null;
     riskDetails?: { roofYear: number | null; specialAssessment: string | null };
     photos?: PropertyPhoto[];
+    personalTags?: string[];
   };
   listing: {
     id: string;
@@ -3022,6 +3186,7 @@ export type PropertyDetailData = {
     }
   >;
   notes: PropertyNote[];
+  tags?: string[];
   photos?: PropertyPhoto[];
   saved: boolean;
   dismissed: boolean;
@@ -3579,6 +3744,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           Map unavailable: this property has no coordinates.
         </p>
       )}
+      <PersonalTagPicker propertyId={property.id} tags={data.tags ?? []} />
       <section
         aria-labelledby="property-photos-heading"
         className={`property-detail-section property-photos${photoDragging ? ' is-dragging' : ''}`}
@@ -4831,6 +4997,25 @@ function CompareScreen() {
         `${item.property.beds ?? '—'} bd · ${item.property.bathsTotal ?? '—'} ba · ${item.property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft`,
     ],
     ['Year built', (item) => item.property.yearBuilt ?? 'Unknown'],
+    [
+      'My tags',
+      (item) => (
+        <div
+          className="personal-tag-chips"
+          aria-label={`${addressOf(item)} personal tags`}
+          role="group"
+        >
+          {(item.tags ?? []).length
+            ? (item.tags ?? []).map((tag) => (
+                <span className="personal-tag-chip" key={tag}>
+                  <small>My tag</small>
+                  {tag}
+                </span>
+              ))
+            : 'No tags'}
+        </div>
+      ),
+    ],
     ...costLines.map(
       ([label, key]) =>
         [label, (item: PropertyDetailData) => costLineCell(item, key)] as [
@@ -5872,6 +6057,10 @@ function SearchScreen() {
                         <span>·</span> {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft{' '}
                         <span>·</span> {property.yearBuilt ?? 'Year unknown'}
                       </p>
+                      <PersonalTagPicker
+                        propertyId={property.id}
+                        tags={property.personalTags ?? []}
+                      />
                       {score && <ScoreSummary score={score} />}
                       {score && selectedId === listing.id && (
                         <ScoreBreakdown mode={listing.mode} score={score} />

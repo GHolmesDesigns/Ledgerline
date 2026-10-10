@@ -1,5 +1,5 @@
 import { normalizeAddress } from './providers/normalize-address.js';
-import { emptyRiskDetails } from './store.js';
+import { emptyRiskDetails, standardPersonalTags } from './store.js';
 import type {
   ListingMode,
   Listing,
@@ -24,7 +24,7 @@ import { readRankingWeights, type RankingWeights } from './ranking-weights.js';
 // are deliberately not part of a backup: refresh fetches listings again.
 
 export const BACKUP_FORMAT = 'ledgerline-personal-data';
-export const BACKUP_VERSION = 6;
+export const BACKUP_VERSION = 7;
 
 export interface AddressKey {
   street: string;
@@ -58,6 +58,7 @@ export interface BackupProperty {
   valueOverrides: Record<string, PropertyValueOverride>;
   listingFlags: Array<{ provider: string; providerId: string; flags: Listing['implausibleFlags'] }>;
   photos: Array<{ path: string; source: string; dateAdded: string; order: number }>;
+  tags: string[];
 }
 
 export interface BackupSavedSearch {
@@ -97,6 +98,7 @@ export interface Backup {
   /** Saved weights per mode; null where the mode still uses the defaults. */
   rankingWeights: Record<ListingMode, RankingWeights | null>;
   matchDecisions: BackupMatchDecision[];
+  customTags: string[];
 }
 
 /** A problem with the file as a whole. Nothing is changed when one is raised. */
@@ -164,6 +166,7 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
       photos: store
         .listPropertyPhotos(propertyId)
         .map(({ path, source, dateAdded, order }) => ({ path, source, dateAdded, order })),
+      tags: store.listPropertyTags(propertyId).map((tag) => tag.name),
     };
     properties.set(idOf(record.key), record);
     byLocalId.set(propertyId, record);
@@ -176,6 +179,7 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
       store.listCostEntries(property.id).length > 0 ||
       Object.keys(property.valueOverrides ?? {}).length > 0 ||
       store.listPropertyPhotos(property.id).length > 0 ||
+      store.listPropertyTags(property.id).length > 0 ||
       store.listListings(property.id).some((listing) => listing.implausibleFlags.length > 0) ||
       Object.values(property.riskDetails).some((value) =>
         Array.isArray(value) ? value.length > 0 : value !== null,
@@ -257,6 +261,7 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
       rent: savedRankingWeights(store, 'rent'),
     },
     matchDecisions,
+    customTags: store.listCustomTags().map((tag) => tag.name),
   };
 }
 
@@ -306,6 +311,13 @@ const migrationSteps: Record<number, BackupMigration> = {
     ...data,
     properties: Array.isArray(data.properties)
       ? data.properties.map((item) => (isRecord(item) ? { ...item, photos: [] } : item))
+      : data.properties,
+  }),
+  6: (data) => ({
+    ...data,
+    customTags: [],
+    properties: Array.isArray(data.properties)
+      ? data.properties.map((item) => (isRecord(item) ? { ...item, tags: [] } : item))
       : data.properties,
   }),
 };
@@ -399,6 +411,8 @@ export interface ImportCounts {
   costEntries: number;
   rankingWeights: number;
   photos: number;
+  tags: number;
+  customTags: number;
 }
 
 export interface SkippedRecord {
@@ -410,6 +424,8 @@ export interface SkippedRecord {
     | 'localAssumptions'
     | 'costEntries'
     | 'photos'
+    | 'tags'
+    | 'customTags'
     | 'rankingWeights';
   label: string;
   reason: string;
@@ -436,6 +452,8 @@ const emptyCounts = (): ImportCounts => ({
   costEntries: 0,
   rankingWeights: 0,
   photos: 0,
+  tags: 0,
+  customTags: 0,
 });
 
 const isText = (value: unknown): value is string =>
@@ -500,12 +518,46 @@ export function importBackup(
       "The backup's rankingWeights section is unreadable. Nothing was changed.",
     );
   }
+  if (data.customTags !== undefined && !Array.isArray(data.customTags)) {
+    throw new BackupError("The backup's customTags section is not a list. Nothing was changed.");
+  }
 
   const added = emptyCounts();
   const alreadyPresent = emptyCounts();
   const skipped: SkippedRecord[] = [];
 
   store.transaction(() => {
+    const customNames = new Set(
+      store.listCustomTags().map((tag) => tag.name.toLocaleLowerCase('en-US')),
+    );
+    for (const candidate of (data.customTags as unknown[] | undefined) ?? []) {
+      if (typeof candidate !== 'string' || !candidate.trim() || candidate.trim().length > 30) {
+        skipped.push({
+          section: 'customTags',
+          label: String(candidate ?? ''),
+          reason: 'A custom tag must be text from 1 to 30 characters.',
+        });
+        continue;
+      }
+      const name = candidate.trim();
+      const normalized = name.toLocaleLowerCase('en-US');
+      if (standardPersonalTags.some((tag) => tag.toLocaleLowerCase('en-US') === normalized)) {
+        skipped.push({
+          section: 'customTags',
+          label: name,
+          reason: 'A standard tag cannot be imported as a custom tag.',
+        });
+        continue;
+      }
+      if (customNames.has(normalized)) {
+        alreadyPresent.customTags += 1;
+        continue;
+      }
+      store.createCustomTag(name);
+      customNames.add(normalized);
+      added.customTags += 1;
+    }
+
     const local = new Map<string, Property>();
     for (const property of store.listProperties()) local.set(idOf(keyOf(property)), property);
     // Properties of this file, by key, once they exist in the database.
@@ -639,6 +691,33 @@ export function importBackup(
         });
         existingPhotoPaths.add(photo.path);
         added.photos += 1;
+      }
+
+      const existingTags = new Set(
+        store.listPropertyTags(property.id).map((tag) => tag.name.toLocaleLowerCase('en-US')),
+      );
+      for (const candidate of Array.isArray(record.tags) ? record.tags : []) {
+        if (typeof candidate !== 'string' || !candidate.trim()) {
+          skipped.push({ section: 'tags', label, reason: 'A tag name is unreadable.' });
+          continue;
+        }
+        const tagName = candidate.trim();
+        const normalized = tagName.toLocaleLowerCase('en-US');
+        if (existingTags.has(normalized)) {
+          alreadyPresent.tags += 1;
+          continue;
+        }
+        try {
+          store.setPropertyTag(property.id, tagName, true);
+          existingTags.add(normalized);
+          added.tags += 1;
+        } catch {
+          skipped.push({
+            section: 'tags',
+            label,
+            reason: `Tag "${tagName}" is not in this backup's standard or custom tag list.`,
+          });
+        }
       }
 
       const saved = isRecord(record.saved) ? record.saved : null;

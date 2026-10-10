@@ -20,6 +20,8 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Add property-level personal tags from a standard list or a shared custom-tag catalog; show and edit them on Search cards and Property pages, show them in Compare, and preserve them in format 7 personal-data backups (Issue 87 / C49).
+
 - Filter stored listings by minimum and maximum lot size, year built, and days since the listed date; show removable chips and missing-value counts, preserve the filters in URLs and saved searches, and validate ranges before searching (Issue 86 / C48).
 
 - Upload JPEG, PNG, and WebP photos to a property, keep them in the local ignored photo folder, show the first photo on Search and Compare cards, and preserve photo metadata through JSON backup and restore. Missing photo files remain visible as missing.

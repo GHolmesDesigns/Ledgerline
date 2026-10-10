@@ -52,6 +52,7 @@ describe('local API bootstrap', () => {
       { version: 13, name: '013_ranking_weights.sql' },
       { version: 14, name: '014_outside_requests.sql' },
       { version: 15, name: '015_property_photos.sql' },
+      { version: 16, name: '016_personal_tags.sql' },
     ]);
     const firstStore = createStore(first);
     firstStore.addOutsideProviderRequest({
@@ -63,7 +64,7 @@ describe('local API bootstrap', () => {
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 15 },
+      { count: 16 },
     ]);
     assert.deepEqual(
       createStore(second)
