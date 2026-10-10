@@ -24,6 +24,10 @@ The app runs only on this computer and is updated by deploying `main`, so there 
 
 Deploying does not change the version; it ships whatever `main` holds, so the sidebar shows the deployed version. Tag a commit `vX.Y.Z` only when asked.
 
+## 0.0.3 · 2026-10-10 · plan 2.15
+
+- Label rent estimates with the provider that answered. Mock estimates now say they came from the local mock, and mock calls no longer consume or project against the external-provider request ceiling. Settings names this section Provider usage.
+
 ## 0.0.2 · 2026-10-10 · plan 2.15
 
 First version since the 0.0.1 planning baseline. It holds everything built since then, as listed here; later versions list only their own changes.

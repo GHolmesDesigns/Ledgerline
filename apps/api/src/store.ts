@@ -229,6 +229,8 @@ export interface ComparableRentRules {
 export interface ComparableRentFigure {
   propertyId: string;
   source: 'same_home' | 'local_comps' | 'rent_estimate' | 'unavailable';
+  /** Provider that returned a saved estimate, derived from its successful request log. */
+  provider?: string | null;
   value: number | null;
   low: number | null;
   high: number | null;
@@ -1066,10 +1068,23 @@ export function createStore(database: Database, options: StoreOptions = {}) {
 
     getComparableRentFigure(propertyId: string): ComparableRentFigure | null {
       const row = one('SELECT * FROM comparable_rent_figures WHERE property_id = ?', [propertyId]);
+      const provider =
+        row && row.source === 'rent_estimate'
+          ? text(
+              one(
+                `SELECT provider FROM provider_request_logs
+                 WHERE property_id = ? AND purpose = 'rent-estimate' AND status = 'succeeded'
+                   AND requested_at <= ?
+                 ORDER BY requested_at DESC, id DESC LIMIT 1`,
+                [propertyId, String(row.computed_at)],
+              )?.provider,
+            )
+          : null;
       return row
         ? {
             propertyId: String(row.property_id),
             source: String(row.source) as ComparableRentFigure['source'],
+            provider,
             value: number(row.value),
             low: number(row.low),
             high: number(row.high),
@@ -1746,18 +1761,20 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       }));
     },
 
-    /** Requests logged at or after `since`. Every logged request counts, whatever its outcome. */
+    /** Real-provider requests logged at or after `since`; local mock calls do not count. */
     countProviderRequestsSince(since: string): number {
       return Number(
-        one('SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ?', [since])
-          ?.total,
+        one(
+          "SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ? AND provider != 'mock'",
+          [since],
+        )?.total,
       );
     },
 
     countProviderRequestsInPeriod(start: string, next: string): number {
       return Number(
         one(
-          'SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ? AND requested_at < ?',
+          "SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ? AND requested_at < ? AND provider != 'mock'",
           [start, next],
         )?.total,
       );
@@ -1766,7 +1783,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
     countFailedProviderRequestsInPeriod(start: string, next: string): number {
       return Number(
         one(
-          "SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ? AND requested_at < ? AND status = 'failed'",
+          "SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ? AND requested_at < ? AND status = 'failed' AND provider != 'mock'",
           [start, next],
         )?.total,
       );
@@ -1813,7 +1830,7 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       return Number(
         one(
           `SELECT COUNT(*) AS total FROM provider_request_logs
-           WHERE saved_search_id = ? AND purpose = ? AND id >= ?`,
+           WHERE saved_search_id = ? AND purpose = ? AND id >= ? AND provider != 'mock'`,
           [searchId, purpose, start],
         )?.total,
       );
