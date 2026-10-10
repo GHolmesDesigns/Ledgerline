@@ -158,7 +158,7 @@ a {
 
 .sidebar-settings-link {
   display: flex;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   gap: 10px;
   padding: 0 8px;

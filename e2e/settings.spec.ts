@@ -51,7 +51,7 @@ test('Settings lists sections in the default order and hash links focus their ta
   await expect(page.locator('#saved-searches')).toBeInViewport();
   await expect(page.locator('body')).not.toContainText('Ranking & data');
 
-  await page.getByRole('link', { name: 'Keys', exact: true }).click();
+  await sectionNav.getByRole('link', { name: 'Keys', exact: true }).click();
   await expect(page).toHaveURL(/\/settings#keys$/);
   await expect(page.locator('#keys')).toBeFocused();
 });
