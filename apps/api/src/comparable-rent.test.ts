@@ -80,6 +80,42 @@ describe('comparable rent', () => {
     );
   });
 
+  it('names the provider that answered a saved estimate, and says Mock for the local mock', () => {
+    const home = store.createProperty({
+      street: '3 Estimate St',
+      city: 'Miami',
+      zip: '33131',
+      propertyType: 'condo',
+      beds: 2,
+      livingAreaSqft: 1000,
+      latitude: 25.76,
+      longitude: -80.19,
+    });
+    const logId = store.beginProviderRequest({
+      provider: 'mock',
+      propertyId: home.id,
+      purpose: 'rent-estimate',
+      page: 1,
+    });
+    store.finishProviderRequest(logId, { status: 'succeeded', resultCount: 1 });
+    store.saveComparableRentFigure({
+      propertyId: home.id,
+      source: 'rent_estimate',
+      value: 2300,
+      low: 2000,
+      high: 2600,
+      reason: null,
+      compCount: 0,
+      maxDistanceMi: null,
+      compIds: [],
+      estimateComps: [],
+      computedAt: now.toISOString(),
+    });
+    const estimate = findComparableRent(store, home.id, store.getComparableRentRules(), now)!;
+    assert.equal(estimate.figure.provider, 'mock');
+    assert.match(estimate.label, /^Mock estimate · range \$2,000–\$2,600 · Oct 9/);
+  });
+
   it('prefers an active rental on the same property and records its source date', () => {
     const home = store.createProperty({
       street: '1 Main St',

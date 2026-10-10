@@ -521,3 +521,23 @@ describe('refresh and rent estimate enforcement', () => {
     }
   });
 });
+
+describe('mock provider requests', () => {
+  it('are logged but never count toward the monthly ceiling', async () => {
+    const { store, budget, search, logRequests } = await setup();
+    logRequests(3);
+    for (let page = 1; page <= 5; page += 1) {
+      const id = store.beginProviderRequest({
+        provider: 'mock',
+        savedSearchId: search.id,
+        purpose: 'saved-search-refresh',
+        page,
+      });
+      store.finishProviderRequest(id, { status: 'succeeded', resultCount: 1 });
+    }
+    const status = budget.status();
+    assert.equal(status.appCount, 3);
+    assert.equal(status.used, 3);
+    assert.equal(status.remaining, status.ceiling - 3);
+  });
+});
