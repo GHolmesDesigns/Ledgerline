@@ -202,9 +202,11 @@ export function findComparableRent(
   const savedFigure = store.getComparableRentFigure(propertyId);
   if (matching.length < rules.minComps && savedFigure?.source === 'rent_estimate') {
     const stale = !withinDays(savedFigure.computedAt, 30, now);
+    const providerLabel =
+      savedFigure.provider === 'mock' ? 'Mock' : (savedFigure.provider ?? 'RentCast');
     return {
       figure: savedFigure,
-      label: `RentCast estimate · range $${savedFigure.low?.toLocaleString() ?? '—'}–$${savedFigure.high?.toLocaleString() ?? '—'} · ${shortDate(savedFigure.computedAt)}`,
+      label: `${providerLabel} estimate · range $${savedFigure.low?.toLocaleString() ?? '—'}–$${savedFigure.high?.toLocaleString() ?? '—'} · ${shortDate(savedFigure.computedAt)}`,
       stale,
       comps: [],
       compsMedian: null,

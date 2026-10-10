@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.6 · 2026-10-13 · plan 2.15
+
+- Label saved rent estimates with the provider that answered, and exclude local mock estimates from external-provider usage, projections, and request-ceiling checks.
+
 ## 0.0.5 · 2026-10-13 · plan 2.17
 
 - Open uploaded property photos in a keyboard-accessible full-size viewer from Property detail, Search, Compare, and Saved Homes, with photo navigation and focus restoration.
@@ -28,6 +32,7 @@ The app runs only on this computer and is updated by deploying `main`, so there 
 
 Deploying does not change the version; it ships whatever `main` holds, so the sidebar shows the deployed version. Tag a commit `vX.Y.Z` only when asked.
 
+
 ## 0.0.4 · 2026-10-11 · plan 2.17
 
 - Show the primary available uploaded photo at the top of each Saved Homes card and on the right side of the Property detail header. Homes without an available photo keep the compact layout without an empty image frame.
@@ -42,6 +47,7 @@ Deploying does not change the version; it ships whatever `main` holds, so the si
 - Use one grey secondary button style app wide, including every former text-style Cancel, Delete, Rename, and Refresh button, with light and dark colors in `design/tokens.json`.
 - Style Google Maps pins the same way when they are created and when one is selected, so unselected pins stay fully opaque. (Not checked against a live Google map; no key was available.)
 - Plan 2.16, UI spec, and acceptance checks U.15 to U.21 record the above. Existing browser tests that read Buy data now open `?mode=sale`.
+
 
 ## 0.0.2 · 2026-10-10 · plan 2.15
 
