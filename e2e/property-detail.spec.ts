@@ -167,6 +167,67 @@ test('property detail shows facts, separate history sources, and manual verifica
   expect(listingSiteRequests).toEqual([]);
 });
 
+test.describe('property header Listing link', () => {
+  const redfinHomepage = 'https://www.redfin.com/?location=2207%20NE%2032nd%20Ct';
+  const redfinListing = 'https://www.redfin.com/FL/Fort-Lauderdale/2207-NE-32nd-Ct-33308/home/1';
+  const cases = [
+    { name: 'a Redfin homepage URL', sourceUrl: redfinHomepage, direct: false },
+    { name: 'no source URL', sourceUrl: null, direct: false },
+    { name: 'a specific provider listing URL', sourceUrl: redfinListing, direct: true },
+  ];
+
+  for (const { name, sourceUrl, direct } of cases) {
+    test(`uses ${direct ? 'the provider listing' : 'a Redfin search'} for ${name}`, async ({
+      page,
+    }) => {
+      const root = mkdtempSync(join(tmpdir(), 'ledgerline-e2e-listing-link-'));
+      let api: Api | undefined;
+      try {
+        const databasePath = join(root, 'ledgerline.sqlite');
+        seedDatabase(databasePath);
+        api = await startApi(databasePath);
+        const listingResponse = await fetch(api.url('/api/listings?mode=sale'));
+        const listings = (await listingResponse.json()) as {
+          items: Array<{ property: { id: string; street: string } }>;
+        };
+        const fortLauderdale = listings.items.find(
+          ({ property }) => property.street === '2207 NE 32nd Ct',
+        )!;
+        await routeApiTo(page, () => api!);
+        await page.route(`**/api/properties/${fortLauderdale.property.id}`, async (route) => {
+          const response = await fetch(api!.url(`/api/properties/${fortLauderdale.property.id}`));
+          const body = (await response.json()) as { listings: Array<{ sourceUrl: string | null }> };
+          for (const listing of body.listings) listing.sourceUrl = sourceUrl;
+          await route.fulfill({ json: body });
+        });
+
+        await page.goto(`/property/${fortLauderdale.property.id}`);
+        const link = page.locator('.property-listing-link');
+        if (direct) {
+          await expect(link).toHaveText('Listing');
+          await expect(link).toHaveAttribute('href', redfinListing);
+        } else {
+          await expect(link).toHaveText('Find on Redfin');
+          const href = (await link.getAttribute('href'))!;
+          const url = new URL(href);
+          expect(url.origin + url.pathname).toBe('https://www.google.com/search');
+          const query = url.searchParams.get('q')!;
+          expect(query).toContain('site:redfin.com');
+          expect(query).toContain('2207 NE 32nd Ct, Fort Lauderdale, FL 33308');
+        }
+        await expect(link).toHaveAttribute('target', '_blank');
+        // A homepage URL is not a listing, so it must not appear as "Open provider listing".
+        const providerLinks = page.getByRole('link', { name: 'Open provider listing' });
+        if (direct) await expect(providerLinks.first()).toBeVisible();
+        else await expect(providerLinks).toHaveCount(0);
+      } finally {
+        await api?.stop();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
 test('unknown property IDs show a not-found state', async ({ page }) => {
   await page.route('**/api/properties/prop_missing', (route) =>
     route.fulfill({ status: 404, json: { error: 'Property not found.' } }),

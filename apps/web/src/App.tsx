@@ -2484,6 +2484,22 @@ function isSampleListing(provider: string) {
   return provider === 'mock';
 }
 
+function usableListingSourceUrl(sourceUrl: string | null | undefined) {
+  if (!sourceUrl) return null;
+
+  try {
+    const url = new URL(sourceUrl);
+    const isRedfinHomeSearch =
+      (url.hostname === 'redfin.com' || url.hostname.endsWith('.redfin.com')) &&
+      url.pathname === '/' &&
+      url.searchParams.has('location');
+    const isHttpUrl = url.protocol === 'http:' || url.protocol === 'https:';
+    return isHttpUrl && !isRedfinHomeSearch ? sourceUrl : null;
+  } catch {
+    return null;
+  }
+}
+
 function PropertyRankingBreakdowns({ data }: { data: PropertyDetailData }) {
   const modes = [...new Set(data.listings.map((listing) => listing.mode))];
   const [itemsByMode, setItemsByMode] = useState<Partial<Record<RankingMode, SearchListing[]>>>({});
@@ -4009,6 +4025,22 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
   const { property, listings, notes } = data;
   const costEntries = data.costEntries ?? [];
   const saleListing = listings.find((listing) => listing.mode === 'sale');
+  const linkedListing =
+    listings.find((listing) => usableListingSourceUrl(listing.sourceUrl)) ??
+    saleListing ??
+    listings[0];
+  const linkedListingSourceUrl = usableListingSourceUrl(linkedListing?.sourceUrl);
+  const listingSearch = [
+    `site:redfin.com "${property.street}${property.unit ? ` ${property.unit}` : ''}, ${property.city}, FL ${property.zip}"`,
+    linkedListing?.mlsName,
+    linkedListing?.mlsNumber,
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const listingUrl =
+    linkedListingSourceUrl ??
+    `https://www.google.com/search?q=${encodeURIComponent(listingSearch)}`;
+  const listingLabel = linkedListingSourceUrl ? 'Listing' : 'Find on Redfin';
   const costEstimate =
     data.costEstimates?.find((estimate) => estimate.listingId === saleListing?.id) ??
     data.costEstimate ??
@@ -4049,13 +4081,8 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               {property.street}
               {property.unit ? `, Unit ${property.unit}` : ''}
             </h2>
-            <a
-              className="property-listing-link"
-              href={`https://www.redfin.com/?location=${addressQuery}`}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Listing
+            <a className="property-listing-link" href={listingUrl} rel="noreferrer" target="_blank">
+              {listingLabel}
             </a>
             {streetView && (
               <a
@@ -4903,8 +4930,12 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               <h4>
                 {listing.mode === 'sale' ? 'Buy' : 'Rent'} · {listing.provider}
               </h4>
-              {listing.sourceUrl && (
-                <a href={listing.sourceUrl} target="_blank" rel="noreferrer">
+              {usableListingSourceUrl(listing.sourceUrl) && (
+                <a
+                  href={usableListingSourceUrl(listing.sourceUrl)!}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Open provider listing
                 </a>
               )}
@@ -5433,8 +5464,12 @@ function CompareScreen() {
         <div className="compare-verification">
           {item.listings.map((listing) => (
             <div key={listing.id}>
-              {listing.sourceUrl ? (
-                <a href={listing.sourceUrl} target="_blank" rel="noreferrer">
+              {usableListingSourceUrl(listing.sourceUrl) ? (
+                <a
+                  href={usableListingSourceUrl(listing.sourceUrl)!}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Open {listing.mode === 'sale' ? 'Buy' : 'Rent'} source
                 </a>
               ) : (
