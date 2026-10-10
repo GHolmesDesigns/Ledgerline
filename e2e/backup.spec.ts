@@ -82,7 +82,7 @@ test('export, delete the data folder, restart, and import restores personal data
     await download.saveAs(backupPath);
     await expect(backup.getByRole('status')).toContainText('Exported your personal data to');
     const backupText = readFileSync(backupPath, 'utf8');
-    expect(JSON.parse(backupText).formatVersion).toBe(5);
+    expect(JSON.parse(backupText).formatVersion).toBe(6);
     expect(JSON.parse(backupText).rankingWeights.sale.price).toBe(37);
     // Rent weights were never changed, so the file leaves them to the defaults.
     expect(JSON.parse(backupText).rankingWeights.rent).toBeNull();

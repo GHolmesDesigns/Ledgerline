@@ -2090,6 +2090,7 @@ type SearchListing = {
     longitude: number | null;
     floodZone?: string | null;
     riskDetails?: { roofYear: number | null; specialAssessment: string | null };
+    photos?: PropertyPhoto[];
   };
   listing: {
     id: string;
@@ -2897,6 +2898,15 @@ type PropertyNote = {
   createdAt: string;
   updatedAt: string;
 };
+type PropertyPhoto = {
+  id: string;
+  path: string;
+  source: string;
+  dateAdded: string;
+  order: number;
+  missing: boolean;
+  url: string;
+};
 export type PropertyDetailData = {
   property: SearchListing['property'] & {
     lotSizeSqft: number | null;
@@ -2959,6 +2969,7 @@ export type PropertyDetailData = {
     }
   >;
   notes: PropertyNote[];
+  photos?: PropertyPhoto[];
   saved: boolean;
   dismissed: boolean;
   comparableRent?: ComparableRent | null;
@@ -3075,6 +3086,9 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingBody, setEditingBody] = useState('');
   const [error, setError] = useState('');
+  const [photoMessage, setPhotoMessage] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoDragging, setPhotoDragging] = useState(false);
   const [compareMessage, setCompareMessage] = useState('');
   const [costKind, setCostKind] = useState('homeowners_quote');
   const [costAmount, setCostAmount] = useState('');
@@ -3234,6 +3248,49 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       return;
     }
     setNoteBody('');
+    await refresh();
+  };
+
+  const uploadPhotos = async (files: FileList | File[]) => {
+    const selectedFiles = Array.from(files);
+    setPhotoMessage('');
+    setPhotoBusy(true);
+    try {
+      for (const file of selectedFiles) {
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type))
+          throw new Error(`${file.name}: choose a JPEG, PNG, or WebP image.`);
+        if (file.size > 10 * 1024 * 1024)
+          throw new Error(`${file.name}: image is too large. Choose a file no larger than 10 MB.`);
+        const response = await fetch(`/api/properties/${propertyId}/photos`, {
+          method: 'POST',
+          headers: { 'content-type': file.type, 'x-photo-source': 'Uploaded by me' },
+          body: file,
+        });
+        const result = (await response.json()) as { error?: string };
+        if (!response.ok) throw new Error(result.error ?? `Could not upload ${file.name}.`);
+      }
+      setPhotoMessage(
+        `${selectedFiles.length} photo${selectedFiles.length === 1 ? '' : 's'} added.`,
+      );
+      await refresh();
+    } catch (reason) {
+      setPhotoMessage(reason instanceof Error ? reason.message : 'Could not upload photos.');
+      await refresh();
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const removePhoto = async (photo: PropertyPhoto) => {
+    const response = await fetch(`/api/properties/${propertyId}/photos/${photo.id}`, {
+      method: 'DELETE',
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setPhotoMessage(result.error ?? 'Could not remove this photo.');
+      return;
+    }
+    setPhotoMessage('Photo removed.');
     await refresh();
   };
 
@@ -3469,6 +3526,71 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           Map unavailable: this property has no coordinates.
         </p>
       )}
+      <section
+        aria-labelledby="property-photos-heading"
+        className={`property-detail-section property-photos${photoDragging ? ' is-dragging' : ''}`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setPhotoDragging(true);
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+            setPhotoDragging(false);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setPhotoDragging(false);
+          void uploadPhotos(event.dataTransfer.files);
+        }}
+      >
+        <h3 id="property-photos-heading">Property photos</h3>
+        {(!data.photos || data.photos.length === 0) && <p>No photos yet · Add photos</p>}
+        <div className="property-photo-grid">
+          {(data.photos ?? []).map((photo) => (
+            <figure key={photo.id}>
+              {photo.missing ? (
+                <div
+                  className="property-photo-missing"
+                  role="img"
+                  aria-label="Photo file is missing"
+                >
+                  Photo file missing
+                </div>
+              ) : (
+                <img src={photo.url} alt={`${property.street} property photo`} />
+              )}
+              <figcaption>
+                {photo.source} · {new Date(photo.dateAdded).toLocaleDateString()}
+              </figcaption>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => void removePhoto(photo)}
+              >
+                Remove photo
+              </button>
+            </figure>
+          ))}
+        </div>
+        <label className="photo-upload-label">
+          {photoBusy ? 'Adding photos…' : 'Add photos'}
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Add photos"
+            disabled={photoBusy}
+            multiple
+            onChange={(event) => {
+              if (event.currentTarget.files?.length) void uploadPhotos(event.currentTarget.files);
+              event.currentTarget.value = '';
+            }}
+            type="file"
+          />
+        </label>
+        <p className="photo-upload-hint">
+          Drop JPEG, PNG, or WebP images here. Maximum 10 MB each.
+        </p>
+        {photoMessage && <p role="status">{photoMessage}</p>}
+      </section>
       {error && (
         <p role="alert" className="search-error">
           {error}
@@ -4632,6 +4754,21 @@ function CompareScreen() {
         </span>
       ),
     ],
+    [
+      'Photo',
+      (item) => {
+        const photo = item.photos?.find((candidate) => !candidate.missing);
+        return photo ? (
+          <img
+            className="compare-property-photo"
+            src={photo.url}
+            alt={`${addressOf(item)} property photo`}
+          />
+        ) : (
+          'No photos yet'
+        );
+      },
+    ],
     ['Price', listingPrice],
     ['Status', listingStatus],
     ['Type', (item) => item.property.propertyType?.replaceAll('_', ' ') ?? 'Unknown'],
@@ -5493,6 +5630,13 @@ function SearchScreen() {
                       key={listing.id}
                       onClick={() => setSelectedId(listing.id)}
                     >
+                      {property.photos?.find((photo) => !photo.missing) && (
+                        <img
+                          className="listing-card-photo"
+                          src={property.photos.find((photo) => !photo.missing)!.url}
+                          alt={`${property.street} property`}
+                        />
+                      )}
                       <div className="listing-card-heading">
                         <div>
                           <p className="listing-price">

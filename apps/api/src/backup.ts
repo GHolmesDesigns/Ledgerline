@@ -24,7 +24,7 @@ import { readRankingWeights, type RankingWeights } from './ranking-weights.js';
 // are deliberately not part of a backup: refresh fetches listings again.
 
 export const BACKUP_FORMAT = 'ledgerline-personal-data';
-export const BACKUP_VERSION = 5;
+export const BACKUP_VERSION = 6;
 
 export interface AddressKey {
   street: string;
@@ -57,6 +57,7 @@ export interface BackupProperty {
   costEntries: Array<Omit<PropertyCostEntry, 'id' | 'propertyId'>>;
   valueOverrides: Record<string, PropertyValueOverride>;
   listingFlags: Array<{ provider: string; providerId: string; flags: Listing['implausibleFlags'] }>;
+  photos: Array<{ path: string; source: string; dateAdded: string; order: number }>;
 }
 
 export interface BackupSavedSearch {
@@ -160,6 +161,9 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
           providerId,
           flags: implausibleFlags,
         })),
+      photos: store
+        .listPropertyPhotos(propertyId)
+        .map(({ path, source, dateAdded, order }) => ({ path, source, dateAdded, order })),
     };
     properties.set(idOf(record.key), record);
     byLocalId.set(propertyId, record);
@@ -171,6 +175,7 @@ export function exportBackup(store: Store, exportedAt = new Date()): Backup {
       store.listNotes(property.id).length > 0 ||
       store.listCostEntries(property.id).length > 0 ||
       Object.keys(property.valueOverrides ?? {}).length > 0 ||
+      store.listPropertyPhotos(property.id).length > 0 ||
       store.listListings(property.id).some((listing) => listing.implausibleFlags.length > 0) ||
       Object.values(property.riskDetails).some((value) =>
         Array.isArray(value) ? value.length > 0 : value !== null,
@@ -297,6 +302,12 @@ const migrationSteps: Record<number, BackupMigration> = {
       : data.properties,
   }),
   4: (data) => ({ ...data, rankingWeights: { sale: null, rent: null } }),
+  5: (data) => ({
+    ...data,
+    properties: Array.isArray(data.properties)
+      ? data.properties.map((item) => (isRecord(item) ? { ...item, photos: [] } : item))
+      : data.properties,
+  }),
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -387,6 +398,7 @@ export interface ImportCounts {
   localAssumptions: number;
   costEntries: number;
   rankingWeights: number;
+  photos: number;
 }
 
 export interface SkippedRecord {
@@ -397,6 +409,7 @@ export interface SkippedRecord {
     | 'matchDecisions'
     | 'localAssumptions'
     | 'costEntries'
+    | 'photos'
     | 'rankingWeights';
   label: string;
   reason: string;
@@ -422,6 +435,7 @@ const emptyCounts = (): ImportCounts => ({
   localAssumptions: 0,
   costEntries: 0,
   rankingWeights: 0,
+  photos: 0,
 });
 
 const isText = (value: unknown): value is string =>
@@ -594,6 +608,37 @@ export function importBackup(
           .find((item) => item.provider === entry.provider && item.providerId === entry.providerId);
         if (listing)
           store.setImplausibleFlags(listing.id, entry.flags as Listing['implausibleFlags']);
+      }
+
+      const existingPhotoPaths = new Set(
+        store.listPropertyPhotos(property.id).map((photo) => photo.path),
+      );
+      for (const photo of Array.isArray(record.photos) ? record.photos : []) {
+        if (
+          !isRecord(photo) ||
+          typeof photo.path !== 'string' ||
+          !/^[A-Za-z0-9_-]+\.(jpg|png|webp)$/.test(photo.path) ||
+          typeof photo.source !== 'string' ||
+          !isTimestamp(photo.dateAdded) ||
+          typeof photo.order !== 'number' ||
+          !Number.isInteger(photo.order) ||
+          photo.order < 0
+        ) {
+          skipped.push({ section: 'photos', label, reason: 'A photo record is unreadable.' });
+          continue;
+        }
+        if (existingPhotoPaths.has(photo.path)) {
+          alreadyPresent.photos += 1;
+          continue;
+        }
+        store.addPropertyPhoto(property.id, {
+          path: photo.path,
+          source: photo.source,
+          dateAdded: photo.dateAdded,
+          order: photo.order,
+        });
+        existingPhotoPaths.add(photo.path);
+        added.photos += 1;
       }
 
       const saved = isRecord(record.saved) ? record.saved : null;
