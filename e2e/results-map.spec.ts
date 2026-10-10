@@ -145,7 +145,7 @@ test('Google Maps loads county borders and frames the current results without pr
           LatLngBounds: class { constructor() { this.points = []; } extend(point) { this.points.push(point); } },
           Marker: class {
             constructor() { window.__mapsCalls.markers.push(this); }
-            setMap() {} setZIndex() {} setIcon() {} setLabel() {}
+            setMap() {} setZIndex() {} setIcon(icon) { this.icon = icon; } setLabel() {}
             addListener(event, handler) { this[event] = handler; return { remove() {} }; }
           },
           Polygon: class { constructor() { window.__mapsCalls.borders++; } setMap() {} },
@@ -164,6 +164,12 @@ test('Google Maps loads county borders and frames the current results without pr
       ),
     )
     .toBe(3);
+  const markerScale = await page.evaluate(
+    () =>
+      (window as unknown as { __mapsCalls: { markers: { icon: { scale: number } }[] } }).__mapsCalls
+        .markers[0].icon.scale,
+  );
+  expect(markerScale).toBeGreaterThanOrEqual(22);
   const bounds = await page.evaluate(() =>
     (
       window as unknown as { __mapsCalls: { bounds: { lat: number; lng: number }[][] } }

@@ -136,6 +136,7 @@ export function GoogleResultsMap({
                 ? `$${Math.round(item.listing.price / 1000)}k`
                 : `$${item.listing.price.toLocaleString('en-US')}`,
           color: '#101820',
+          fontSize: '12px',
           fontWeight: '600',
         },
       });
@@ -157,7 +158,7 @@ export function GoogleResultsMap({
       marker.setZIndex(selected ? 1000 : 1);
       marker.setIcon({
         path: maps?.SymbolPath.CIRCLE,
-        scale: selected ? 23 : 19,
+        scale: selected ? 27 : 23,
         fillColor: selected ? '#101820' : '#00c2d1',
         fillOpacity: 1,
         strokeColor: '#101820',
@@ -173,6 +174,7 @@ export function GoogleResultsMap({
               ? `$${Math.round(price / 1000)}k`
               : `$${price.toLocaleString('en-US')}`,
         color: selected ? '#ffffff' : '#101820',
+        fontSize: '12px',
         fontWeight: '600',
       });
     });
