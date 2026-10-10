@@ -2028,7 +2028,7 @@ h1 {
 .map-pin-button {
   display: flex;
   width: 100%;
-  height: 44px;
+  height: 90px;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -2038,7 +2038,7 @@ h1 {
 }
 .map-pin-button span {
   display: inline-flex;
-  min-height: 30px;
+  min-height: 50px;
   align-items: center;
   justify-content: center;
   padding: 0 9px;
@@ -2047,7 +2047,7 @@ h1 {
   background: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-label);
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 500;
   white-space: nowrap;
 }

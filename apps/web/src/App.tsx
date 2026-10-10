@@ -2511,15 +2511,17 @@ function CountyMap({
                   : item.listing.mode === 'sale'
                     ? `$${Math.round(item.listing.price / 1000)}k`
                     : `$${item.listing.price.toLocaleString('en-US')}`;
-              const pinWidth = Math.max(52, pinLabel.length * 8 + 18);
+              // The 600-unit SVG scales down in the panel. Give each native button
+              // enough SVG space to remain at least 44 CSS pixels after scaling.
+              const pinWidth = Math.max(90, pinLabel.length * 12 + 24);
               return (
                 <foreignObject
                   className="map-pin"
-                  height="44"
+                  height="90"
                   key={item.listing.id}
                   width={pinWidth}
                   x={pin.x - pinWidth / 2}
-                  y={pin.y - 22}
+                  y={pin.y - 45}
                 >
                   <button
                     aria-label={`Select ${priceFor(item)}, ${item.property.street}, ${item.property.city}${pin.approximate ? ', approximate city location' : ''}; map pin ${index + 1} of ${items.length}`}
@@ -5225,6 +5227,7 @@ function SearchScreen() {
                                 </span>
                                 {comparableRent.figure.value != null && (
                                   <small>
+                                    {' · '}
                                     {comparableRent.label}
                                     {comparableRent.stale ? ' · Stale' : ''}
                                   </small>
