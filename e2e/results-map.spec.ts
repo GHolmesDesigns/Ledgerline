@@ -160,7 +160,8 @@ test('Google Maps loads county borders and frames the current results without pr
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as unknown as { __mapsCalls: { borders: number } }).__mapsCalls.borders,
+        () =>
+          (window as unknown as { __mapsCalls?: { borders: number } }).__mapsCalls?.borders ?? 0,
       ),
     )
     .toBe(3);
