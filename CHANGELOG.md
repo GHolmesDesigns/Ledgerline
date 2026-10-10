@@ -20,6 +20,8 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Show Google Maps on Search when a key is set in Settings, with runtime key delivery, local county borders and pins, keyboard pin controls, result framing, and the local map fallback when unavailable (Issue 83 / C45).
+
 - Match RentCast request usage with configurable billing day, included requests, dated outside requests, separately counted errors, and a dated dashboard figure with unexplained difference; enforce the ceiling against the matched billable total (Issue 82 / C44).
 - Show "Rent data may be incomplete" on Search in Rent mode, including mobile and empty results, with a screen reader announcement (Issue 81 / C43).
 - Match the Search, Compare, Property, and Settings layouts more closely to the checked-in mock-ups: keyboard-adjustable 0–100 ranking sliders with visible values, coordinate-placed price pins on the local county map, tighter card and panel spacing, clearer cost blocks and score bars, plus side-by-side review screenshots (Issue 80 / C42).

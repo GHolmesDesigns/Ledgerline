@@ -33,4 +33,14 @@ describe('production bundle credential scan', () => {
     await writeFile(join(directory, 'index.js'), 'const provider = "mock";');
     await assertCredentialAbsent(directory, 'local-secret');
   });
+
+  it('rejects a Google Maps key in any production asset', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ledgerline-maps-bundle-'));
+    temporaryDirectories.push(directory);
+    await writeFile(join(directory, 'index.html'), 'fake-google-maps-secret');
+    await assert.rejects(
+      assertCredentialAbsent(directory, 'fake-google-maps-secret', 'Google Maps'),
+      /server-only Google Maps credential/,
+    );
+  });
 });

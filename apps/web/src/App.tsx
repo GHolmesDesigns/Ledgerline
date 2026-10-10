@@ -10,6 +10,13 @@ import {
 import packageJson from '../../../package.json';
 import { createGeoProjection } from './mapProjection';
 import {
+  countyCenter,
+  pinCoordinates,
+  resultBounds,
+  type CountyFeatureCollection,
+} from './mapData';
+import { GoogleResultsMap } from './GoogleResultsMap';
+import {
   defaultRankingWeights,
   rankListings,
   rankingFactorLabels,
@@ -558,15 +565,21 @@ function RequestBudgetPanel() {
 
 function ProviderCredentialsPanel() {
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [mapsConfigured, setMapsConfigured] = useState<boolean | null>(null);
   const [editing, setEditing] = useState(false);
+  const [editingMaps, setEditingMaps] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
     void fetch('/api/provider-credentials')
       .then(async (response) => {
         if (!response.ok) throw new Error();
-        const data = (await response.json()) as { configured: boolean };
+        const data = (await response.json()) as {
+          configured: boolean;
+          googleMapsConfigured?: boolean;
+        };
         setConfigured(data.configured);
+        setMapsConfigured(data.googleMapsConfigured === true);
       })
       .catch(() => setError('Provider credential settings are unavailable.'));
   }, []);
@@ -593,11 +606,33 @@ function ProviderCredentialsPanel() {
       setBusy(false);
     }
   };
+  const saveMaps = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    const form = event.currentTarget;
+    const key = new FormData(form).get('googleMapsApiKey');
+    try {
+      const response = await fetch('/api/google-maps-key', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ googleMapsApiKey: key }),
+      });
+      if (!response.ok) throw new Error('Could not save the Google Maps key.');
+      setMapsConfigured(true);
+      setEditingMaps(false);
+      form.reset();
+    } catch {
+      setError('Could not save the Google Maps key.');
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <section aria-labelledby="provider-credentials-heading" className="provider-credentials-panel">
       <div className="panel-heading">
         <div>
-          <p className="screen-eyebrow">Local API only</p>
+          <p className="screen-eyebrow">Local key storage</p>
           <h2 id="provider-credentials-heading">Keys</h2>
         </div>
         <strong role="status">
@@ -605,7 +640,8 @@ function ProviderCredentialsPanel() {
         </strong>
       </div>
       <p className="panel-intro">
-        The key is stored on this computer by the local API. It is never returned to the browser.
+        Keys are stored on this computer by the local API. The RentCast key never reaches the
+        browser; the Google Maps key is sent to Search at runtime to load the map.
       </p>
       <h3>RentCast key</h3>
       {configured && !editing ? (
@@ -628,6 +664,34 @@ function ProviderCredentialsPanel() {
           )}
         </form>
       )}
+      <h3>Google Maps key</h3>
+      <p role="status">
+        {mapsConfigured === null ? 'Checking…' : mapsConfigured ? 'Key set' : 'No key set'}
+      </p>
+      {mapsConfigured && !editingMaps ? (
+        <button className="text-button" onClick={() => setEditingMaps(true)} type="button">
+          Replace Google Maps key
+        </button>
+      ) : (
+        <form className="provider-key-form" onSubmit={(event) => void saveMaps(event)}>
+          <label>
+            Google Maps API key
+            <input autoComplete="new-password" name="googleMapsApiKey" required type="password" />
+          </label>
+          <button disabled={busy} type="submit">
+            {busy ? 'Saving…' : mapsConfigured ? 'Save new Google Maps key' : 'Set Google Maps key'}
+          </button>
+          {mapsConfigured && (
+            <button className="text-button" onClick={() => setEditingMaps(false)} type="button">
+              Cancel
+            </button>
+          )}
+        </form>
+      )}
+      <p className="panel-intro">
+        Google Maps includes 10,000 free map loads each month. Restrict this key in Google Cloud to
+        this app’s localhost address and the Maps JavaScript API; check usage and set a cap there.
+      </p>
       {error && (
         <p role="alert" className="search-error">
           {error}
@@ -2126,16 +2190,6 @@ function PropertyRankingBreakdowns({ data }: { data: PropertyDetailData }) {
   );
 }
 
-type CountyFeature = {
-  type: 'Feature';
-  properties: { GEOID: string; NAME: string };
-  geometry:
-    | { type: 'Polygon'; coordinates: number[][][] }
-    | { type: 'MultiPolygon'; coordinates: number[][][][] };
-};
-
-type CountyFeatureCollection = { type: 'FeatureCollection'; features: CountyFeature[] };
-
 type SearchFilters = {
   mode: 'sale' | 'rent';
   location: string;
@@ -2579,15 +2633,6 @@ function searchFromUrl(): SearchFilters {
   };
 }
 
-const cityCenters: Record<string, [number, number]> = {
-  'fort lauderdale': [-80.137, 26.122],
-  miramar: [-80.232, 25.987],
-  miami: [-80.192, 25.762],
-  'north miami': [-80.186, 25.891],
-  'boca raton': [-80.128, 26.368],
-  hollywood: [-80.149, 26.011],
-};
-
 function CountyMap({
   boundaries,
   items,
@@ -2616,12 +2661,14 @@ function CountyMap({
   );
   const longitudes = coordinates.map(([longitude]) => longitude);
   const latitudes = coordinates.map(([, latitude]) => latitude);
-  const bounds = {
+  const countyBounds = {
     minLon: Math.min(...longitudes),
     maxLon: Math.max(...longitudes),
     minLat: Math.min(...latitudes),
     maxLat: Math.max(...latitudes),
   };
+  const points = items.map((item, index) => pinCoordinates(item.property, index, boundaries));
+  const bounds = resultBounds(points) ?? countyBounds;
   const padding = 34;
   const project = createGeoProjection(bounds, width, height, padding);
   const pathFor = (rings: number[][][][]) =>
@@ -2638,33 +2685,9 @@ function CountyMap({
         ),
       )
       .join(' ');
-  const countyCenter = (feature: CountyFeature): [number, number] => {
-    const ring =
-      feature.geometry.type === 'Polygon'
-        ? feature.geometry.coordinates[0]
-        : (feature.geometry.coordinates[0]?.[0] ?? []);
-    const points = ring.slice(0, -1);
-    const longitude = points.reduce((sum, point) => sum + point[0], 0) / points.length;
-    const latitude = points.reduce((sum, point) => sum + point[1], 0) / points.length;
-    return [longitude, latitude];
-  };
-  const mapPin = (item: SearchListing, index: number) => {
-    const city = item.property.city.trim().toLocaleLowerCase('en-US');
-    const exact = item.property.latitude !== null && item.property.longitude !== null;
-    const [longitude, latitude] = exact
-      ? [item.property.longitude!, item.property.latitude!]
-      : (cityCenters[city] ??
-        (() => {
-          const county = boundaries.features.find(
-            (feature) =>
-              feature.properties.NAME.replace(/ County$/i, '').toLocaleLowerCase('en-US') ===
-              (item.property.county ?? '').toLocaleLowerCase('en-US'),
-          );
-          if (!county) return [-80.2, 26.1];
-          return countyCenter(county);
-        })());
-    const jitter = exact ? 0 : ((index % 5) - 2) * 0.009;
-    return { ...project(longitude + jitter, latitude + jitter * 0.45), approximate: !exact };
+  const mapPin = (index: number) => {
+    const { longitude, latitude, approximate } = points[index];
+    return { ...project(longitude, latitude), approximate };
   };
   const selected = items.find((item) => item.listing.id === selectedId);
   const priceFor = (item: SearchListing) =>
@@ -2726,7 +2749,7 @@ function CountyMap({
               );
             })}
             {items.map((item, index) => {
-              const pin = mapPin(item, index);
+              const pin = mapPin(index);
               const isSelected = item.listing.id === selectedId;
               const pinLabel =
                 item.listing.price == null
@@ -2801,6 +2824,68 @@ function CountyMap({
         </div>
       )}
     </section>
+  );
+}
+
+function SearchResultsMap({
+  boundaries,
+  items,
+  selectedId,
+  onSelect,
+}: {
+  boundaries: CountyFeatureCollection;
+  items: SearchListing[];
+  selectedId: string | null;
+  onSelect: (listingId: string) => void;
+}) {
+  const [key, setKey] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/google-maps-key')
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = (await response.json()) as { key?: string | null };
+        if (active) setKey(typeof data.key === 'string' ? data.key : null);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      })
+      .finally(() => {
+        if (active) setReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (!ready) {
+    return (
+      <section aria-label="Results map" className="map-panel">
+        <h2>Results map</h2>
+        <p>Loading map…</p>
+      </section>
+    );
+  }
+  if (!key || failed) {
+    return (
+      <CountyMap
+        boundaries={boundaries}
+        items={items}
+        selectedId={selectedId}
+        onSelect={onSelect}
+      />
+    );
+  }
+  return (
+    <GoogleResultsMap
+      apiKey={key}
+      boundaries={boundaries}
+      items={items}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      onFailure={() => setFailed(true)}
+    />
   );
 }
 
@@ -5566,7 +5651,7 @@ function SearchScreen() {
             </div>
             <div className="results-map-column">
               {boundaries ? (
-                <CountyMap
+                <SearchResultsMap
                   boundaries={boundaries}
                   items={visibleItems}
                   selectedId={selectedId}

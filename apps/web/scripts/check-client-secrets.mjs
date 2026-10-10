@@ -13,18 +13,18 @@ async function filesUnder(directory) {
   return paths.flat();
 }
 
-export async function assertCredentialAbsent(bundleDirectory, credential) {
+export async function assertCredentialAbsent(bundleDirectory, credential, label = 'RentCast') {
   if (!credential) return;
   for (const filePath of await filesUnder(bundleDirectory)) {
     const content = await readFile(filePath, 'utf8');
     if (content.includes(credential)) {
-      throw new Error('Production web bundle contains the server-only RentCast credential.');
+      throw new Error(`Production web bundle contains the server-only ${label} credential.`);
     }
   }
 }
 
-function configuredKey(contents) {
-  const line = contents.split(/\r?\n/).find((entry) => /^\s*RENTCAST_API_KEY\s*=/.test(entry));
+function configuredKey(contents, name) {
+  const line = contents.split(/\r?\n/).find((entry) => entry.split('=')[0]?.trim() === name);
   if (!line) return '';
   const value = line.slice(line.indexOf('=') + 1).trim();
   if (value.startsWith('"')) {
@@ -41,7 +41,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const apiConfig = resolve(process.cwd(), '../api/.env');
   const bundle = resolve(process.cwd(), 'dist');
   try {
-    await assertCredentialAbsent(bundle, configuredKey(await readFile(apiConfig, 'utf8')));
+    const config = await readFile(apiConfig, 'utf8');
+    await assertCredentialAbsent(bundle, configuredKey(config, 'RENTCAST_API_KEY'));
+    await assertCredentialAbsent(
+      bundle,
+      configuredKey(config, 'GOOGLE_MAPS_API_KEY'),
+      'Google Maps',
+    );
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }
