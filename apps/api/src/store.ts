@@ -292,6 +292,8 @@ export interface ListingSearchCriteria {
   sort?: 'newest' | 'price';
   showDismissed?: boolean;
   savedOnly?: boolean;
+  /** Property-owned tags; all requested tags must be present. */
+  tags?: string[];
 }
 
 export interface SavedSearch extends Required<SavedSearchInput> {
@@ -785,6 +787,81 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         ]),
       );
       return { id, name: cleanName, createdAt };
+    },
+
+    listCustomTagsWithCounts() {
+      return all(
+        `SELECT t.id, t.name, t.created_at, COUNT(DISTINCT p.property_id) AS property_count
+         FROM custom_tags t LEFT JOIN property_tags p ON p.normalized_name = t.normalized_name
+         GROUP BY t.id ORDER BY t.name COLLATE NOCASE, t.id`,
+      ).map((row) => ({
+        id: String(row.id),
+        name: String(row.name),
+        createdAt: String(row.created_at),
+        propertyCount: Number(row.property_count),
+      }));
+    },
+
+    listStandardTagsWithCounts() {
+      return standardPersonalTags.map((name) => ({
+        name,
+        propertyCount: Number(
+          one(
+            'SELECT COUNT(DISTINCT property_id) AS count FROM property_tags WHERE normalized_name = ?',
+            [normalizedTagName(name)],
+          )?.count ?? 0,
+        ),
+      }));
+    },
+
+    renameCustomTag(tagId: string, name: string) {
+      const current = one('SELECT id, name, normalized_name FROM custom_tags WHERE id = ?', [
+        tagId,
+      ]);
+      if (!current) throw new Error('Custom tag not found.');
+      const cleanName = name.trim();
+      if (!cleanName) throw new Error('Enter a tag name.');
+      if (cleanName.length > 30) throw new Error('Tags must be 30 characters or fewer.');
+      const normalizedName = normalizedTagName(cleanName);
+      if (
+        standardPersonalTags.some((tag) => normalizedTagName(tag) === normalizedName) ||
+        one('SELECT 1 FROM custom_tags WHERE normalized_name = ? AND id <> ?', [
+          normalizedName,
+          tagId,
+        ])
+      ) {
+        throw new Error('That tag already exists.');
+      }
+      transaction(() => {
+        run('UPDATE custom_tags SET name = ?, normalized_name = ? WHERE id = ?', [
+          cleanName,
+          normalizedName,
+          tagId,
+        ]);
+        run(
+          'UPDATE property_tags SET tag_name = ?, normalized_name = ? WHERE normalized_name = ?',
+          [cleanName, normalizedName, String(current.normalized_name)],
+        );
+      });
+      return store.listCustomTagsWithCounts().find((tag) => tag.id === tagId)!;
+    },
+
+    deleteCustomTag(tagId: string) {
+      const current = one('SELECT normalized_name FROM custom_tags WHERE id = ?', [tagId]);
+      if (!current) throw new Error('Custom tag not found.');
+      const propertyCount = Number(
+        one(
+          'SELECT COUNT(DISTINCT property_id) AS count FROM property_tags WHERE normalized_name = ?',
+          [String(current.normalized_name)],
+        )?.count ?? 0,
+      );
+      transaction(() => {
+        run('DELETE FROM property_tags WHERE normalized_name = ?', [
+          String(current.normalized_name),
+        ]);
+        run('DELETE FROM custom_tags WHERE id = ?', [tagId]);
+      });
+      return { id: tagId, propertyCount };
     },
 
     listPropertyTags(propertyId: string): PersonalTag[] {

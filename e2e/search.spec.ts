@@ -251,6 +251,89 @@ test('lot size, year, and days filters persist in the URL and saved searches', a
   await expect(page.getByLabel('Listed within days')).toHaveValue('30');
 });
 
+test('personal tag filters require every selected tag and persist through reload and saved searches', async ({
+  page,
+}) => {
+  const root = mkdtempSync(join(tmpdir(), 'ledgerline-tag-filter-e2e-'));
+  const databasePath = join(root, 'ledgerline.sqlite');
+  let api: Api | undefined;
+  try {
+    seedDatabase(databasePath);
+    api = await startApi(databasePath);
+    const catalog = (await (await fetch(api.url('/api/personal-tags'))).json()) as {
+      customTags: string[];
+    };
+    if (!catalog.customTags.includes('Near water')) {
+      await fetch(api.url('/api/personal-tags'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Near water' }),
+      });
+    }
+    const results = (await (await fetch(api.url('/api/listings?mode=sale'))).json()) as {
+      items: Array<{ property: { id: string; city: string } }>;
+    };
+    const [first, second] = results.items;
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    for (const [item, tags] of [
+      [first!, ['Pool', 'Near water']],
+      [second!, ['Pool']],
+    ] as const) {
+      for (const tag of tags)
+        await fetch(api.url(`/api/properties/${item.property.id}/tags`), {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: tag, enabled: true }),
+        });
+    }
+    await routeApiTo(page, () => api!);
+    await page.goto('/');
+    await page.getByLabel('City or ZIP').fill(first!.property.city);
+    await page
+      .getByLabel('Pool', { exact: true })
+      .evaluate((element) => (element as HTMLInputElement).click());
+    await expect(page.getByLabel('Pool', { exact: true })).toBeChecked();
+    await page
+      .getByLabel('Near water', { exact: true })
+      .evaluate((element) => (element as HTMLInputElement).click());
+    await expect(page.getByLabel('Near water', { exact: true })).toBeChecked();
+    await expect(page).toHaveURL(/tag=Pool/);
+    await expect(page).toHaveURL(/tag=Near\+water|tag=Near%20water/);
+    await expect(page.locator('.listing-card')).toHaveCount(1);
+    await page.reload();
+    await expect(page.getByLabel('Pool', { exact: true })).toBeChecked();
+    await expect(page.getByLabel('Near water', { exact: true })).toBeChecked();
+    await expect(page.locator('.listing-card')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Save current search' }).click();
+    await page.getByLabel('Saved search name').fill('Pool with water');
+    await page.getByRole('button', { name: 'Save search' }).click();
+    await expect(page.getByLabel('Open saved search')).not.toHaveValue('');
+    const savedSearchId = await page.getByLabel('Open saved search').inputValue();
+    const savedSearches = (await (await fetch(api.url('/api/saved-searches'))).json()) as {
+      items: Array<{ id: number; filters: Record<string, unknown> }>;
+    };
+    expect(
+      savedSearches.items.find((item) => String(item.id) === savedSearchId)?.filters.selectedTags,
+    ).toEqual(['Pool', 'Near water']);
+    await page
+      .getByLabel('Pool', { exact: true })
+      .evaluate((element) => (element as HTMLInputElement).click());
+    await page
+      .getByLabel('Near water', { exact: true })
+      .evaluate((element) => (element as HTMLInputElement).click());
+    await page.getByLabel('Open saved search').selectOption('');
+    await page.getByLabel('Open saved search').selectOption(savedSearchId);
+    await expect(page).toHaveURL(/tag=Pool/);
+    await expect(page).toHaveURL(/tag=Near\+water|tag=Near%20water/);
+    await expect(page.locator('.listing-card')).toHaveCount(1);
+  } finally {
+    await api?.stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('inverted filter ranges show inline errors without requesting listings', async ({ page }) => {
   let searches = 0;
   await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));

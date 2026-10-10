@@ -155,10 +155,33 @@ export function createApp(
         missing: !propertyPhotoExists(photo.path),
         url: `/api/photos/${photo.id}`,
       }));
-    if (request.method === 'GET' && request.url === '/api/personal-tags') {
+    const personalTagAction = request.url?.match(/^\/api\/personal-tags\/(tag_[A-Za-z0-9_-]+)$/);
+    if (personalTagAction && request.method === 'PATCH') {
+      try {
+        const body = await readBody();
+        if (typeof body.name !== 'string') throw new Error('Enter a tag name.');
+        json(200, { tag: store.renameCustomTag(personalTagAction[1], body.name) });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to rename tag.';
+        json(message === 'Custom tag not found.' ? 404 : 400, { error: message });
+      }
+      return;
+    }
+    if (personalTagAction && request.method === 'DELETE') {
+      try {
+        json(200, { deleted: store.deleteCustomTag(personalTagAction[1]) });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to delete tag.';
+        json(message === 'Custom tag not found.' ? 404 : 400, { error: message });
+      }
+      return;
+    }
+    if (request.method === 'GET' && request.url?.startsWith('/api/personal-tags')) {
       json(200, {
         standardTags: standardPersonalTags,
         customTags: store.listCustomTags().map(({ name }) => name),
+        standardTagCounts: store.listStandardTagsWithCounts(),
+        customTagCounts: store.listCustomTagsWithCounts(),
       });
       return;
     }
@@ -1199,8 +1222,28 @@ export function createApp(
           statuses: statuses.length ? statuses : ['active'],
           sort: url.searchParams.get('sort') === 'price' ? 'price' : 'newest',
           showDismissed: url.searchParams.get('showDismissed') === 'true',
+          tags: [],
           savedOnly: url.searchParams.get('savedOnly') === 'true',
         };
+        const selectedTags = url.searchParams
+          .getAll('tag')
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+        if (selectedTags.length) {
+          const catalog = [
+            ...standardPersonalTags,
+            ...store.listCustomTags().map((tag) => tag.name),
+          ];
+          const normalizedCatalog = new Map(
+            catalog.map((tag) => [tag.toLocaleLowerCase('en-US'), tag]),
+          );
+          const normalizedTags = selectedTags.map((tag) => {
+            const canonical = normalizedCatalog.get(tag.toLocaleLowerCase('en-US'));
+            if (!canonical) throw new Error(`Unknown personal tag: ${tag}`);
+            return canonical.toLocaleLowerCase('en-US');
+          });
+          criteria.tags = [...new Set(normalizedTags)];
+        }
         if (
           criteria.priceMin !== undefined &&
           criteria.priceMax !== undefined &&
@@ -1276,7 +1319,12 @@ export function createApp(
           ).length,
         };
         const today = new Date();
+        const requiredTags = criteria.tags ?? [];
         const items = matchingBase.filter(({ property, listing }) => {
+          const propertyTags = new Set(
+            (property.personalTags ?? []).map((tag) => tag.toLocaleLowerCase('en-US')),
+          );
+          if (!requiredTags.every((tag) => propertyTags.has(tag))) return false;
           if (minLotSize !== undefined || maxLotSize !== undefined) {
             if (property.lotSizeSqft == null) return false;
             if (minLotSize !== undefined && property.lotSizeSqft < minLotSize) return false;

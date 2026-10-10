@@ -56,6 +56,71 @@ test('Settings lists sections in the default order and hash links focus their ta
   await expect(page.locator('#keys')).toBeFocused();
 });
 
+test('Settings shows tag counts, renames custom tags, and confirms deletion without deleting properties', async ({
+  page,
+}) => {
+  const created = await fetch(api.url('/api/personal-tags'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'C50 test tag' }),
+  });
+  const { tag } = (await created.json()) as { tag: { id: string; name: string } };
+  const results = (await (await fetch(api.url('/api/listings?mode=sale'))).json()) as {
+    items: Array<{ property: { id: string } }>;
+  };
+  const propertyId = results.items[0]!.property.id;
+  await fetch(api.url(`/api/properties/${propertyId}/tags`), {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: tag.name, enabled: true }),
+  });
+
+  await page.goto('/settings#personal-tags');
+  const panel = page.locator('#personal-tags');
+  await expect(panel.getByRole('textbox', { name: 'Rename C50 test tag' })).toBeVisible();
+  await expect(panel.getByText('1 property', { exact: true })).toBeVisible();
+  const standard = panel.locator('li').filter({ hasText: 'Pool' }).first();
+  await expect(standard.getByRole('button')).toHaveCount(0);
+
+  await panel.getByRole('textbox', { name: 'Rename C50 test tag' }).fill('C50 renamed tag');
+  await panel
+    .getByRole('button', { name: 'Rename' })
+    .evaluate((element) => (element as HTMLButtonElement).click());
+  await expect(panel.getByText('Renamed to “C50 renamed tag”.')).toBeVisible();
+  expect(
+    ((await (await fetch(api.url(`/api/properties/${propertyId}`))).json()) as { tags: string[] })
+      .tags,
+  ).toContain('C50 renamed tag');
+
+  await panel
+    .getByRole('button', { name: 'Delete', exact: true })
+    .evaluate((element) => (element as HTMLButtonElement).click());
+  await expect(panel.getByRole('group', { name: 'Confirm delete C50 renamed tag' })).toContainText(
+    '1 property will lose this tag',
+  );
+  await panel
+    .getByRole('button', { name: 'Confirm delete' })
+    .evaluate((element) => (element as HTMLButtonElement).click());
+  await expect(
+    panel.getByText('Deleted “C50 renamed tag”. The tag was removed from 1 property.'),
+  ).toBeVisible();
+  expect(
+    (
+      (await (await fetch(api.url(`/api/properties/${propertyId}`))).json()) as {
+        property: { id: string };
+        tags: string[];
+      }
+    ).tags,
+  ).not.toContain('C50 renamed tag');
+  expect(
+    (
+      (await (await fetch(api.url(`/api/properties/${propertyId}`))).json()) as {
+        property: { id: string };
+      }
+    ).property.id,
+  ).toBe(propertyId);
+});
+
 test('Search, Compare, and Property link settings edits to the matching section', async ({
   page,
 }) => {

@@ -3044,6 +3044,77 @@ h1 {
   font: inherit;
 }
 
+.personal-tag-filter {
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+}
+
+.personal-tag-filter legend {
+  padding: 0 4px;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.personal-tag-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.personal-tag-filter-options label {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.personal-tag-management ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.personal-tag-management li {
+  display: flex;
+  min-height: 44px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.personal-tag-management li > span:not(.personal-tag-confirm) {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.managed-personal-tag input {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.personal-tag-confirm {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ink);
+}
+
 .personal-tag-create button {
   min-height: 44px;
 }
