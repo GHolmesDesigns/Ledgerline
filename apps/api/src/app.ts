@@ -516,6 +516,7 @@ export function createApp(
       );
       json(200, {
         ...budget,
+        outsideRequests: store.listOutsideProviderRequests(),
         provider: refreshJob.provider.name,
         tier: refreshJob.provider.name === 'mock' ? 'Local mock' : 'Developer',
         lastSuccessfulRefreshAt: latestRefresh ?? null,
@@ -532,13 +533,40 @@ export function createApp(
         const body = await readBody();
         json(
           200,
-          refreshJob.budget.configure({ ceiling: body.ceiling, billingDay: body.billingDay }),
+          refreshJob.budget.configure({
+            ceiling: body.ceiling,
+            billingDay: body.billingDay,
+            includedRequests: body.includedRequests,
+            dashboardUsed: body.dashboardUsed,
+            dashboardReadDate: body.dashboardReadDate,
+          }),
         );
       } catch (error) {
         json(400, {
           error: error instanceof Error ? error.message : 'Unable to save the request budget.',
         });
       }
+      return;
+    }
+    if (request.url === '/api/outside-requests' && request.method === 'POST') {
+      try {
+        const body = await readBody();
+        const id = refreshJob.budget.addOutsideRequest({
+          requestDate: body.requestDate,
+          count: body.count,
+          note: body.note,
+        });
+        json(201, { id });
+      } catch (error) {
+        json(400, {
+          error: error instanceof Error ? error.message : 'Unable to add outside requests.',
+        });
+      }
+      return;
+    }
+    const outsideRequestAction = request.url?.match(/^\/api\/outside-requests\/(\d+)$/);
+    if (outsideRequestAction && request.method === 'DELETE') {
+      json(store.deleteOutsideProviderRequest(Number(outsideRequestAction[1])) ? 200 : 404, {});
       return;
     }
     const rentEstimateAction = request.url?.match(

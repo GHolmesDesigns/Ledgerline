@@ -60,7 +60,16 @@ describe('request usage header', () => {
       <RequestUsageHeader
         initialData={{
           ceiling: 45,
+          billingDay: 7,
+          includedRequests: 50,
+          appCount: 24,
+          outsideCount: 0,
+          errorCount: 1,
           used: 23,
+          dashboardUsed: 24,
+          dashboardReadDate: '2026-10-08',
+          unexplained: 1,
+          daysRemaining: 30,
           remaining: 22,
           nextReset: '2026-11-01T00:00:00.000Z',
           provider: 'RentCast',
@@ -69,6 +78,7 @@ describe('request usage header', () => {
           requestsPerRefreshAll: 6,
           rentEstimatesUsed: 1,
           recommendedTier: 'Foundation · $74/mo',
+          outsideRequests: [],
           projections: {
             weekly: { remainingRuns: 3, projected: 42, overCeiling: false },
             daily: { remainingRuns: 24, projected: 168, overCeiling: true },
@@ -77,7 +87,10 @@ describe('request usage header', () => {
         }}
       />,
     );
-    assert.match(html, /RentCast · Developer · 23 \/ 45 requests/);
+    assert.match(html, /RentCast · Developer · 23 of 45 ceiling · 50 included/);
+    assert.match(html, /30 days left · resets Nov 1/);
+    assert.match(html, /1 error not billed/);
+    assert.match(html, /1 unexplained more on dashboard/);
     assert.match(html, /Last refresh/);
     assert.match(html, /Browsing uses no requests/);
     assert.match(html, /aria-label="23 of 45 provider requests used"/);

@@ -20,6 +20,7 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Match RentCast request usage with configurable billing day, included requests, dated outside requests, separately counted errors, and a dated dashboard figure with unexplained difference; enforce the ceiling against the matched billable total (Issue 82 / C44).
 - Show "Rent data may be incomplete" on Search in Rent mode, including mobile and empty results, with a screen reader announcement (Issue 81 / C43).
 - Match the Search, Compare, Property, and Settings layouts more closely to the checked-in mock-ups: keyboard-adjustable 0–100 ranking sliders with visible values, coordinate-placed price pins on the local county map, tighter card and panel spacing, clearer cost blocks and score bars, plus side-by-side review screenshots (Issue 80 / C42).
 - Fix a property page losing text typed into the details form: opening a property can send two detail requests (the dev server runs effects twice), and a late response reset the form to the stored values after the user had started typing. Only the newest response now updates the page. A new browser test delays the second response to cover it. This was the cause of the failing `verify` check on PR 94 (the "property risk details" test).

@@ -50,13 +50,26 @@ describe('local API bootstrap', () => {
       { version: 11, name: '011_rent_estimate_comps.sql' },
       { version: 12, name: '012_implausible_flags.sql' },
       { version: 13, name: '013_ranking_weights.sql' },
+      { version: 14, name: '014_outside_requests.sql' },
     ]);
+    const firstStore = createStore(first);
+    firstStore.addOutsideProviderRequest({
+      requestDate: '2026-10-08',
+      count: 15,
+      note: 'Milestone 0',
+    });
     closeDatabase(first);
 
     const second = await openDatabase(path);
     assert.deepEqual(rows(second, 'SELECT COUNT(*) AS count FROM schema_migrations'), [
-      { count: 13 },
+      { count: 14 },
     ]);
+    assert.deepEqual(
+      createStore(second)
+        .listOutsideProviderRequests()
+        .map((entry) => [entry.requestDate, entry.count, entry.note]),
+      [['2026-10-08', 15, 'Milestone 0']],
+    );
     closeDatabase(second);
   });
 

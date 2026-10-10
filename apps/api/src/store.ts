@@ -287,6 +287,14 @@ export interface ProviderRequestLog {
   errorMessage: string | null;
 }
 
+export interface OutsideProviderRequest {
+  id: number;
+  requestDate: string;
+  count: number;
+  note: string;
+  createdAt: string;
+}
+
 export type ReviewDecision = 'link' | 'keep_separate';
 
 export interface ReviewItem {
@@ -1436,6 +1444,53 @@ export function createStore(database: Database, options: StoreOptions = {}) {
         one('SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ?', [since])
           ?.total,
       );
+    },
+
+    countProviderRequestsInPeriod(start: string, next: string): number {
+      return Number(
+        one(
+          'SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ? AND requested_at < ?',
+          [start, next],
+        )?.total,
+      );
+    },
+
+    countFailedProviderRequestsInPeriod(start: string, next: string): number {
+      return Number(
+        one(
+          "SELECT COUNT(*) AS total FROM provider_request_logs WHERE requested_at >= ? AND requested_at < ? AND status = 'failed'",
+          [start, next],
+        )?.total,
+      );
+    },
+
+    listOutsideProviderRequests(): OutsideProviderRequest[] {
+      return all('SELECT * FROM outside_provider_requests ORDER BY request_date DESC, id DESC').map(
+        (row) => ({
+          id: Number(row.id),
+          requestDate: String(row.request_date),
+          count: Number(row.count),
+          note: String(row.note),
+          createdAt: String(row.created_at),
+        }),
+      );
+    },
+
+    addOutsideProviderRequest(input: { requestDate: string; count: number; note: string }) {
+      return transaction(() => {
+        run(
+          'INSERT INTO outside_provider_requests (request_date, count, note, created_at) VALUES (?, ?, ?, ?)',
+          [input.requestDate, input.count, input.note, now()],
+        );
+        return lastInsertId();
+      });
+    },
+
+    deleteOutsideProviderRequest(id: number): boolean {
+      return transaction(() => {
+        run('DELETE FROM outside_provider_requests WHERE id = ?', [id]);
+        return Number(one('SELECT changes() AS total')?.total) > 0;
+      });
     },
 
     /** Requests the search's most recent refresh used, or null if it has never run. */

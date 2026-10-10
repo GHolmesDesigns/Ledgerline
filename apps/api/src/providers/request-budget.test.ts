@@ -220,9 +220,85 @@ describe('request ceiling check', () => {
     assert.equal(budget.projectedRefresh(search.id), 2);
     assert.equal(budget.projectedRefresh(otherSearch().id), 1);
   });
+
+  it('matches billable app and outside requests, explains errors and dashboard differences', async () => {
+    const { budget, store, logRequests, setNow } = await setup();
+    budget.configure({ billingDay: 7, includedRequests: 50 });
+    logRequests(3);
+    const failed = store.beginProviderRequest({
+      provider: 'test-provider',
+      purpose: 'other',
+      page: 1,
+    });
+    store.finishProviderRequest(failed, { status: 'failed', errorMessage: 'test error' });
+    budget.addOutsideRequest({ requestDate: '2026-10-07', count: 15, note: 'Milestone 0' });
+    budget.addOutsideRequest({ requestDate: '2026-10-06', count: 2 });
+    budget.configure({ dashboardUsed: 19, dashboardReadDate: '2026-10-08' });
+    assert.deepEqual(
+      [
+        budget.status().appCount,
+        budget.status().errorCount,
+        budget.status().outsideCount,
+        budget.status().used,
+        budget.status().unexplained,
+        budget.status().includedRequests,
+      ],
+      [4, 1, 15, 18, 1, 50],
+    );
+    assert.equal(budget.status().nextReset, '2026-11-07T00:00:00.000Z');
+    assert.equal(budget.status().daysRemaining, 30);
+    setNow('2026-11-07T00:00:00.000Z');
+    assert.equal(budget.status().used, 0);
+    assert.equal(budget.status().unexplained, null);
+  });
+
+  it('keeps the dashboard comparison tied to the date it was read', async () => {
+    const { budget, logRequests, setNow } = await setup();
+    logRequests(2);
+    budget.configure({ dashboardUsed: 2, dashboardReadDate: '2026-10-08' });
+    setNow('2026-10-09T12:00:00.000Z');
+    logRequests(1);
+    assert.equal(budget.status().used, 3);
+    assert.equal(budget.status().unexplained, 0);
+  });
 });
 
 describe('refresh and rent estimate enforcement', () => {
+  it('blocks a mock refresh when outside requests take the matched total past the ceiling', async () => {
+    const { database, store, budget, search, logRequests } = await setup();
+    logRequests(1);
+    budget.configure({ ceiling: 15 });
+    const { provider, calls } = countingProvider();
+    const api = await serve(database, store, new RefreshJob(store, provider, budget));
+    try {
+      const add = await fetch(`${api.url}/api/outside-requests`, {
+        method: 'POST',
+        body: JSON.stringify({ requestDate: '2026-10-08', count: 14, note: 'Milestone 0' }),
+      });
+      assert.equal(add.status, 201);
+      const usage = (await (await fetch(`${api.url}/api/request-budget`)).json()) as {
+        used: number;
+        outsideCount: number;
+        outsideRequests: Array<{ id: number }>;
+      };
+      assert.deepEqual([usage.used, usage.outsideCount], [15, 14]);
+      const refresh = await fetch(`${api.url}/api/saved-searches/${search.id}/refresh`, {
+        method: 'POST',
+      });
+      assert.equal(refresh.status, 429);
+      assert.match(await refresh.text(), /15 of 15 requests used/);
+      assert.equal(calls.search, 0);
+      assert.equal(store.listProviderRequestLogs().length, 1);
+      const removed = await fetch(
+        `${api.url}/api/outside-requests/${usage.outsideRequests[0]!.id}`,
+        { method: 'DELETE' },
+      );
+      assert.equal(removed.status, 200);
+      assert.equal(budget.status().used, 1);
+    } finally {
+      await api.close();
+    }
+  });
   it('blocks a refresh projected at 2 with 44 of 45 used, and the provider receives nothing', async () => {
     const { store, budget, search, otherSearch, logRequests } = await setup();
     logRequests(2);
