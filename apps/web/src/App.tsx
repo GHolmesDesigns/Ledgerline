@@ -5090,6 +5090,11 @@ function SearchScreen() {
           </select>
         </label>
       </div>
+      {filters.mode === 'rent' && (
+        <p className="rent-data-notice" role="status">
+          Rent data may be incomplete
+        </p>
+      )}
       {error && (
         <p className="search-error" role="alert">
           {error}

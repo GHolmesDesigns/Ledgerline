@@ -1640,6 +1640,12 @@ h1 {
   color: var(--color-muted);
   font-size: 13px;
 }
+.rent-data-notice {
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
 .listing-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
