@@ -332,7 +332,7 @@ a {
 
 .request-usage-header {
   display: grid;
-  width: min(360px, 34vw);
+  width: min(520px, 42vw);
   gap: 4px;
   margin-left: auto;
   color: var(--color-muted);
@@ -340,6 +340,7 @@ a {
 }
 .request-usage-heading {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
 }
@@ -422,6 +423,43 @@ a {
 .request-budget-panel .panel-heading h2 {
   margin: 0;
   font: 600 22px var(--font-display);
+}
+.request-usage-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.request-usage-form label {
+  display: grid;
+  flex: 1 1 160px;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.request-usage-form input,
+.request-usage-form button,
+.outside-request-list button {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+}
+.request-usage-form button,
+.outside-request-list button {
+  cursor: pointer;
+}
+.outside-request-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+.outside-request-list li {
+  line-height: 1.5;
 }
 .request-projections {
   display: grid;

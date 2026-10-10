@@ -134,7 +134,16 @@ type MatchReview = {
 
 type RequestUsage = {
   ceiling: number;
+  billingDay: number;
+  includedRequests: number;
+  appCount: number;
+  outsideCount: number;
+  errorCount: number;
   used: number;
+  dashboardUsed: number | null;
+  dashboardReadDate: string | null;
+  unexplained: number | null;
+  daysRemaining: number;
   remaining: number;
   nextReset: string;
   provider: string;
@@ -143,6 +152,7 @@ type RequestUsage = {
   requestsPerRefreshAll: number;
   rentEstimatesUsed: number;
   recommendedTier: string | null;
+  outsideRequests: Array<{ id: number; requestDate: string; count: number; note: string }>;
   projections: Record<string, { remainingRuns: number; projected: number; overCeiling: boolean }>;
   searches: Array<{
     id: number;
@@ -213,20 +223,39 @@ export function RequestUsageHeader({ initialData }: { initialData?: RequestUsage
   const lastRefresh = usage?.lastSuccessfulRefreshAt
     ? new Date(usage.lastSuccessfulRefreshAt).toLocaleString()
     : 'No successful refresh yet';
+  const resetLabel = usage
+    ? new Date(usage.nextReset).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'UTC',
+      })
+    : '—';
   return (
     <div className="request-usage-header" aria-label="Provider request usage">
       <div className="request-usage-heading">
         <strong>
-          {usage?.provider ?? 'Provider'} · {usage?.tier ?? 'loading'} · {used} / {ceiling} requests
+          {usage?.provider ?? 'Provider'} · {usage?.tier ?? 'loading'} · {used} of {ceiling} ceiling
+          · {usage?.includedRequests ?? 50} included
         </strong>
-        <span>Last refresh · {lastRefresh}</span>
+        <span>
+          {usage?.daysRemaining ?? '—'} days left · resets {resetLabel} · Last refresh ·{' '}
+          {lastRefresh}
+        </span>
       </div>
       <progress
         aria-label={`${used} of ${ceiling} provider requests used`}
         max={ceiling || 1}
         value={Math.min(used, ceiling)}
       />
-      <span className="request-usage-note">Browsing uses no requests</span>
+      <span className="request-usage-note">
+        Browsing uses no requests
+        {usage && usage.errorCount > 0
+          ? ` · ${usage.errorCount} ${usage.errorCount === 1 ? 'error' : 'errors'} not billed`
+          : ''}
+        {usage?.unexplained != null && usage.unexplained !== 0
+          ? ` · ${Math.abs(usage.unexplained)} unexplained ${usage.unexplained > 0 ? 'more' : 'fewer'} on dashboard`
+          : ''}
+      </span>
     </div>
   );
 }
@@ -234,6 +263,8 @@ export function RequestUsageHeader({ initialData }: { initialData?: RequestUsage
 function RequestBudgetPanel() {
   const [usage, setUsage] = useState<RequestUsage | null>(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
   const refresh = async () => {
     try {
       setUsage(await fetchRequestUsage());
@@ -246,6 +277,80 @@ function RequestBudgetPanel() {
   useEffect(() => {
     void refresh();
   }, []);
+  const saveSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const dashboardUsed = String(data.get('dashboardUsed') ?? '').trim();
+    const dashboardReadDate = String(data.get('dashboardReadDate') ?? '').trim();
+    if ((dashboardUsed === '') !== (dashboardReadDate === '')) {
+      setError('Enter both the dashboard used figure and the date it was read, or clear both.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch('/api/request-budget', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          billingDay: Number(data.get('billingDay')),
+          includedRequests: Number(data.get('includedRequests')),
+          ceiling: Number(data.get('ceiling')),
+          dashboardUsed: dashboardUsed === '' ? null : Number(dashboardUsed),
+          dashboardReadDate: dashboardReadDate || null,
+        }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'Could not save RentCast usage.');
+      await refresh();
+      window.dispatchEvent(new Event('provider-usage-updated'));
+      setNotice('Usage settings saved.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not save RentCast usage.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const addOutside = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    try {
+      const response = await fetch('/api/outside-requests', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          requestDate: data.get('requestDate'),
+          count: Number(data.get('count')),
+          note: data.get('note'),
+        }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'Could not add outside requests.');
+      form.reset();
+      await refresh();
+      window.dispatchEvent(new Event('provider-usage-updated'));
+      setNotice('Outside requests added.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not add outside requests.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const removeOutside = async (id: number) => {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/outside-requests/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Could not remove outside requests.');
+      await refresh();
+      window.dispatchEvent(new Event('provider-usage-updated'));
+      setNotice('Outside requests removed.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not remove outside requests.');
+    } finally {
+      setBusy(false);
+    }
+  };
   const searchesByLocation = new Map<string, RequestUsage['searches']>();
   for (const search of usage?.searches ?? []) {
     const key = search.location.trim().toLocaleLowerCase('en-US');
@@ -263,13 +368,18 @@ function RequestBudgetPanel() {
           <p className="screen-eyebrow">Data source &amp; request budget</p>
           <h2 id="request-budget-heading">RentCast usage</h2>
         </div>
-        <strong>{usage ? `${usage.used} / ${usage.ceiling} this month` : 'Loading usage…'}</strong>
+        <strong>
+          {usage
+            ? `${usage.used} of ${usage.ceiling} ceiling · ${usage.includedRequests} included`
+            : 'Loading usage…'}
+        </strong>
       </div>
       {error && (
         <p role="alert" className="search-error">
           {error}
         </p>
       )}
+      {notice && <p role="status">{notice}</p>}
       {usage && (
         <>
           <progress
@@ -281,6 +391,119 @@ function RequestBudgetPanel() {
             {usage.provider} · {usage.tier}. Browsing uses no requests. Rent estimates: +1 request
             each · {usage.rentEstimatesUsed} used this month.
           </p>
+          <p>
+            {usage.daysRemaining} days left · resets{' '}
+            {new Date(usage.nextReset).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              timeZone: 'UTC',
+            })}{' '}
+            · Last successful refresh:{' '}
+            {usage.lastSuccessfulRefreshAt
+              ? new Date(usage.lastSuccessfulRefreshAt).toLocaleString()
+              : 'none yet'}
+          </p>
+          <p>
+            App requests sent: {usage.appCount} · Errors not billed: {usage.errorCount} · Outside
+            requests: {usage.outsideCount} · Matched total: {usage.used}
+          </p>
+          <p>
+            Dashboard used:{' '}
+            {usage.dashboardUsed === null
+              ? 'not entered'
+              : `${usage.dashboardUsed} · read ${usage.dashboardReadDate}`}
+            . Unexplained difference:{' '}
+            {usage.unexplained === null
+              ? 'unavailable'
+              : usage.unexplained === 0
+                ? '0'
+                : `${Math.abs(usage.unexplained)} ${usage.unexplained > 0 ? 'more' : 'fewer'} on dashboard`}
+            .
+          </p>
+          <form className="request-usage-form" onSubmit={(event) => void saveSettings(event)}>
+            <label>
+              Billing day
+              <input
+                name="billingDay"
+                type="number"
+                min="1"
+                max="31"
+                required
+                defaultValue={usage.billingDay}
+              />
+            </label>
+            <label>
+              Plan included requests
+              <input
+                name="includedRequests"
+                type="number"
+                min="0"
+                required
+                defaultValue={usage.includedRequests}
+              />
+            </label>
+            <label>
+              Local request ceiling
+              <input name="ceiling" type="number" min="0" required defaultValue={usage.ceiling} />
+            </label>
+            <label>
+              Dashboard used
+              <input
+                name="dashboardUsed"
+                type="number"
+                min="0"
+                defaultValue={usage.dashboardUsed ?? ''}
+              />
+            </label>
+            <label>
+              Dashboard read date
+              <input
+                name="dashboardReadDate"
+                type="date"
+                defaultValue={usage.dashboardReadDate ?? ''}
+              />
+            </label>
+            <button type="submit" disabled={busy}>
+              Save usage settings
+            </button>
+          </form>
+          <h3>Outside requests</h3>
+          <p>
+            Enter requests made outside Ledgerline, such as the Milestone 0 pull. They count toward
+            the ceiling in their billing period.
+          </p>
+          <form className="request-usage-form" onSubmit={(event) => void addOutside(event)}>
+            <label>
+              Request date
+              <input name="requestDate" type="date" required />
+            </label>
+            <label>
+              Request count
+              <input name="count" type="number" min="1" required />
+            </label>
+            <label>
+              Note
+              <input name="note" type="text" maxLength={500} />
+            </label>
+            <button type="submit" disabled={busy}>
+              Add outside requests
+            </button>
+          </form>
+          <ul className="outside-request-list">
+            {usage.outsideRequests.map((entry) => (
+              <li key={entry.id}>
+                {entry.requestDate} · {entry.count} requests{entry.note ? ` · ${entry.note}` : ''}{' '}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void removeOutside(entry.id)}
+                  aria-label={`Remove ${entry.count} outside requests from ${entry.requestDate}`}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
           <div className="request-projections" aria-label="Monthly request projections">
             <p>
               <strong>Weekly</strong>

@@ -157,3 +157,35 @@ test('JSON backup excludes the local Settings section order', async ({ page }) =
   expect(backup).not.toHaveProperty('settingsSectionOrder');
   expect(backup).not.toHaveProperty('settingsOrder');
 });
+
+test('RentCast usage edits show matched requests and unexplained dashboard gap in Settings and header', async ({
+  page,
+}) => {
+  await page.goto('/settings#rentcast-usage');
+  const section = page.locator('#rentcast-usage');
+  await expect(section.getByRole('heading', { name: 'RentCast usage' })).toBeVisible();
+  const current = (await (await fetch(api.url('/api/request-budget'))).json()) as {
+    used: number;
+    ceiling: number;
+  };
+  const today = new Date().toISOString().slice(0, 10);
+  await section.getByLabel('Billing day').fill('7');
+  await section.getByLabel('Plan included requests').fill('50');
+  await section.getByLabel('Local request ceiling').fill(String(current.ceiling));
+  await section.getByLabel('Dashboard used').fill(String(current.used + 16));
+  await section.getByLabel('Dashboard read date').fill(today);
+  await section.getByRole('button', { name: 'Save usage settings' }).click();
+  await section.getByLabel('Request date').fill(today);
+  await section.getByLabel('Request count').fill('15');
+  await section.getByLabel('Note').fill('Milestone 0 pull');
+  await section.getByRole('button', { name: 'Add outside requests' }).click();
+  await expect(section).toContainText(`Matched total: ${current.used + 15}`);
+  await expect(section).toContainText('Unexplained difference: 1 more on dashboard');
+  await expect(page.getByLabel('Provider request usage')).toContainText(
+    `${current.used + 15} of ${current.ceiling} ceiling · 50 included`,
+  );
+  await expect(page.getByLabel('Provider request usage')).toContainText(
+    '1 unexplained more on dashboard',
+  );
+  await section.getByRole('button', { name: `Remove 15 outside requests from ${today}` }).click();
+});
