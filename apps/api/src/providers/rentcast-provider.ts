@@ -60,6 +60,7 @@ export const rentCastCapabilities: ProviderCapabilities = {
   history: true,
   hoaFee: true,
   rentEstimates: true,
+  radiusSearch: false,
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {

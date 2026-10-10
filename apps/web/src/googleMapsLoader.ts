@@ -12,11 +12,13 @@ export type MarkerInstance = {
   addListener: (event: string, handler: () => void) => MapsEvent;
 };
 export type PolygonInstance = { setMap: (map: MapInstance | null) => void };
+export type CircleInstance = { setMap: (map: MapInstance | null) => void };
 export type MapsApi = {
   Map: new (element: HTMLElement, options: object) => MapInstance;
   LatLngBounds: new () => BoundsInstance;
   Marker: new (options: object) => MarkerInstance;
   Polygon: new (options: object) => PolygonInstance;
+  Circle: new (options: object) => CircleInstance;
   SymbolPath: { CIRCLE: number };
 };
 

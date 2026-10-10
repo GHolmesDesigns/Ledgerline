@@ -11,7 +11,7 @@ const apiDataDirectory = join(tmpdir(), `ledgerline-e2e-api-${apiPort}`);
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 4,
+  workers: process.env.CI ? 1 : 4,
   reporter: 'list',
   use: { ...devices['Desktop Chrome'], baseURL: `http://127.0.0.1:${webPort}` },
   webServer: [

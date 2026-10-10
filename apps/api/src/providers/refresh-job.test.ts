@@ -85,6 +85,31 @@ function provider(
 }
 
 describe('saved-search refresh job', () => {
+  it('blocks saved radius refreshes until the provider declares verified radius support', async () => {
+    const { store, search } = await setup();
+    store.updateSavedSearch(search.id, {
+      filters: {
+        locationMode: 'radius',
+        centerLat: '26.19',
+        centerLng: '-80.115',
+        radiusMi: '25.0',
+      },
+    });
+    let providerCalls = 0;
+    const result = await new RefreshJob(
+      store,
+      provider(async () => {
+        providerCalls += 1;
+        return [];
+      }),
+    ).refresh(search.id);
+
+    assert.match(result.error ?? '', /radius search is not verified/i);
+    assert.equal(providerCalls, 0);
+    assert.equal(store.listProviderRequestLogs(search.id).length, 0);
+    assert.match(store.getSavedSearch(search.id)?.lastRefreshError ?? '', /not verified/i);
+  });
+
   it('pages through 501 listings, stores one snapshot per result, and logs two requests', async () => {
     const { store, search } = await setup();
     const records = Array.from({ length: 501 }, (_, index) => record(index));

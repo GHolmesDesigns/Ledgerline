@@ -61,6 +61,15 @@ export class RefreshJob {
     const search = this.store.getSavedSearch(searchId);
     if (!search) throw new Error('Saved search not found.');
     if (
+      search.filters.locationMode === 'radius' &&
+      this.provider.capabilities.radiusSearch !== true
+    ) {
+      const error =
+        'Provider radius search is not verified; this saved radius search was not refreshed.';
+      this.store.markRefreshFailed(searchId, error);
+      return { searchId, error };
+    }
+    if (
       this.provider.name.toLocaleLowerCase('en-US') === 'rentcast' &&
       !this.providerCredential()
     ) {

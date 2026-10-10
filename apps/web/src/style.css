@@ -1662,6 +1662,36 @@ h1 {
   font-size: 12px;
   font-weight: 500;
 }
+.field-error {
+  color: #8a0049;
+  font-size: 12px;
+  font-weight: 500;
+}
+.search-radius-circle {
+  fill: #00c2d1;
+  fill-opacity: 0.12;
+  stroke: #007b86;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.search-radius-center {
+  fill: #101820;
+  stroke: #ffffff;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.search-radius-center-label {
+  fill: #ffffff;
+  font: 700 9px var(--font-label);
+  text-anchor: middle;
+}
+.radius-provider-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
 .filter-field input:not([type='checkbox']),
 .filter-field select,
 .sort-control select {
