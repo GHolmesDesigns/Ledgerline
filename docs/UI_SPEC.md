@@ -83,7 +83,7 @@ Light, Dark, or System (default), set in Settings → Appearance. Both themes ke
 
 ### Header
 
-"RentCast · Developer · 23 / 45 requests · 50 included" with a usage bar, "29 days left · resets Nov 7", last refresh time, and "browsing uses no requests". These match the RentCast dashboard: Settings holds the billing day and any outside requests (for example the Milestone 0 pull), shows how many counted requests were errors that RentCast does not bill, and shows any unexplained difference from the dashboard's "used" figure. Refresh button: "Refresh this search · ~2 requests (measured)".
+"RentCast · Developer · 23 / 45 requests · 50 included" with a usage bar, "29 days left · resets Nov 7", last refresh time, and "browsing uses no requests". For the live RentCast provider, these match its dashboard: Settings holds the billing day and any outside requests (for example the Milestone 0 pull), shows how many counted requests were errors that RentCast does not bill, and shows any unexplained difference from the dashboard's "used" figure. Local mock calls are excluded from the external-provider count. Refresh button: "Refresh this search · ~2 requests (measured)".
 
 ### Sample-data note
 
@@ -168,7 +168,7 @@ Line-by-line amounts and states are in the fixture file.
 - **Personal assumptions** panel: down payment, rate, term, maintenance.
 - **Local assumptions** table, one row per county: Miami-Dade, Broward, and Palm Beach ("Not set · Set local rates"). Columns: millage; typical non-ad valorem $/yr; homeowners default (house); HO-6 default (condo); flood default X / AE / VE; source and date. Every value tagged "sample".
 - **Comparable-rent rules** (editable): same property type; same bedrooms; living area ±20%; radius 1 mi; seen within 30 days; minimum 3 comps. Note: "Dense Miami areas may need a smaller radius."
-- **Data source & request budget:** saved searches as Buy/Rent pairs per area with measured requests per refresh (Broward 1+1, Miami 33131–33137 2+1); flagged Buy-only area "North Miami 33161 · No Rent search · local comps unavailable · Add Rent search"; "Rent estimates: +1 request each · 1 used this month"; weekly vs. daily projections against the 45 ceiling (weekly ≈ 42, daily ≈ 168 → over, needs Foundation $74/mo); over-ceiling warning. Show the provider's radius capability before a radius refresh.
+- **Data source & request budget:** saved searches as Buy/Rent pairs per area with measured requests per refresh (Broward 1+1, Miami 33131–33137 2+1); flagged Buy-only area "North Miami 33161 · No Rent search · local comps unavailable · Add Rent search"; external-provider rent estimates use +1 request each, while local mock estimates use no external requests; weekly vs. daily projections against the 45 ceiling (weekly ≈ 42, daily ≈ 168 → over, needs Foundation $74/mo); over-ceiling warning. Show the provider's radius capability before a radius refresh.
 - **Property match review:** "1500 Bay Rd, Unit 1204" (new rent listing) vs. "1500 Bay Rd (no unit)" (existing property with 1 note): Link / Keep separate / Undo.
 - **Saved-search refresh:** each profile shows its last successful refresh, "Stale" after its configured interval, or a failed refresh with the attempt time and error. "Refresh now" runs one profile; "Refresh due searches" runs every profile whose interval has elapsed.
 - Nearby-coordinate matching can be enabled by setting `MATCH_REVIEW_DISTANCE_METERS`; without a threshold, address-based ambiguity rules still apply.

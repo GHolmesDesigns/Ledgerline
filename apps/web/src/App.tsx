@@ -308,12 +308,12 @@ function RequestBudgetPanel() {
         }),
       });
       const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? 'Could not save RentCast usage.');
+      if (!response.ok) throw new Error(result.error ?? 'Could not save provider usage.');
       await refresh();
       window.dispatchEvent(new Event('provider-usage-updated'));
       setNotice('Usage settings saved.');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not save RentCast usage.');
+      setError(reason instanceof Error ? reason.message : 'Could not save provider usage.');
     } finally {
       setBusy(false);
     }
