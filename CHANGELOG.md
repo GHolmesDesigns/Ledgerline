@@ -20,6 +20,8 @@ To release: move the notes under "Unreleased" to a new heading with the version,
 
 ## Unreleased
 
+- Place the Street View link in the property header and show one property pin on Google Maps, with a local county map fallback or a plain missing-coordinates message (Issue 84 / C46).
+
 - Show Google Maps on Search when a key is set in Settings, with runtime key delivery, local county borders and pins, keyboard pin controls, result framing, and the local map fallback when unavailable (Issue 83 / C45).
 
 - Match RentCast request usage with configurable billing day, included requests, dated outside requests, separately counted errors, and a dated dashboard figure with unexplained difference; enforce the ceiling against the matched billable total (Issue 82 / C44).

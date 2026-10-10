@@ -16,6 +16,7 @@ import {
   type CountyFeatureCollection,
 } from './mapData';
 import { GoogleResultsMap } from './GoogleResultsMap';
+import { PropertyMap } from './PropertyMap';
 import {
   defaultRankingWeights,
   rankListings,
@@ -3413,10 +3414,22 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           <p className="screen-eyebrow">
             {property.city} · {property.county ?? 'Florida'} County, {property.zip}
           </p>
-          <h2>
-            {property.street}
-            {property.unit ? `, Unit ${property.unit}` : ''}
-          </h2>
+          <div className="property-address-row">
+            <h2>
+              {property.street}
+              {property.unit ? `, Unit ${property.unit}` : ''}
+            </h2>
+            {streetView && (
+              <a
+                className="property-street-view"
+                href={streetView}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open Street View
+              </a>
+            )}
+          </div>
           <p>
             {property.beds ?? '—'} bd · {property.bathsTotal ?? '—'} ba ·{' '}
             {property.livingAreaSqft?.toLocaleString() ?? '—'} sq ft ·{' '}
@@ -3443,6 +3456,19 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           </a>
         </div>
       </div>
+      {streetView ? (
+        <PropertyMap
+          location={{
+            latitude: property.latitude!,
+            longitude: property.longitude!,
+            address: `${property.street}${property.unit ? `, Unit ${property.unit}` : ''}, ${property.city}`,
+          }}
+        />
+      ) : (
+        <p className="property-map-unavailable">
+          Map unavailable: this property has no coordinates.
+        </p>
+      )}
       {error && (
         <p role="alert" className="search-error">
           {error}
@@ -4207,11 +4233,6 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
             </li>
           ))}
         </ul>
-        {streetView && (
-          <a href={streetView} target="_blank" rel="noreferrer">
-            Open Street View
-          </a>
-        )}
       </section>
       <section aria-labelledby="data-quality-heading" className="property-detail-section">
         <h3 id="data-quality-heading">Data quality and freshness</h3>
