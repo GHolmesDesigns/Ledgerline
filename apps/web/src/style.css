@@ -148,6 +148,50 @@ a {
   font-size: 20px;
 }
 
+.sidebar-settings-nav {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0 17px;
+  padding-left: 10px;
+  border-left: 1px solid var(--color-border-strong);
+}
+
+.sidebar-settings-link {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.sidebar-settings-link:hover,
+.sidebar-settings-link[aria-current='location'] {
+  background: var(--color-surface-soft);
+  color: var(--color-ink);
+}
+
+.sidebar-settings-link[aria-current='location'] {
+  box-shadow: inset 2px 0 var(--color-cyan);
+}
+
+.sidebar-settings-mark {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-surface-soft);
+  color: var(--color-ink);
+  font: 10px var(--font-label);
+}
+
 .sidebar-version {
   margin: auto 0 0;
   padding: 12px 8px 4px;
@@ -171,6 +215,21 @@ a {
 .desktop-sidebar.is-collapsed .sidebar-nav-link {
   justify-content: center;
   padding: 0;
+}
+
+.desktop-sidebar.is-collapsed .sidebar-settings-nav {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
+.desktop-sidebar.is-collapsed .sidebar-settings-link {
+  justify-content: center;
+  padding: 0;
+}
+
+.desktop-sidebar.is-collapsed .sidebar-settings-label {
+  display: none;
 }
 
 .desktop-sidebar.is-collapsed .sidebar-version {
@@ -1297,6 +1356,27 @@ h1 {
 }
 .property-mobile-actions {
   display: none;
+}
+.property-listing-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-link);
+  font-weight: 600;
+  text-decoration: none;
+}
+.property-listing-link:hover {
+  background: var(--color-surface-soft);
+  color: var(--color-link-hover);
+}
+.property-listing-link:focus-visible {
+  outline: 3px solid var(--color-cyan);
+  outline-offset: 2px;
 }
 .property-facts-grid {
   display: grid;

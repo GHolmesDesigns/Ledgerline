@@ -1473,6 +1473,10 @@ function Sidebar({ pathname }: { pathname: string }) {
       return false;
     }
   });
+  const [settingsOrder, setSettingsOrder] = useState<SettingsSectionId[]>(readSettingsOrder);
+  const [settingsHash, setSettingsHash] = useState(() =>
+    typeof window === 'undefined' ? '' : window.location.hash.slice(1),
+  );
 
   useEffect(() => {
     try {
@@ -1481,6 +1485,17 @@ function Sidebar({ pathname }: { pathname: string }) {
       // The sidebar remains usable if browser storage is unavailable.
     }
   }, [collapsed]);
+
+  useEffect(() => {
+    const syncSettingsOrder = () => setSettingsOrder(readSettingsOrder());
+    const syncHash = () => setSettingsHash(window.location.hash.slice(1));
+    window.addEventListener('ledgerline:settings-order-changed', syncSettingsOrder);
+    window.addEventListener('hashchange', syncHash);
+    return () => {
+      window.removeEventListener('ledgerline:settings-order-changed', syncSettingsOrder);
+      window.removeEventListener('hashchange', syncHash);
+    };
+  }, []);
 
   return (
     <aside className={`desktop-sidebar${collapsed ? ' is-collapsed' : ''}`}>
@@ -1501,6 +1516,28 @@ function Sidebar({ pathname }: { pathname: string }) {
         </button>
       </div>
       <Navigation pathname={pathname} />
+      {pathname === '/settings' && (
+        <nav aria-label="Settings subsections" className="sidebar-settings-nav">
+          {settingsOrder.map((id) => {
+            const section = settingsSections.find((item) => item.id === id)!;
+            return (
+              <a
+                aria-current={settingsHash === id ? 'location' : undefined}
+                aria-label={section.title}
+                className="sidebar-settings-link"
+                href={`/settings#${id}`}
+                key={id}
+                title={section.title}
+              >
+                <span aria-hidden="true" className="sidebar-settings-mark">
+                  {section.title.slice(0, 1)}
+                </span>
+                <span className="sidebar-settings-label">{section.title}</span>
+              </a>
+            );
+          })}
+        </nav>
+      )}
       <p className="sidebar-version">v{appVersion}</p>
     </aside>
   );
@@ -1917,6 +1954,7 @@ function SettingsPage({
 
   useEffect(() => {
     window.localStorage.setItem(SETTINGS_ORDER_KEY, JSON.stringify(order));
+    window.dispatchEvent(new Event('ledgerline:settings-order-changed'));
   }, [order]);
 
   const announcePosition = (id: SettingsSectionId, current: SettingsSectionId[]) => {
@@ -4011,6 +4049,14 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               {property.street}
               {property.unit ? `, Unit ${property.unit}` : ''}
             </h2>
+            <a
+              className="property-listing-link"
+              href={`https://www.redfin.com/?location=${addressQuery}`}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Listing
+            </a>
             {streetView && (
               <a
                 className="property-street-view"
