@@ -1176,7 +1176,27 @@ export function createApp(
           throw new Error('Minimum price cannot exceed maximum price.');
         }
         const localAssumptions = store.listLocalAssumptions();
-        const items = store.transaction(() =>
+        const minLotSize = numberParam('minLotSize');
+        const maxLotSize = numberParam('maxLotSize');
+        const yearBuiltMin = numberParam('yearBuiltMin');
+        const yearBuiltMax = numberParam('yearBuiltMax');
+        const daysOnMarket = numberParam('daysOnMarket');
+        if (minLotSize !== undefined && maxLotSize !== undefined && minLotSize > maxLotSize) {
+          throw new Error('Minimum lot size cannot exceed maximum lot size.');
+        }
+        if (
+          yearBuiltMin !== undefined &&
+          yearBuiltMax !== undefined &&
+          yearBuiltMin > yearBuiltMax
+        ) {
+          throw new Error('Minimum year built cannot exceed maximum year built.');
+        }
+        for (const [name, value] of Object.entries({ yearBuiltMin, yearBuiltMax, daysOnMarket })) {
+          if (value !== undefined && !Number.isInteger(value)) {
+            throw new Error(`${name} must be a whole number.`);
+          }
+        }
+        const matchingBase = store.transaction(() =>
           store.searchListings(criteria).map((item) => ({
             ...item,
             property: { ...item.property, photos: photosFor(item.property.id) },
@@ -1200,7 +1220,49 @@ export function createApp(
                 : null,
           })),
         );
-        json(200, { items, criteria });
+        const hiddenCounts = {
+          lotSize: matchingBase.filter(
+            ({ property }) =>
+              (minLotSize !== undefined || maxLotSize !== undefined) &&
+              property.lotSizeSqft == null,
+          ).length,
+          yearBuilt: matchingBase.filter(
+            ({ property }) =>
+              (yearBuiltMin !== undefined || yearBuiltMax !== undefined) &&
+              property.yearBuilt == null,
+          ).length,
+          daysOnMarket: matchingBase.filter(
+            ({ listing }) =>
+              daysOnMarket !== undefined &&
+              (listing.providerListedDate == null ||
+                Number.isNaN(Date.parse(listing.providerListedDate))),
+          ).length,
+        };
+        const today = new Date();
+        const items = matchingBase.filter(({ property, listing }) => {
+          if (minLotSize !== undefined || maxLotSize !== undefined) {
+            if (property.lotSizeSqft == null) return false;
+            if (minLotSize !== undefined && property.lotSizeSqft < minLotSize) return false;
+            if (maxLotSize !== undefined && property.lotSizeSqft > maxLotSize) return false;
+          }
+          if (yearBuiltMin !== undefined || yearBuiltMax !== undefined) {
+            if (property.yearBuilt == null) return false;
+            if (yearBuiltMin !== undefined && property.yearBuilt < yearBuiltMin) return false;
+            if (yearBuiltMax !== undefined && property.yearBuilt > yearBuiltMax) return false;
+          }
+          if (daysOnMarket !== undefined) {
+            if (!listing.providerListedDate) return false;
+            const listed = new Date(listing.providerListedDate);
+            if (Number.isNaN(listed.getTime())) return false;
+            const ageDays = Math.max(
+              0,
+              Math.floor((today.getTime() - listed.getTime()) / 86400000),
+            );
+            if (ageDays > daysOnMarket) return false;
+          }
+          return true;
+        });
+        json(200, { items, criteria, hiddenCounts });
       } catch (error) {
         json(400, { error: error instanceof Error ? error.message : 'Unable to search listings.' });
       }

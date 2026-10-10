@@ -2201,6 +2201,11 @@ type SearchFilters = {
   baths: string;
   propertyType: string;
   minSqft: string;
+  minLotSize: string;
+  maxLotSize: string;
+  yearBuiltMin: string;
+  yearBuiltMax: string;
+  daysOnMarket: string;
   status: string;
   sort: 'score' | 'newest' | 'price';
   savedOnly: boolean;
@@ -2232,6 +2237,11 @@ const profileFromSearch = (search: SavedSearch): SearchFilters => ({
   baths: String(search.filters.baths ?? ''),
   propertyType: String(search.filters.propertyType ?? ''),
   minSqft: String(search.filters.minSqft ?? ''),
+  minLotSize: String(search.filters.minLotSize ?? ''),
+  maxLotSize: String(search.filters.maxLotSize ?? ''),
+  yearBuiltMin: String(search.filters.yearBuiltMin ?? ''),
+  yearBuiltMax: String(search.filters.yearBuiltMax ?? ''),
+  daysOnMarket: String(search.filters.daysOnMarket ?? ''),
   status: String(search.filters.status ?? 'active'),
   sort:
     search.filters.sort === 'price' || search.filters.sort === 'score'
@@ -2606,6 +2616,11 @@ const emptyFilters = (mode: 'sale' | 'rent'): SearchFilters => ({
   baths: '',
   propertyType: '',
   minSqft: '',
+  minLotSize: '',
+  maxLotSize: '',
+  yearBuiltMin: '',
+  yearBuiltMax: '',
+  daysOnMarket: '',
   status: 'active',
   sort: 'newest',
   savedOnly: false,
@@ -2625,6 +2640,11 @@ function searchFromUrl(): SearchFilters {
     baths: params.get('baths') ?? '',
     propertyType: params.get('propertyType') ?? '',
     minSqft: params.get('minSqft') ?? '',
+    minLotSize: params.get('minLotSize') ?? '',
+    maxLotSize: params.get('maxLotSize') ?? '',
+    yearBuiltMin: params.get('yearBuiltMin') ?? '',
+    yearBuiltMax: params.get('yearBuiltMax') ?? '',
+    daysOnMarket: params.get('daysOnMarket') ?? '',
     status: params.get('status') ?? 'active',
     sort:
       params.get('sort') === 'price' || params.get('sort') === 'score'
@@ -2633,6 +2653,39 @@ function searchFromUrl(): SearchFilters {
     savedOnly: params.get('savedOnly') === 'true',
     showDismissed: params.get('showDismissed') === 'true',
   };
+}
+
+function searchFilterErrors(filters: SearchFilters): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const checkNumber = (key: string, value: string, integer = false) => {
+    if (!value) return;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0 || (integer && !Number.isInteger(parsed))) {
+      errors[key] = integer ? 'Enter a whole number 0 or greater.' : 'Enter a number 0 or greater.';
+    }
+  };
+  checkNumber('minLotSize', filters.minLotSize);
+  checkNumber('maxLotSize', filters.maxLotSize);
+  checkNumber('yearBuiltMin', filters.yearBuiltMin, true);
+  checkNumber('yearBuiltMax', filters.yearBuiltMax, true);
+  checkNumber('daysOnMarket', filters.daysOnMarket, true);
+  if (
+    !errors.minLotSize &&
+    !errors.maxLotSize &&
+    filters.minLotSize &&
+    filters.maxLotSize &&
+    Number(filters.minLotSize) > Number(filters.maxLotSize)
+  )
+    errors.maxLotSize = 'Minimum lot size cannot exceed maximum.';
+  if (
+    !errors.yearBuiltMin &&
+    !errors.yearBuiltMax &&
+    filters.yearBuiltMin &&
+    filters.yearBuiltMax &&
+    Number(filters.yearBuiltMin) > Number(filters.yearBuiltMax)
+  )
+    errors.yearBuiltMax = 'Minimum year cannot exceed maximum.';
+  return errors;
 }
 
 function CountyMap({
@@ -4970,6 +5023,7 @@ function CompareScreen() {
 function SearchScreen() {
   const compare = useCompareSet();
   const [filters, setFilters] = useState<SearchFilters>(searchFromUrl);
+  const filterErrors = searchFilterErrors(filters);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [selectedSearchId, setSelectedSearchId] = useState('');
   const [showSaveForm, setShowSaveForm] = useState(false);
@@ -4977,6 +5031,7 @@ function SearchScreen() {
   const [saveInterval, setSaveInterval] = useState('');
   const [ranges, setRanges] = useState({ sale: { min: '', max: '' }, rent: { min: '', max: '' } });
   const [items, setItems] = useState<SearchListing[]>([]);
+  const [hiddenCounts, setHiddenCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
@@ -5010,6 +5065,11 @@ function SearchScreen() {
       baths: filters.baths,
       propertyType: filters.propertyType,
       minSqft: filters.minSqft,
+      minLotSize: filters.minLotSize,
+      maxLotSize: filters.maxLotSize,
+      yearBuiltMin: filters.yearBuiltMin,
+      yearBuiltMax: filters.yearBuiltMax,
+      daysOnMarket: filters.daysOnMarket,
       status: filters.status,
       sort: filters.sort,
       savedOnly: filters.savedOnly,
@@ -5089,20 +5149,33 @@ function SearchScreen() {
         `${window.location.pathname}${search ? `?${search}` : ''}`,
       );
     }
+    if (Object.keys(searchFilterErrors(filters)).length > 0) {
+      setLoading(false);
+      setError('');
+      setItems([]);
+      setHiddenCounts({});
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     const fetchResults = async () => {
       try {
         const response = await fetch(`/api/listings?${search}`);
-        const data = (await response.json()) as { items?: SearchListing[]; error?: string };
+        const data = (await response.json()) as {
+          items?: SearchListing[];
+          hiddenCounts?: Record<string, number>;
+          error?: string;
+        };
         if (!response.ok) throw new Error(data.error ?? 'Could not load listings.');
         if (!cancelled) {
           setItems(data.items ?? []);
+          setHiddenCounts(data.hiddenCounts ?? {});
           setError('');
         }
       } catch {
         if (!cancelled) {
           setItems([]);
+          setHiddenCounts({});
           setError('Search is unavailable. Start the local API and try again.');
         }
       } finally {
@@ -5259,11 +5332,31 @@ function SearchScreen() {
       ['baths', filters.baths ? `${filters.baths}+ baths` : ''],
       ['propertyType', filters.propertyType],
       ['minSqft', filters.minSqft ? `${filters.minSqft}+ sq ft` : ''],
+      [
+        'minLotSize',
+        filters.minLotSize ? `Lot ≥ ${Number(filters.minLotSize).toLocaleString()} sq ft` : '',
+      ],
+      [
+        'maxLotSize',
+        filters.maxLotSize ? `Lot ≤ ${Number(filters.maxLotSize).toLocaleString()} sq ft` : '',
+      ],
+      ['yearBuiltMin', filters.yearBuiltMin ? `Built ≥ ${filters.yearBuiltMin}` : ''],
+      ['yearBuiltMax', filters.yearBuiltMax ? `Built ≤ ${filters.yearBuiltMax}` : ''],
+      ['daysOnMarket', filters.daysOnMarket ? `Listed within ${filters.daysOnMarket} days` : ''],
       ['status', filters.status !== 'active' ? filters.status : ''],
       ['savedOnly', filters.savedOnly ? 'Saved only' : ''],
       ['showDismissed', filters.showDismissed ? 'Show dismissed' : ''],
     ] as Array<[keyof SearchFilters, string]>
   ).filter((chip) => chip[1]);
+  const hiddenSummaryParts: Array<[number, string]> = [
+    [hiddenCounts.lotSize ?? 0, 'lot size unknown'],
+    [hiddenCounts.yearBuilt ?? 0, 'year built unknown'],
+    [hiddenCounts.daysOnMarket ?? 0, 'days on market unknown'],
+  ];
+  const hiddenSummary = hiddenSummaryParts
+    .filter(([count]) => count > 0)
+    .map(([count, reason]) => `${count} hidden: ${reason}`)
+    .join(' · ');
 
   return (
     <section aria-label="Search listings" className="search-screen">
@@ -5327,6 +5420,7 @@ function SearchScreen() {
           {selectedSearchId && (
             <button
               className="text-button"
+              disabled={Object.keys(filterErrors).length > 0}
               onClick={() => void updateCurrentSearch()}
               type="button"
             >
@@ -5380,7 +5474,9 @@ function SearchScreen() {
               <option value="30">Every 30 days</option>
             </select>
           </label>
-          <button type="submit">Save search</button>
+          <button disabled={Object.keys(filterErrors).length > 0} type="submit">
+            Save search
+          </button>
           <button className="text-button" onClick={() => setShowSaveForm(false)} type="button">
             Cancel
           </button>
@@ -5479,6 +5575,101 @@ function SearchScreen() {
           />
         </label>
         <label className="filter-field">
+          Min lot size (sq ft)
+          <input
+            aria-label="Minimum lot size"
+            aria-describedby={filterErrors.minLotSize ? 'min-lot-size-error' : undefined}
+            aria-invalid={Boolean(filterErrors.minLotSize)}
+            inputMode="numeric"
+            min="0"
+            step="1"
+            type="number"
+            value={filters.minLotSize}
+            onChange={(event) => update('minLotSize', event.target.value)}
+          />
+          {filterErrors.minLotSize && (
+            <span className="filter-error" id="min-lot-size-error">
+              {filterErrors.minLotSize}
+            </span>
+          )}
+        </label>
+        <label className="filter-field">
+          Max lot size (sq ft)
+          <input
+            aria-label="Maximum lot size"
+            aria-describedby={filterErrors.maxLotSize ? 'max-lot-size-error' : undefined}
+            aria-invalid={Boolean(filterErrors.maxLotSize)}
+            inputMode="numeric"
+            min="0"
+            step="1"
+            type="number"
+            value={filters.maxLotSize}
+            onChange={(event) => update('maxLotSize', event.target.value)}
+          />
+          {filterErrors.maxLotSize && (
+            <span className="filter-error" id="max-lot-size-error">
+              {filterErrors.maxLotSize}
+            </span>
+          )}
+        </label>
+        <label className="filter-field">
+          Year built from
+          <input
+            aria-label="Year built minimum"
+            aria-describedby={filterErrors.yearBuiltMin ? 'year-built-min-error' : undefined}
+            aria-invalid={Boolean(filterErrors.yearBuiltMin)}
+            inputMode="numeric"
+            min="0"
+            step="1"
+            type="number"
+            value={filters.yearBuiltMin}
+            onChange={(event) => update('yearBuiltMin', event.target.value)}
+          />
+          {filterErrors.yearBuiltMin && (
+            <span className="filter-error" id="year-built-min-error">
+              {filterErrors.yearBuiltMin}
+            </span>
+          )}
+        </label>
+        <label className="filter-field">
+          Year built to
+          <input
+            aria-label="Year built maximum"
+            aria-describedby={filterErrors.yearBuiltMax ? 'year-built-max-error' : undefined}
+            aria-invalid={Boolean(filterErrors.yearBuiltMax)}
+            inputMode="numeric"
+            min="0"
+            step="1"
+            type="number"
+            value={filters.yearBuiltMax}
+            onChange={(event) => update('yearBuiltMax', event.target.value)}
+          />
+          {filterErrors.yearBuiltMax && (
+            <span className="filter-error" id="year-built-max-error">
+              {filterErrors.yearBuiltMax}
+            </span>
+          )}
+        </label>
+        <label className="filter-field">
+          Listed within (days)
+          <input
+            aria-label="Listed within days"
+            aria-describedby={filterErrors.daysOnMarket ? 'days-on-market-error' : undefined}
+            aria-invalid={Boolean(filterErrors.daysOnMarket)}
+            inputMode="numeric"
+            min="0"
+            step="1"
+            type="number"
+            value={filters.daysOnMarket}
+            onChange={(event) => update('daysOnMarket', event.target.value)}
+          />
+          {filterErrors.daysOnMarket && (
+            <span className="filter-error" id="days-on-market-error">
+              {filterErrors.daysOnMarket}
+            </span>
+          )}
+        </label>
+        <label className="filter-field">
           Status
           <select
             aria-label="Listing status"
@@ -5566,7 +5757,12 @@ function SearchScreen() {
           {error}
         </p>
       )}
-      {loading ? (
+      {hiddenSummary && <p className="result-count">{hiddenSummary}</p>}
+      {Object.keys(filterErrors).length > 0 ? (
+        <p className="search-error" role="alert">
+          Correct the filter values to search.
+        </p>
+      ) : loading ? (
         <p className="search-state" aria-live="polite">
           Loading local listings…
         </p>
