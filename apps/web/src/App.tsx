@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import packageJson from '../../../package.json';
+import { createGeoProjection } from './mapProjection';
 import {
   defaultRankingWeights,
   rankListings,
@@ -80,6 +81,9 @@ function ScoreBreakdown({ mode, score }: { mode: RankingMode; score: ListingRank
         return (
           <li key={factor}>
             <span>{rankingFactorLabels[factor]}</span>
+            <span aria-hidden="true" className="score-factor-track">
+              <span style={{ width: `${result && !result.unknown ? result.score : 0}%` }} />
+            </span>
             <span>
               {!result || result.unknown
                 ? 'Unknown · scored 0'
@@ -1071,59 +1075,67 @@ function RankingPanel() {
         </p>
       )}
       {weights && (
-        <form className="assumption-card" onSubmit={(event) => void save(event)}>
-          <div className="ranking-weight-grid">
-            {factors.map((factor) => (
-              <label className="assumption-field" key={factor}>
-                {rankingFactorLabels[factor]} weight
-                <span className="assumption-input-wrap">
+        <div className="ranking-workspace">
+          <form
+            className="assumption-card ranking-weight-form"
+            onSubmit={(event) => void save(event)}
+          >
+            <div className="ranking-weight-grid">
+              {factors.map((factor) => (
+                <label className="ranking-weight-field" key={factor}>
+                  <span className="ranking-weight-heading">
+                    <span>{rankingFactorLabels[factor]} weight</span>
+                    <span className="ranking-weight-value">{weights[mode][factor]}</span>
+                  </span>
                   <input
                     aria-label={`${rankingFactorLabels[factor]} weight`}
                     min="0"
                     max="100"
                     step="1"
-                    type="number"
+                    type="range"
                     value={weights[mode][factor]}
                     onChange={(event) => changeWeight(factor, event.target.value)}
                   />
-                  <span>%</span>
-                </span>
-              </label>
-            ))}
+                </label>
+              ))}
+            </div>
+            <p className="ranking-weight-total">Total {total}</p>
+            {saveError && (
+              <p className="search-error" role="alert">
+                {saveError}
+              </p>
+            )}
+            <div className="assumption-actions">
+              <button disabled={busy} type="submit">
+                {busy ? 'Saving…' : `Save ${modeName} weights`}
+              </button>
+              {savedMode === mode && <span role="status">Saved</span>}
+            </div>
+          </form>
+          <div className="ranking-live-panel">
+            <h3>Live ranking · active {modeName} listings on this computer</h3>
+            {listError ? (
+              <p role="alert" className="search-error">
+                {listError}
+              </p>
+            ) : (
+              <ol className="ranking-live-list">
+                {ordered.map((item) => (
+                  <li key={item.listing.id}>
+                    <ScoreSummary score={rankings!.get(item.listing.id)!}>
+                      <span>
+                        {item.property.street}
+                        {item.property.unit ? `, Unit ${item.property.unit}` : ''} ·{' '}
+                        {item.property.city}
+                      </span>
+                    </ScoreSummary>
+                  </li>
+                ))}
+                {!ordered.length && <li>No {modeName} listings to rank yet.</li>}
+              </ol>
+            )}
           </div>
-          <p>Total {total}</p>
-          {saveError && (
-            <p className="search-error" role="alert">
-              {saveError}
-            </p>
-          )}
-          <div className="assumption-actions">
-            <button disabled={busy} type="submit">
-              {busy ? 'Saving…' : `Save ${modeName} weights`}
-            </button>
-            {savedMode === mode && <span role="status">Saved</span>}
-          </div>
-        </form>
-      )}
-      <h3>Live ranking · active {modeName} listings on this computer</h3>
-      {listError ? (
-        <p role="alert" className="search-error">
-          {listError}
-        </p>
-      ) : (
-        <ol className="ranking-live-list">
-          {ordered.map((item) => (
-            <li key={item.listing.id}>
-              <ScoreSummary score={rankings!.get(item.listing.id)!}>
-                <span>
-                  {item.property.street}
-                  {item.property.unit ? `, Unit ${item.property.unit}` : ''} · {item.property.city}
-                </span>
-              </ScoreSummary>
-            </li>
-          ))}
-          {weights && !ordered.length && <li>No {modeName} listings to rank yet.</li>}
-        </ol>
+        </div>
       )}
     </section>
   );
@@ -2388,19 +2400,7 @@ function CountyMap({
     maxLat: Math.max(...latitudes),
   };
   const padding = 34;
-  const longitudeScale = Math.cos(((bounds.minLat + bounds.maxLat) / 2) * (Math.PI / 180));
-  const adjustedMinLon = bounds.minLon * longitudeScale;
-  const adjustedMaxLon = bounds.maxLon * longitudeScale;
-  const mapScale = Math.min(
-    (width - padding * 2) / (adjustedMaxLon - adjustedMinLon),
-    (height - padding * 2) / (bounds.maxLat - bounds.minLat),
-  );
-  const mapWidth = (adjustedMaxLon - adjustedMinLon) * mapScale;
-  const mapHeight = (bounds.maxLat - bounds.minLat) * mapScale;
-  const project = (longitude: number, latitude: number) => ({
-    x: (width - mapWidth) / 2 + (longitude * longitudeScale - adjustedMinLon) * mapScale,
-    y: (height - mapHeight) / 2 + (bounds.maxLat - latitude) * mapScale,
-  });
+  const project = createGeoProjection(bounds, width, height, padding);
   const pathFor = (rings: number[][][][]) =>
     rings
       .flatMap((polygon) =>
@@ -2415,7 +2415,7 @@ function CountyMap({
         ),
       )
       .join(' ');
-  const centroid = (feature: CountyFeature) => {
+  const countyCenter = (feature: CountyFeature): [number, number] => {
     const ring =
       feature.geometry.type === 'Polygon'
         ? feature.geometry.coordinates[0]
@@ -2423,7 +2423,7 @@ function CountyMap({
     const points = ring.slice(0, -1);
     const longitude = points.reduce((sum, point) => sum + point[0], 0) / points.length;
     const latitude = points.reduce((sum, point) => sum + point[1], 0) / points.length;
-    return project(longitude, latitude);
+    return [longitude, latitude];
   };
   const mapPin = (item: SearchListing, index: number) => {
     const city = item.property.city.trim().toLocaleLowerCase('en-US');
@@ -2438,11 +2438,7 @@ function CountyMap({
               (item.property.county ?? '').toLocaleLowerCase('en-US'),
           );
           if (!county) return [-80.2, 26.1];
-          const center = centroid(county);
-          const lon =
-            (adjustedMinLon + (center.x - (width - mapWidth) / 2) / mapScale) / longitudeScale;
-          const lat = bounds.maxLat - (center.y - (height - mapHeight) / 2) / mapScale;
-          return [lon, lat];
+          return countyCenter(county);
         })());
     const jitter = exact ? 0 : ((index % 5) - 2) * 0.009;
     return { ...project(longitude + jitter, latitude + jitter * 0.45), approximate: !exact };
@@ -2495,7 +2491,8 @@ function CountyMap({
                 feature.geometry.type === 'Polygon'
                   ? [feature.geometry.coordinates]
                   : feature.geometry.coordinates;
-              const center = centroid(feature);
+              const [longitude, latitude] = countyCenter(feature);
+              const center = project(longitude, latitude);
               return (
                 <g key={feature.properties.GEOID}>
                   <path aria-hidden="true" className="county-shape" d={pathFor(polygonRings)} />
@@ -2508,27 +2505,33 @@ function CountyMap({
             {items.map((item, index) => {
               const pin = mapPin(item, index);
               const isSelected = item.listing.id === selectedId;
+              const pinLabel =
+                item.listing.price == null
+                  ? '—'
+                  : item.listing.mode === 'sale'
+                    ? `$${Math.round(item.listing.price / 1000)}k`
+                    : `$${item.listing.price.toLocaleString('en-US')}`;
+              const pinWidth = Math.max(52, pinLabel.length * 8 + 18);
               return (
-                <g
-                  aria-label={`Select ${priceFor(item)}, ${item.property.street}, ${item.property.city}${pin.approximate ? ', approximate city location' : ''}; map pin ${index + 1} of ${items.length}`}
-                  aria-pressed={isSelected}
-                  className={`map-pin${isSelected ? ' selected' : ''}`}
+                <foreignObject
+                  className="map-pin"
+                  height="44"
                   key={item.listing.id}
-                  onClick={() => onSelect(item.listing.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      onSelect(item.listing.id);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
+                  width={pinWidth}
+                  x={pin.x - pinWidth / 2}
+                  y={pin.y - 22}
                 >
-                  <circle cx={pin.x} cy={pin.y} r={isSelected ? 15 : 12} />
-                  <text x={pin.x} y={pin.y + 4}>
-                    {index + 1}
-                  </text>
-                </g>
+                  <button
+                    aria-label={`Select ${priceFor(item)}, ${item.property.street}, ${item.property.city}${pin.approximate ? ', approximate city location' : ''}; map pin ${index + 1} of ${items.length}`}
+                    aria-pressed={isSelected}
+                    className={`map-pin-button${isSelected ? ' selected' : ''}`}
+                    onClick={() => onSelect(item.listing.id)}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    type="button"
+                  >
+                    <span>{pinLabel}</span>
+                  </button>
+                </foreignObject>
               );
             })}
           </g>
@@ -2556,8 +2559,8 @@ function CountyMap({
         </div>
       </div>
       <p className="map-attribution">
-        County boundaries: U.S. Census Bureau TIGERweb, 2026. Pins without listing coordinates show
-        approximate city locations.
+        Add a Google Maps key in Settings to show the street map. County boundaries: U.S. Census
+        Bureau TIGERweb, 2026. Pins without listing coordinates show approximate city locations.
       </p>
       {selected && (
         <div aria-live="polite" className="map-selected-card">
@@ -5197,41 +5200,63 @@ function SearchScreen() {
                       {score && selectedId === listing.id && (
                         <ScoreBreakdown mode={listing.mode} score={score} />
                       )}
-                      {listing.mode === 'sale' && comparableRent && (
-                        <p className="listing-comparable-rent">
-                          <strong>Comparable rent</strong>{' '}
-                          {comparableRent.figure.value == null
-                            ? comparableRent.label
-                            : `$${comparableRent.figure.value.toLocaleString()}/mo · ${comparableRent.label}`}
-                          {comparableRent.stale ? ' · Stale' : ''}
-                        </p>
-                      )}
-                      {listing.mode === 'sale' && costEstimate && (
-                        <div className="listing-cost-summary" aria-label="Monthly cost to own">
-                          <p>
-                            <strong>Est. monthly to own</strong> {costEstimate.totalLabel}{' '}
-                            <span className="total-status-tag">{costEstimate.statusLabel}</span>
-                          </p>
-                          {costEstimate.monthlyTotal != null &&
-                          comparableRent?.figure.value != null ? (
-                            <p className="cost-gap">
-                              {costEstimate.totalStatus === 'Estimate' ? '≈ ' : ''}
-                              {costEstimate.monthlyTotal >= comparableRent.figure.value ? '+' : '−'}
-                              $
-                              {Math.abs(
-                                Math.round(costEstimate.monthlyTotal - comparableRent.figure.value),
-                              ).toLocaleString()}
-                              /mo
-                            </p>
-                          ) : (
-                            <p className="cost-gap-muted">
-                              No own-vs-rent gap ·{' '}
-                              {costEstimate.totalStatus === 'Incomplete'
-                                ? 'total incomplete'
-                                : 'rent unavailable'}
-                            </p>
-                          )}
-                          {costEstimate.lines.some(
+                      {listing.mode === 'sale' && (costEstimate || comparableRent) && (
+                        <>
+                          <div className="listing-financials">
+                            {costEstimate && (
+                              <div
+                                className="listing-cost-summary"
+                                aria-label="Monthly cost to own"
+                              >
+                                <strong>Est. monthly to own</strong>
+                                <span className="listing-financial-value">
+                                  {costEstimate.totalLabel}
+                                </span>
+                                <span className="total-status-tag">{costEstimate.statusLabel}</span>
+                              </div>
+                            )}
+                            {comparableRent && (
+                              <p className="listing-comparable-rent">
+                                <strong>Comparable rent</strong>
+                                <span className="listing-financial-value">
+                                  {comparableRent.figure.value == null
+                                    ? `${comparableRent.label}${comparableRent.stale ? ' · Stale' : ''}`
+                                    : `$${comparableRent.figure.value.toLocaleString()}/mo`}
+                                </span>
+                                {comparableRent.figure.value != null && (
+                                  <small>
+                                    {comparableRent.label}
+                                    {comparableRent.stale ? ' · Stale' : ''}
+                                  </small>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                          {costEstimate &&
+                            (costEstimate.monthlyTotal != null &&
+                            comparableRent?.figure.value != null ? (
+                              <p className="cost-gap">
+                                {costEstimate.totalStatus === 'Estimate' ? '≈ ' : ''}
+                                {costEstimate.monthlyTotal >= comparableRent.figure.value
+                                  ? '+'
+                                  : '−'}
+                                $
+                                {Math.abs(
+                                  Math.round(
+                                    costEstimate.monthlyTotal - comparableRent.figure.value,
+                                  ),
+                                ).toLocaleString()}
+                                /mo
+                              </p>
+                            ) : (
+                              <p className="cost-gap-muted">
+                                No own-vs-rent gap ·{' '}
+                                {costEstimate.totalStatus === 'Incomplete'
+                                  ? 'total incomplete'
+                                  : 'rent unavailable'}
+                              </p>
+                            ))}
+                          {costEstimate?.lines.some(
                             (line) =>
                               line.state === 'Unknown' && line.note === 'Local rates not set',
                           ) && (
@@ -5239,7 +5264,7 @@ function SearchScreen() {
                               Set local rates for {property.county} County
                             </a>
                           )}
-                        </div>
+                        </>
                       )}
                       <div className="property-risk-chips" aria-label="Property risks" role="group">
                         {property.floodZone && (

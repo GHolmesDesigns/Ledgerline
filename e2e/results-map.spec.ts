@@ -84,3 +84,31 @@ test('mobile Map view shows a selected listing card and a List/Map toggle', asyn
     page.getByRole('button', { name: /618 NE 7th St, Boca Raton.*map pin 3 of 3/i }),
   ).toHaveCount(1);
 });
+
+test('pins use each stored coordinate rather than a city center', async ({ page }) => {
+  const positioned = results.slice(0, 2).map((item, index) => ({
+    ...item,
+    property: {
+      ...item.property,
+      city: 'Fort Lauderdale',
+      county: 'Broward',
+      longitude: index === 0 ? -80.115 : -80.19,
+      latitude: index === 0 ? 26.19 : 25.76,
+    },
+  }));
+  await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
+  await page.route('**/api/listings?**', (route) => route.fulfill({ json: { items: positioned } }));
+  await page.goto('/');
+  const pins = page.locator('.map-pin');
+  await expect(pins).toHaveCount(2);
+  const east = await pins.nth(0).evaluate((element) => Number(element.getAttribute('x')));
+  const west = await pins.nth(1).evaluate((element) => Number(element.getAttribute('x')));
+  const north = await pins.nth(0).evaluate((element) => Number(element.getAttribute('y')));
+  const south = await pins.nth(1).evaluate((element) => Number(element.getAttribute('y')));
+  expect(east).toBeGreaterThan(west);
+  expect(north).toBeLessThan(south);
+  await expect(page.locator('.map-pin-button').first()).not.toHaveAttribute(
+    'aria-label',
+    /approximate city location/,
+  );
+});

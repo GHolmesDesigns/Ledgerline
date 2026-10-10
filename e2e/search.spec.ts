@@ -198,9 +198,20 @@ test('changing a ranking weight updates scores and rank order', async ({ page })
   const panel = page.getByRole('region', { name: 'Ranking weights' });
   const live = panel.getByRole('listitem');
   await expect(live.first()).toContainText('Smaller home');
-  for (const factor of ['price', 'own-vs-rent cost', 'flood', 'HOA', 'insurance'])
-    await panel.getByLabel(`${factor} weight`).fill('0');
-  await panel.getByLabel('living area weight').fill('100');
+  const price = panel.getByRole('slider', { name: 'price weight' });
+  await price.focus();
+  await price.press('ArrowRight');
+  await expect(price.locator('..').locator('.ranking-weight-value')).toHaveText('26');
+  for (const factor of ['price', 'own-vs-rent cost', 'flood', 'HOA', 'insurance']) {
+    const slider = panel.getByRole('slider', { name: `${factor} weight` });
+    await slider.focus();
+    await slider.press('Home');
+    await expect(slider.locator('..').locator('.ranking-weight-value')).toHaveText('0');
+  }
+  const size = panel.getByRole('slider', { name: 'living area weight' });
+  await size.focus();
+  await size.press('End');
+  await expect(size.locator('..').locator('.ranking-weight-value')).toHaveText('100');
   // The live ranking follows the edits before they are saved.
   await expect(live.first()).toContainText('Larger home');
   await panel.getByRole('button', { name: 'Save Buy weights' }).click();
