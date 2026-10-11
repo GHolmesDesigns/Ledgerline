@@ -24,6 +24,10 @@ The app runs only on this computer and is updated by deploying `main`, so there 
 
 Deploying does not change the version; it ships whatever `main` holds, so the sidebar shows the deployed version. Tag a commit `vX.Y.Z` only when asked.
 
+## 0.0.4 · 2026-10-11 · plan 2.17
+
+- Show the primary available uploaded photo at the top of each Saved Homes card. Homes without an available photo keep the compact card layout without an empty image frame.
+
 ## 0.0.3 · 2026-10-11 · plan 2.16
 
 - Open Search on Rent by default, with Rent first in the Rent/Buy switch; Buy opens when chosen or when the address has `?mode=sale`.

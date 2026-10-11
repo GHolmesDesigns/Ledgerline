@@ -5,6 +5,10 @@ import { join } from 'node:path';
 import { routeApiTo, seedDatabase, startApi, type Api } from './support/api';
 
 type Item = { property: { id: string; street: string } };
+const tinyPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p0cAAAAASUVORK5CYII=',
+  'base64',
+);
 
 async function withSeededApi(run: (api: Api, items: Item[]) => Promise<void>) {
   const root = mkdtempSync(join(tmpdir(), 'ledgerline-saved-homes-e2e-'));
@@ -80,6 +84,52 @@ test('Saved Homes lists homes saved from Search and Compare, and removing one un
       items: Array<{ propertyId: string }>;
     };
     expect(saved.items.map((entry) => entry.propertyId)).toEqual([first.id]);
+  });
+});
+
+test('Saved Homes previews the primary uploaded photo and omits the frame when none is available', async ({
+  page,
+}) => {
+  await withSeededApi(async (api, items) => {
+    await routeApiTo(page, () => api);
+    const withPhoto = items[0]!.property;
+    const withoutPhoto = items[1]!.property;
+    const upload = async (propertyId: string) => {
+      const response = await fetch(api.url(`/api/properties/${propertyId}/photos`), {
+        method: 'POST',
+        headers: { 'content-type': 'image/png' },
+        body: tinyPng,
+      });
+      expect(response.ok).toBe(true);
+      return (await response.json()) as { photo: { url: string } };
+    };
+    const primary = await upload(withPhoto.id);
+    await upload(withPhoto.id);
+
+    for (const propertyId of [withPhoto.id, withoutPhoto.id]) {
+      const response = await fetch(api.url(`/api/properties/${propertyId}/favorite`), {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ saved: true }),
+      });
+      expect(response.ok).toBe(true);
+    }
+
+    await page.goto('/saved');
+    const cards = page.locator('.saved-home-card');
+    await expect(cards).toHaveCount(2);
+    const photoCard = cards.filter({ hasText: withPhoto.street });
+    const noPhotoCard = cards.filter({ hasText: withoutPhoto.street });
+    await expect(photoCard.locator('img.saved-home-photo')).toHaveAttribute(
+      'src',
+      primary.photo.url,
+    );
+    await expect(photoCard.locator('img.saved-home-photo')).toHaveAttribute(
+      'alt',
+      `${withPhoto.street} primary property photo`,
+    );
+    await expect(photoCard.locator('img.saved-home-photo')).toHaveCount(1);
+    await expect(noPhotoCard.locator('img.saved-home-photo')).toHaveCount(0);
   });
 });
 

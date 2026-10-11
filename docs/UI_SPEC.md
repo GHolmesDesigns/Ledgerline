@@ -1,6 +1,6 @@
 # UI specification — Florida Home Dashboard
 
-_Oct 11, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.16, which wins any conflict. Every number below is in `fixtures/sample-data.json`._
+_Oct 11, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.17, which wins any conflict. Every number below is in `fixtures/sample-data.json`._
 
 Five desktop screens and five matching mobile screens: **Search**, **Saved Homes**, **Compare**, **Property detail**, **Settings** (formerly "Ranking & data"; the `design/` files keep the older title in places). Visual reference: `design/` (see `design/README.md` for which screens are current).
 
@@ -131,7 +131,7 @@ Line-by-line amounts and states are in the fixture file.
 ### Saved Homes (`/saved`)
 
 - Heading "Saved Homes" with a count ("2 saved homes"); every home marked Save, newest save first, whether it was saved from Search, a property page, or Compare. Reads the local database only.
-- Card: address (link to the property page), city, ZIP and county, facts line, each listing as "Buy $X" or "Rent $X/mo" with its status and a "Sample data" tag for mock listings, "Est. monthly to own" with its status chip, my tags, and two secondary buttons: Compare (toggles In Compare; the set is capped at four) and Remove from saved.
+- Card: the primary available uploaded photo at the top when one exists (no empty image frame otherwise); address (link to the property page), city, ZIP and county, facts line, each listing as "Buy $X" or "Rent $X/mo" with its status and a "Sample data" tag for mock listings, "Est. monthly to own" with its status chip, my tags, and two secondary buttons: Compare (toggles In Compare; the set is capped at four) and Remove from saved.
 - Empty state: "No saved homes yet. Use Save on a Search result, a property page, or Compare, and it will show up here." with a Go to Search button.
 - No form for typing in a home by address.
 

@@ -1,6 +1,6 @@
 # Acceptance checks — Milestones 1–3
 
-_Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.16._
+_Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.17._
 
 Run against the mock provider loaded from `fixtures/sample-data.json`. Each check names its expected result. A milestone is done when all of its checks pass and `node fixtures/check-fixtures.mjs` exits 0.
 
@@ -107,5 +107,5 @@ Run in the built app after the Milestone 1–3 checks. "Mock-up" means the match
 | U.17 | Open Settings, expanded and collapsed | The sidebar section links are plain text with no leading letter; they are hidden when the sidebar is collapsed |
 | U.18 | Select a pin on the Search map, plain map and Google map | The selected pin changes; every other pin stays fully visible |
 | U.19 | On Search, open Property type, Status, and Personal tags; choose several; save the search and reopen it | Each is a multi-select dropdown with labeled checkboxes, Clear, and Done; Escape closes it and returns focus to its button; the choices appear as chips and are kept in the saved search; a home matches any chosen type or status and every chosen tag |
-| U.20 | Save a home from a Search card, another from its property page, and a third from Compare; open Saved Homes; remove one | All three are listed, newest first, with listings, Est. monthly to own, and tags; Remove from saved takes it off the list and un-saves it everywhere; with none saved the empty state shows; there is no form for typing in an address |
+| U.20 | Save a home from a Search card, another from its property page, and a third from Compare; open Saved Homes; remove one | All three are listed, newest first, with listings, Est. monthly to own, and tags; the primary available uploaded photo appears at the top of a card, while a home with no available photo has no empty image frame; Remove from saved takes it off the list and un-saves it everywhere; with none saved the empty state shows; there is no form for typing in an address |
 | U.21 | Compare every secondary action across Search, Saved Homes, Compare, Property, and Settings, in light and dark | Cancel, Delete, Rename, Compare, Dismiss, Remove, Move up/down, and Reset order share the grey secondary style with the primary button's shape, padding, height, and focus ring; text contrast is at least 4.5:1 |

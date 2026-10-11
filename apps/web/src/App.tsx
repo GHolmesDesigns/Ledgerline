@@ -5307,8 +5307,16 @@ function SavedHomesScreen() {
               : null,
             property.yearBuilt != null ? `Built ${property.yearBuilt}` : null,
           ].filter(Boolean);
+          const primaryPhoto = item.photos?.find((photo) => !photo.missing);
           return (
             <article className="saved-home-card" key={property.id}>
+              {primaryPhoto && (
+                <img
+                  className="saved-home-photo"
+                  src={primaryPhoto.url}
+                  alt={`${addressOf(item)} primary property photo`}
+                />
+              )}
               <div className="saved-home-heading">
                 <h2>
                   <a href={`/property/${property.id}`}>{addressOf(item)}</a>
