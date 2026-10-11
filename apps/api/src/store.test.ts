@@ -209,6 +209,26 @@ describe('listings', () => {
 });
 
 describe('local listing search', () => {
+  it('matches a home against any of several property types', () => {
+    const types = ['single_family', 'townhome', 'condo'];
+    types.forEach((propertyType, index) => {
+      const property = store.createProperty({
+        ...address,
+        street: `${100 + index} Type Test Rd`,
+        propertyType,
+      });
+      store.replaceListings(property.id, [{ ...saleListing, providerId: `type-${propertyType}` }]);
+    });
+    const found = (propertyType: string) =>
+      store
+        .searchListings({ mode: 'sale', propertyType })
+        .map(({ listing }) => listing.providerId)
+        .sort();
+    assert.deepEqual(found('condo'), ['type-condo']);
+    assert.deepEqual(found('condo,townhome'), ['type-condo', 'type-townhome']);
+    assert.deepEqual(found(''), ['type-condo', 'type-single_family', 'type-townhome']);
+  });
+
   it('filters mode, location, price, facts and type; defaults to active and hides dismissed', () => {
     const house = store.createProperty({
       ...address,

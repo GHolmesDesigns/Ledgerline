@@ -430,7 +430,7 @@ test('comparable rent uses same-home priority, shows stored comps, and saves min
     const bocaRaton = listings.items.find(({ property }) => property.street === '618 NE 7th St')!;
     await routeApiTo(page, () => api!);
 
-    await page.goto('/');
+    await page.goto('/?mode=sale');
     await expect(
       page.locator('.listing-card').filter({ hasText: '2207 NE 32nd Ct' }),
     ).toContainText('$5,200/mo · same home · listed Sep 28');

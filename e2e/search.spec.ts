@@ -91,7 +91,7 @@ test('Buy and Rent switch preserve separate price ranges and the URL', async ({ 
     });
   });
 
-  await page.goto('/');
+  await page.goto('/?mode=sale');
   await expect(
     page.getByRole('status').filter({ hasText: 'Rent data may be incomplete' }),
   ).toHaveCount(0);
@@ -173,7 +173,7 @@ test('score ranks stay attached to listings when the display sort changes', asyn
     }),
   );
 
-  await page.goto('/?sort=score');
+  await page.goto('/?mode=sale&sort=score');
   const cards = page.locator('.listing-card');
   await expect(cards).toHaveCount(2);
   await expect(cards.nth(0).locator('.listing-price')).toHaveText('$200,000');
@@ -288,23 +288,37 @@ test('personal tag filters require every selected tag and persist through reload
         });
     }
     await routeApiTo(page, () => api!);
-    await page.goto('/');
+    await page.goto('/?mode=sale');
     await page.getByLabel('City or ZIP').fill(first!.property.city);
-    await page
-      .getByLabel('Pool', { exact: true })
-      .evaluate((element) => (element as HTMLInputElement).click());
-    await expect(page.getByLabel('Pool', { exact: true })).toBeChecked();
-    await page
-      .getByLabel('Near water', { exact: true })
-      .evaluate((element) => (element as HTMLInputElement).click());
-    await expect(page.getByLabel('Near water', { exact: true })).toBeChecked();
+    // Personal tags is a multi-select dropdown: a button that opens labeled checkboxes.
+    const tagButton = page.getByRole('button', { name: 'Personal tags', exact: true });
+    const tagList = page.getByRole('group', { name: 'Personal tags', exact: true });
+    const toggleTag = async (name: string) => {
+      if (!(await tagList.isVisible())) await tagButton.click();
+      await tagList.getByLabel(name, { exact: true }).click();
+    };
+    const expectTags = async (names: string[], checked: boolean) => {
+      if (!(await tagList.isVisible())) await tagButton.click();
+      for (const name of names) {
+        const box = tagList.getByLabel(name, { exact: true });
+        if (checked) await expect(box).toBeChecked();
+        else await expect(box).not.toBeChecked();
+      }
+    };
+    await toggleTag('Pool');
+    await toggleTag('Near water');
+    await expectTags(['Pool', 'Near water'], true);
+    await expect(tagButton).toContainText('Pool, Near water');
     await expect(page).toHaveURL(/tag=Pool/);
     await expect(page).toHaveURL(/tag=Near\+water|tag=Near%20water/);
     await expect(page.locator('.listing-card')).toHaveCount(1);
     await page.reload();
-    await expect(page.getByLabel('Pool', { exact: true })).toBeChecked();
-    await expect(page.getByLabel('Near water', { exact: true })).toBeChecked();
+    await expectTags(['Pool', 'Near water'], true);
     await expect(page.locator('.listing-card')).toHaveCount(1);
+    // Escape closes the list and returns focus to its button.
+    await page.keyboard.press('Escape');
+    await expect(tagList).toBeHidden();
+    await expect(tagButton).toBeFocused();
 
     await page.getByRole('button', { name: 'Save current search' }).click();
     await page.getByLabel('Saved search name').fill('Pool with water');
@@ -317,12 +331,9 @@ test('personal tag filters require every selected tag and persist through reload
     expect(
       savedSearches.items.find((item) => String(item.id) === savedSearchId)?.filters.selectedTags,
     ).toEqual(['Pool', 'Near water']);
-    await page
-      .getByLabel('Pool', { exact: true })
-      .evaluate((element) => (element as HTMLInputElement).click());
-    await page
-      .getByLabel('Near water', { exact: true })
-      .evaluate((element) => (element as HTMLInputElement).click());
+    await toggleTag('Pool');
+    await toggleTag('Near water');
+    await expectTags(['Pool', 'Near water'], false);
     await page.getByLabel('Open saved search').selectOption('');
     await page.getByLabel('Open saved search').selectOption(savedSearchId);
     await expect(page).toHaveURL(/tag=Pool/);
@@ -378,9 +389,20 @@ test('changing a ranking weight updates scores and rank order', async ({ page })
   const live = panel.getByRole('listitem');
   await expect(live.first()).toContainText('Smaller home');
   const price = panel.getByRole('slider', { name: 'price weight' });
+  // The defaults use all 100 points, so price can grow only after another factor gives some up.
+  await expect(panel.getByText('Total 100 of 100 · 0 left to give')).toBeVisible();
   await price.focus();
   await price.press('ArrowRight');
+  await expect(price.locator('..').locator('.ranking-weight-value')).toHaveText('25');
+  const lowered = panel.getByRole('slider', { name: 'living area weight' });
+  await lowered.focus();
+  await lowered.press('ArrowLeft');
+  await expect(panel.getByText('Total 99 of 100 · 1 left to give')).toBeVisible();
+  await price.focus();
+  await price.press('ArrowRight');
+  await price.press('ArrowRight');
   await expect(price.locator('..').locator('.ranking-weight-value')).toHaveText('26');
+  await expect(panel.getByText('Total 100 of 100 · 0 left to give')).toBeVisible();
   for (const factor of ['price', 'own-vs-rent cost', 'flood', 'HOA', 'insurance']) {
     const slider = panel.getByRole('slider', { name: `${factor} weight` });
     await slider.focus();
@@ -396,7 +418,7 @@ test('changing a ranking weight updates scores and rank order', async ({ page })
   await panel.getByRole('button', { name: 'Save Buy weights' }).click();
   await expect(panel.getByRole('status')).toHaveText('Saved');
 
-  await page.goto('/?sort=score');
+  await page.goto('/?mode=sale&sort=score');
   await expect(cards.first().getByRole('link', { name: 'Larger home' })).toBeVisible();
   await expect(cards.first().locator('.ranking-summary strong')).toContainText('#1');
   const breakdown = cards.first().getByRole('list', { name: 'Score breakdown' });
@@ -416,7 +438,7 @@ test('sample listings show computed ranks and provisional reasons from local dat
     seedDatabase(databasePath);
     api = await startApi(databasePath);
     await routeApiTo(page, () => api!);
-    await page.goto('/?sort=price');
+    await page.goto('/?mode=sale&sort=price');
     const card = (name: string) =>
       page.locator('.listing-card').filter({ has: page.getByRole('link', { name }) });
 

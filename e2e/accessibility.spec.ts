@@ -20,6 +20,12 @@ test.beforeAll(async () => {
     items: Array<{ property: { id: string; street: string } }>;
   };
   propertyId = found.items.find((item) => item.property.street === '2207 NE 32nd Ct')!.property.id;
+  // One saved home, so axe also checks a Saved Homes card.
+  await fetch(api.url(`/api/properties/${propertyId}/favorite`), {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ saved: true }),
+  });
 });
 
 test.afterAll(async () => {
@@ -54,6 +60,7 @@ const viewports = [
 
 const routes = (id: string) => [
   { name: 'Search', path: '/', ready: 'Search' },
+  { name: 'Saved Homes', path: '/saved', ready: 'Saved Homes' },
   { name: 'Compare', path: `/compare?properties=${id}`, ready: 'Compare' },
   { name: 'Property detail', path: `/property/${id}`, ready: 'Property facts' },
   { name: 'Settings', path: '/settings', ready: 'Backup and restore' },

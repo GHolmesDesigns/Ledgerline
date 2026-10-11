@@ -12,6 +12,10 @@
   --color-yellow: #f8e000;
   --color-link: #00699e;
   --color-link-hover: #004b72;
+  --button-secondary-bg: #e4e8eb;
+  --button-secondary-bg-hover: #d3d9de;
+  --button-secondary-fg: #101820;
+  --button-secondary-border: #aab3ba;
   --font-display: 'Outfit', 'Segoe UI', sans-serif;
   --font-body: 'Work Sans', 'Segoe UI', sans-serif;
   --font-label: 'DM Mono', Consolas, monospace;
@@ -25,6 +29,10 @@
 }
 
 :root[data-theme='dark'] {
+  --button-secondary-bg: #33444f;
+  --button-secondary-bg-hover: #41555f;
+  --button-secondary-fg: #f1f5f7;
+  --button-secondary-border: #60727e;
   color-scheme: dark;
   --color-ink: #f1f5f7;
   --color-ink-soft: #d2dce2;
@@ -179,19 +187,6 @@ a {
   box-shadow: inset 2px 0 var(--color-cyan);
 }
 
-.sidebar-settings-mark {
-  display: inline-flex;
-  width: 20px;
-  height: 20px;
-  flex: 0 0 20px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--color-surface-soft);
-  color: var(--color-ink);
-  font: 10px var(--font-label);
-}
-
 .sidebar-version {
   margin: auto 0 0;
   padding: 12px 8px 4px;
@@ -218,17 +213,6 @@ a {
 }
 
 .desktop-sidebar.is-collapsed .sidebar-settings-nav {
-  margin-left: 0;
-  padding-left: 0;
-  border-left: 0;
-}
-
-.desktop-sidebar.is-collapsed .sidebar-settings-link {
-  justify-content: center;
-  padding: 0;
-}
-
-.desktop-sidebar.is-collapsed .sidebar-settings-label {
   display: none;
 }
 
@@ -726,11 +710,6 @@ h1 {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-}
-.search-profile-actions .secondary-button,
-.save-search-form .secondary-button {
-  background: var(--color-surface);
-  color: var(--color-ink);
 }
 .settings-panels {
   display: grid;
@@ -1336,13 +1315,6 @@ h1 {
   padding: 0 14px;
   color: inherit;
   text-decoration: none;
-}
-.button-link.secondary-button,
-.button-link.secondary-button:visited,
-.button-link.secondary-button:hover,
-.button-link.secondary-button:focus,
-.button-link.secondary-button:active {
-  color: white;
 }
 .compare-provider-list {
   display: grid;
@@ -2483,10 +2455,6 @@ h1 {
   font-weight: 600;
   cursor: pointer;
 }
-.review-actions .secondary-button {
-  background: var(--color-surface);
-  color: var(--color-ink);
-}
 .review-actions button:focus-visible,
 .review-undo-row button:focus-visible {
   outline: 3px solid var(--color-link);
@@ -2514,10 +2482,6 @@ h1 {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-}
-.backup-import .secondary-button {
-  background: var(--color-surface);
-  color: var(--color-ink);
 }
 .backup-actions button:disabled,
 .backup-import button:disabled {
@@ -2934,7 +2898,7 @@ h1 {
     bottom: 0;
     display: grid;
     min-height: 64px;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     border-top: 1px solid var(--color-border-strong);
     background: var(--color-surface);
   }
@@ -3043,21 +3007,8 @@ h1 {
   background: #334752;
   color: #f5f8fa;
 }
-:root[data-theme='dark'] .search-profile-actions .secondary-button,
-:root[data-theme='dark'] .save-search-form .secondary-button,
-:root[data-theme='dark'] .backup-import .secondary-button {
-  background: #26343d;
-  color: #f1f5f7;
-}
 :root[data-theme='dark'] .property-actions button[aria-pressed='true'] {
   background: #075f70;
-}
-:root[data-theme='dark'] .button-link.secondary-button,
-:root[data-theme='dark'] .button-link.secondary-button:visited,
-:root[data-theme='dark'] .button-link.secondary-button:hover,
-:root[data-theme='dark'] .button-link.secondary-button:focus,
-:root[data-theme='dark'] .button-link.secondary-button:active {
-  color: #f5f8fa;
 }
 :root[data-theme='dark'] .map-pin {
   color: #101820;
@@ -3154,35 +3105,6 @@ h1 {
   font: inherit;
 }
 
-.personal-tag-filter {
-  min-width: 0;
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-control);
-}
-
-.personal-tag-filter legend {
-  padding: 0 4px;
-  color: var(--color-muted);
-  font-size: 0.8rem;
-}
-
-.personal-tag-filter-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-}
-
-.personal-tag-filter-options label {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 7px;
-  color: var(--color-ink);
-  cursor: pointer;
-}
-
 .personal-tag-management ul {
   display: grid;
   gap: 8px;
@@ -3233,4 +3155,176 @@ h1 {
   margin: 4px 0;
   color: var(--color-muted);
   font-size: 0.85rem;
+}
+
+/* Secondary buttons, app wide: the primary button's shape, size, and focus ring in a quiet
+   grey, so a screen has one clear primary action. Anything that is not the main action of
+   its form or row uses .secondary-button. */
+button.secondary-button,
+a.secondary-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 14px;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+button.secondary-button:hover:not(:disabled),
+a.secondary-button:hover {
+  background: var(--button-secondary-bg-hover);
+  color: var(--button-secondary-fg);
+}
+a.secondary-button:visited,
+a.secondary-button:focus,
+a.secondary-button:active {
+  color: var(--button-secondary-fg);
+}
+button.secondary-button:focus-visible,
+a.secondary-button:focus-visible {
+  outline: 3px solid var(--color-link);
+  outline-offset: 2px;
+}
+button.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Multi-select dropdown (Search filters) */
+.multi-select {
+  position: relative;
+}
+.multi-select-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+.multi-select-trigger:focus-visible {
+  outline: 3px solid var(--color-link);
+  outline-offset: 2px;
+}
+.multi-select-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.multi-select-caret {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+}
+.multi-select-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-height: 360px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  box-shadow: 0 8px 24px rgb(16 24 32 / 18%);
+}
+.multi-select-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.multi-select-panel li label {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+  color: var(--color-ink);
+  font-weight: 400;
+  cursor: pointer;
+}
+.multi-select-hint {
+  margin: 2px 6px 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.multi-select-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Saved Homes */
+.saved-homes-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+.saved-home-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+.saved-home-heading h2 {
+  margin: 0;
+  font: 600 1.1rem var(--font-display);
+}
+.saved-home-heading p {
+  margin: 2px 0 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.saved-home-listings {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.saved-home-listings li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.saved-home-status,
+.saved-home-muted {
+  color: var(--color-muted);
+  font-size: 13px;
+  text-transform: capitalize;
+}
+.saved-home-cost,
+.saved-home-tags {
+  margin: 0;
+  font-size: 14px;
+}
+.saved-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }

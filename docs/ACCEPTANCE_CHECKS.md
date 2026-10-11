@@ -1,6 +1,6 @@
 # Acceptance checks — Milestones 1–3
 
-_Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.15._
+_Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.16._
 
 Run against the mock provider loaded from `fixtures/sample-data.json`. Each check names its expected result. A milestone is done when all of its checks pass and `node fixtures/check-fixtures.mjs` exits 0.
 
@@ -102,3 +102,10 @@ Run in the built app after the Milestone 1–3 checks. "Mock-up" means the match
 | U.12 | Drag a Settings section to a new place, reload; then do the same with the keyboard only; then press Reset order                                                                   | Dragging moves it and the order survives reload; with the keyboard (focus the handle, Enter or Space, arrow keys, Enter to drop, Escape to cancel) it moves and the new position is announced; at phone width Move up and Move down work; Reset order restores the default; the order is not in an export |
 | U.13 | Open Settings → RentCast usage, enter the billing day, the plan's included requests, an outside request, and the dashboard's "used" figure with its date                          | The section shows the app's count, the matched total, errors not billed, and any unexplained difference; the header shows the same totals, days left, and reset date                                                                                                                                      |
 | U.14 | Open the app with the mock provider, then with a live provider (and no mock listings), then with a live provider and one stored mock listing, then with the usage API unreachable | Mock: the banner shows on every screen. Live and no mock listings: no banner and no tags. Live with a stored mock listing: no banner, and only that listing shows a "Sample data" tag on its card, property page, and Compare column. Unreachable: the banner shows                                       |
+| U.15 | Open the app with no address options, then reload it | Search opens in Rent mode with the Rent button first and selected; Buy opens only after choosing it or opening `?mode=sale` |
+| U.16 | In Settings → Ranking weights, drag every Buy slider to its maximum, one after another | The total never passes 100 ("Total 100 of 100 · 0 left to give"); a slider stops at the points the others leave; saving weights that total over 100 is refused by the API |
+| U.17 | Open Settings, expanded and collapsed | The sidebar section links are plain text with no leading letter; they are hidden when the sidebar is collapsed |
+| U.18 | Select a pin on the Search map, plain map and Google map | The selected pin changes; every other pin stays fully visible |
+| U.19 | On Search, open Property type, Status, and Personal tags; choose several; save the search and reopen it | Each is a multi-select dropdown with labeled checkboxes, Clear, and Done; Escape closes it and returns focus to its button; the choices appear as chips and are kept in the saved search; a home matches any chosen type or status and every chosen tag |
+| U.20 | Save a home from a Search card, another from its property page, and a third from Compare; open Saved Homes; remove one | All three are listed, newest first, with listings, Est. monthly to own, and tags; Remove from saved takes it off the list and un-saves it everywhere; with none saved the empty state shows; there is no form for typing in an address |
+| U.21 | Compare every secondary action across Search, Saved Homes, Compare, Property, and Settings, in light and dark | Cancel, Delete, Rename, Compare, Dismiss, Remove, Move up/down, and Reset order share the grey secondary style with the primary button's shape, padding, height, and focus ring; text contrast is at least 4.5:1 |

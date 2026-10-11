@@ -26,7 +26,7 @@ import { defaultComparableRentRules } from './store.js';
 import { findComparableRent } from './comparable-rent.js';
 import { createFemaNfhlLookup, type FloodZoneLookup } from './fema-nfhl.js';
 import { findImplausibleFlags } from './implausible.js';
-import { readRankingWeights } from './ranking-weights.js';
+import { rankingWeightPool, readRankingWeights, weightsTotal } from './ranking-weights.js';
 import {
   addressMatches,
   isValidCoordinates,
@@ -329,6 +329,15 @@ export function createApp(
       });
       return;
     }
+    if (request.url === '/api/saved-homes' && request.method === 'GET') {
+      // Newest save first; the browser loads each home's details from /api/properties/:id.
+      json(200, {
+        items: store
+          .listFavorites()
+          .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+      });
+      return;
+    }
     if (request.url === '/api/ranking-weights' && request.method === 'GET') {
       json(200, {
         weights: { sale: store.getRankingWeights('sale'), rent: store.getRankingWeights('rent') },
@@ -342,6 +351,8 @@ export function createApp(
           throw new Error('Mode must be sale or rent.');
         const weights = readRankingWeights(body.mode, body.weights);
         if (!weights) throw new Error('Each weight must be a whole number from 0 to 100.');
+        if (weightsTotal(weights) > rankingWeightPool)
+          throw new Error(`Weights can add up to at most ${rankingWeightPool} points.`);
         store.setRankingWeights(body.mode, weights);
         json(200, {
           weights: { sale: store.getRankingWeights('sale'), rent: store.getRankingWeights('rent') },

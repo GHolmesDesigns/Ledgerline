@@ -34,7 +34,7 @@ test('property photos upload, persist across API restart, show on cards, and can
     await expect(page.locator('.property-photo-grid img')).toHaveCount(2);
     await expect(page.getByRole('status').filter({ hasText: '2 photos added.' })).toBeVisible();
 
-    await page.goto('/');
+    await page.goto('/?mode=sale');
     await expect(page.locator('article.listing-card img')).toHaveCount(1);
 
     await currentApi.stop();
@@ -44,7 +44,7 @@ test('property photos upload, persist across API restart, show on cards, and can
     await expect(page.locator('.property-photo-grid img')).toHaveCount(2);
     await page.getByRole('button', { name: 'Remove photo' }).first().click();
     await expect(page.locator('.property-photo-grid img')).toHaveCount(1);
-    await page.goto('/');
+    await page.goto('/?mode=sale');
     await expect(page.locator('article.listing-card img')).toHaveCount(1);
   } finally {
     if (api) await api.stop();

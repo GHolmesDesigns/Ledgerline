@@ -73,7 +73,7 @@ test('mobile Map view: pins and zoom controls are reachable and show focus', asy
 });
 
 test('keyboard only: search, save, compare, note, match review, and export', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?mode=sale');
   const results = page.getByRole('group', { name: 'Search results' });
   await expect(results.getByRole('article').first()).toBeVisible();
 

@@ -131,6 +131,56 @@ describe('ranking weights', () => {
     assert.equal(unreadable.store.getRankingWeights('sale').updatedAt, null);
   });
 
+  it('refuses weights that add up to more than the 100-point pool', async () => {
+    const { database, store } = await freshStore();
+    const server = createApp(database, store);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    const url = `http://127.0.0.1:${address.port}/api/ranking-weights`;
+    const put = (weights: unknown) =>
+      fetch(url, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mode: 'sale', weights }),
+      });
+    try {
+      const over = await put({ ...buyWeights, price: 41 });
+      assert.equal(over.status, 400);
+      assert.match(((await over.json()) as { error: string }).error, /at most 100 points/);
+      assert.equal(store.getRankingWeights('sale').updatedAt, null);
+
+      const under = await put({ ...buyWeights, price: 30 });
+      assert.equal(under.status, 200);
+      assert.equal(store.getRankingWeights('sale').weights.price, 30);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it('lists saved homes newest first', async () => {
+    const { database, store } = await freshStore();
+    const first = store.createProperty({ street: '1 Oak St', city: 'Miami', zip: '33101' });
+    const second = store.createProperty({ street: '2 Oak St', city: 'Miami', zip: '33101' });
+    store.setFavorite(first.id, true, '2026-10-09T10:00:00.000Z');
+    store.setFavorite(second.id, true, '2026-10-10T10:00:00.000Z');
+    const server = createApp(database, store);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    try {
+      const { items } = (await (
+        await fetch(`http://127.0.0.1:${address.port}/api/saved-homes`)
+      ).json()) as { items: Array<{ propertyId: string }> };
+      assert.deepEqual(
+        items.map((item) => item.propertyId),
+        [second.id, first.id],
+      );
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
   it('marks implausible values on search results before property detail is opened', async () => {
     const { database, store } = await freshStore();
     const server = createApp(database, store);

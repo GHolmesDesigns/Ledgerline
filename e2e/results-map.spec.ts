@@ -145,7 +145,7 @@ test('Google Maps loads county borders and frames the current results without pr
           LatLngBounds: class { constructor() { this.points = []; } extend(point) { this.points.push(point); } },
           Marker: class {
             constructor() { window.__mapsCalls.markers.push(this); }
-            setMap() {} setZIndex() {} setIcon(icon) { this.icon = icon; } setLabel() {}
+            setMap() {} setZIndex() {} setOpacity() {} setIcon(icon) { this.icon = icon; } setLabel() {}
             addListener(event, handler) { this[event] = handler; return { remove() {} }; }
           },
           Polygon: class { constructor() { window.__mapsCalls.borders++; } setMap() {} },
@@ -241,7 +241,7 @@ test('an authentication failure after script load returns to the local map', asy
         window.google = { maps: {
           Map: class { fitBounds() {} },
           LatLngBounds: class { extend() {} },
-          Marker: class { setMap() {} setZIndex() {} setIcon() {} setLabel() {} addListener() { return { remove() {} }; } },
+          Marker: class { setMap() {} setZIndex() {} setOpacity() {} setIcon() {} setLabel() {} addListener() { return { remove() {} }; } },
           Polygon: class { setMap() {} },
           SymbolPath: { CIRCLE: 0 }
         } };

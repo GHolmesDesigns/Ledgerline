@@ -62,6 +62,12 @@ test('export, delete the data folder, restart, and import restores personal data
     await page.goto('/settings');
     const ranking = page.getByRole('region', { name: 'Ranking weights' });
     const priceWeight = ranking.getByRole('slider', { name: 'price weight' });
+    // The weights share 100 points, so free some up before raising price to 37.
+    for (const other of ['living area', 'insurance']) {
+      const slider = ranking.getByRole('slider', { name: `${other} weight` });
+      await slider.focus();
+      await slider.press('Home');
+    }
     await priceWeight.focus();
     await priceWeight.press('Home');
     for (let value = 0; value < 37; value += 1) await priceWeight.press('ArrowRight');
