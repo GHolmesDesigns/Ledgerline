@@ -4073,6 +4073,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       </section>
     );
   const { property, listings, notes } = data;
+  const primaryPhoto = data.photos?.find((photo) => !photo.missing);
   const costEntries = data.costEntries ?? [];
   const saleListing = listings.find((listing) => listing.mode === 'sale');
   const linkedListing =
@@ -4118,7 +4119,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
       : `$${price.toLocaleString()}${mode === 'rent' ? '/mo' : ''}`;
   return (
     <section className="property-detail-panel" aria-label="Property details">
-      <div className="property-detail-heading">
+      <div className={`property-detail-heading${primaryPhoto ? ' has-primary-photo' : ''}`}>
         <div>
           <p className="screen-eyebrow">
             {property.city} · {property.county ?? 'Florida'} County, {property.zip}
@@ -4167,6 +4168,13 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
             Search this address
           </a>
         </div>
+        {primaryPhoto && (
+          <img
+            className="property-detail-primary-photo"
+            src={primaryPhoto.url}
+            alt={`${property.street}${property.unit ? `, Unit ${property.unit}` : ''} primary photo`}
+          />
+        )}
       </div>
       {streetView ? (
         <PropertyMap
@@ -5307,8 +5315,16 @@ function SavedHomesScreen() {
               : null,
             property.yearBuilt != null ? `Built ${property.yearBuilt}` : null,
           ].filter(Boolean);
+          const primaryPhoto = item.photos?.find((photo) => !photo.missing);
           return (
             <article className="saved-home-card" key={property.id}>
+              {primaryPhoto && (
+                <img
+                  className="saved-home-photo"
+                  src={primaryPhoto.url}
+                  alt={`${addressOf(item)} primary property photo`}
+                />
+              )}
               <div className="saved-home-heading">
                 <h2>
                   <a href={`/property/${property.id}`}>{addressOf(item)}</a>
