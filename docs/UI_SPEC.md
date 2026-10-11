@@ -147,7 +147,7 @@ Line-by-line amounts and states are in the fixture file.
 
 ### Property detail (desktop `Property`, mobile `MobileProperty`) — Fort Lauderdale 33308
 
-- **Top of the page, in order:** header with the address and the **Open Street View** link, then a Google map (Maps JavaScript API) with the property's pin. With no key or offline: the plain local map with the pin and "Add a Google Maps key in Settings to show the street map." Street View stays a link; no Street View images.
+- **Top of the page, in order:** header with the address and the **Open Street View** link, then a Google map (Maps JavaScript API) with the property's pin. When an available uploaded photo exists, the header shows the primary photo on the right; with no available photo it shows no empty image frame. With no key or offline: the plain local map with the pin and "Add a Google Maps key in Settings to show the street map." Street View stays a link; no Street View images.
 - "Search this address" (header, and the mobile bottom bar) is a readable button in both themes: never dark text on a dark background.
 - Two listings on file: for sale $849,000, for rent $5,200/mo.
 - Cost breakdown, every line tagged:

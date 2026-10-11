@@ -1026,6 +1026,17 @@ h1 {
   border-radius: var(--radius-card);
   background: var(--color-surface);
 }
+.property-detail-heading.has-primary-photo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(190px, 230px);
+}
+.property-detail-primary-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+}
 .property-detail-heading h2 {
   margin: 0;
   font-family: var(--font-display);
@@ -2565,6 +2576,14 @@ h1 {
   .filter-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .property-detail-heading.has-primary-photo {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .property-detail-primary-photo {
+    grid-column: 2;
+    justify-self: end;
+    max-width: 230px;
+  }
 }
 
 .empty-panel p {
@@ -2769,6 +2788,14 @@ h1 {
   .property-detail-heading {
     display: grid;
     padding: 18px;
+  }
+  .property-detail-heading.has-primary-photo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .property-detail-primary-photo {
+    grid-column: auto;
+    justify-self: stretch;
+    max-width: none;
   }
   .property-detail-section {
     padding: 18px;

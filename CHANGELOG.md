@@ -26,7 +26,7 @@ Deploying does not change the version; it ships whatever `main` holds, so the si
 
 ## 0.0.4 · 2026-10-11 · plan 2.17
 
-- Show the primary available uploaded photo at the top of each Saved Homes card. Homes without an available photo keep the compact card layout without an empty image frame.
+- Show the primary available uploaded photo at the top of each Saved Homes card and on the right side of the Property detail header. Homes without an available photo keep the compact layout without an empty image frame.
 
 ## 0.0.3 · 2026-10-11 · plan 2.16
 
