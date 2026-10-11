@@ -17,6 +17,7 @@ import {
 } from './mapData';
 import { GoogleResultsMap } from './GoogleResultsMap';
 import { PropertyMap } from './PropertyMap';
+import { MultiSelect } from './MultiSelect';
 import {
   defaultRankingWeights,
   rankListings,
@@ -38,6 +39,7 @@ import {
 type RankingWeightSets = Record<RankingMode, RankingWeights>;
 type ThemeChoice = 'light' | 'dark' | 'system';
 const THEME_KEY = 'ledgerline.theme';
+const RANKING_WEIGHT_POOL = 100;
 
 function readThemeChoice(): ThemeChoice {
   if (typeof window === 'undefined') return 'system';
@@ -646,7 +648,7 @@ function ProviderCredentialsPanel() {
       </p>
       <h3>RentCast key</h3>
       {configured && !editing ? (
-        <button className="text-button" onClick={() => setEditing(true)} type="button">
+        <button className="secondary-button" onClick={() => setEditing(true)} type="button">
           Replace key
         </button>
       ) : (
@@ -659,7 +661,7 @@ function ProviderCredentialsPanel() {
             {busy ? 'Saving…' : configured ? 'Save new key' : 'Set key'}
           </button>
           {configured && (
-            <button className="text-button" onClick={() => setEditing(false)} type="button">
+            <button className="secondary-button" onClick={() => setEditing(false)} type="button">
               Cancel
             </button>
           )}
@@ -670,7 +672,7 @@ function ProviderCredentialsPanel() {
         {mapsConfigured === null ? 'Checking…' : mapsConfigured ? 'Key set' : 'No key set'}
       </p>
       {mapsConfigured && !editingMaps ? (
-        <button className="text-button" onClick={() => setEditingMaps(true)} type="button">
+        <button className="secondary-button" onClick={() => setEditingMaps(true)} type="button">
           Replace Google Maps key
         </button>
       ) : (
@@ -683,7 +685,11 @@ function ProviderCredentialsPanel() {
             {busy ? 'Saving…' : mapsConfigured ? 'Save new Google Maps key' : 'Set Google Maps key'}
           </button>
           {mapsConfigured && (
-            <button className="text-button" onClick={() => setEditingMaps(false)} type="button">
+            <button
+              className="secondary-button"
+              onClick={() => setEditingMaps(false)}
+              type="button"
+            >
               Cancel
             </button>
           )}
@@ -1253,6 +1259,7 @@ function ComparableRentRulesPanel() {
 
 const routes: Route[] = [
   { title: 'Search', eyebrow: 'Find your next place', path: '/', icon: '⌂' },
+  { title: 'Saved Homes', eyebrow: 'Your shortlist', path: '/saved', icon: '♡' },
   { title: 'Compare', eyebrow: 'Side by side', path: '/compare', icon: '⇄' },
   { title: 'Settings', eyebrow: 'Make it yours', path: '/settings', icon: '⚙' },
 ];
@@ -1260,8 +1267,9 @@ const routes: Route[] = [
 const appVersion = packageJson.version;
 
 function currentPage(pathname: string) {
-  if (pathname === '/compare') return routes[1];
-  if (pathname === '/settings') return routes[2];
+  if (pathname === '/saved') return routes[1];
+  if (pathname === '/compare') return routes[2];
+  if (pathname === '/settings') return routes[3];
   if (pathname.startsWith('/property/')) {
     return { title: 'Property detail', eyebrow: 'Home details', path: pathname };
   }
@@ -1303,8 +1311,14 @@ function RankingPanel() {
       )
     : [];
   const total = weights ? factors.reduce((sum, factor) => sum + weights[mode][factor], 0) : 0;
+  const remaining = RANKING_WEIGHT_POOL - total;
   const changeWeight = (factor: RankingFactor, value: string) => {
-    const number = value === '' ? 0 : Math.max(0, Math.min(100, Math.round(Number(value))));
+    // One pool of 100 points per mode: a factor can take only what the others leave.
+    const othersTotal = weights
+      ? factors.reduce((sum, other) => sum + (other === factor ? 0 : weights[mode][other]), 0)
+      : 0;
+    const room = Math.max(0, RANKING_WEIGHT_POOL - othersTotal);
+    const number = value === '' ? 0 : Math.max(0, Math.min(room, Math.round(Number(value))));
     setWeights((current) =>
       current ? { ...current, [mode]: { ...current[mode], [factor]: number } } : current,
     );
@@ -1354,8 +1368,9 @@ function RankingPanel() {
         </div>
       </div>
       <p className="panel-intro">
-        Each factor counts in proportion to its weight; the defaults add up to 100. Unknown factors
-        score 0. Rank numbers follow score order on Search, whatever its sort.
+        Each factor counts in proportion to its weight. You have 100 points to share between the
+        factors, and the defaults use all of them. Unknown factors score 0. Rank numbers follow
+        score order on Search, whatever its sort.
       </p>
       {loadError && (
         <p className="search-error" role="alert">
@@ -1387,14 +1402,23 @@ function RankingPanel() {
                 </label>
               ))}
             </div>
-            <p className="ranking-weight-total">Total {total}</p>
+            <p className="ranking-weight-total">
+              Total {total} of {RANKING_WEIGHT_POOL}
+              {remaining >= 0 ? ` · ${remaining} left to give` : ''}
+            </p>
+            {remaining < 0 && (
+              <p className="search-error" role="alert">
+                These weights add up to {total}. Lower some so the total is {RANKING_WEIGHT_POOL} or
+                less before saving.
+              </p>
+            )}
             {saveError && (
               <p className="search-error" role="alert">
                 {saveError}
               </p>
             )}
             <div className="assumption-actions">
-              <button disabled={busy} type="submit">
+              <button disabled={busy || remaining < 0} type="submit">
                 {busy ? 'Saving…' : `Save ${modeName} weights`}
               </button>
               {savedMode === mode && <span role="status">Saved</span>}
@@ -1529,9 +1553,6 @@ function Sidebar({ pathname }: { pathname: string }) {
                 key={id}
                 title={section.title}
               >
-                <span aria-hidden="true" className="sidebar-settings-mark">
-                  {section.title.slice(0, 1)}
-                </span>
                 <span className="sidebar-settings-label">{section.title}</span>
               </a>
             );
@@ -1701,7 +1722,7 @@ function PersonalTagsSettings() {
                 {tag.propertyCount} {tag.propertyCount === 1 ? 'property' : 'properties'}
               </span>
               <button
-                className="text-button"
+                className="secondary-button"
                 disabled={busyId !== null || names[tag.id]?.trim() === tag.name}
                 onClick={() => void rename(tag)}
                 type="button"
@@ -1720,7 +1741,7 @@ function PersonalTagsSettings() {
                     No property, listing, note, or photo will be deleted.
                   </span>
                   <button
-                    className="text-button"
+                    className="secondary-button"
                     disabled={busyId !== null}
                     onClick={() => void remove(tag)}
                     type="button"
@@ -1728,7 +1749,7 @@ function PersonalTagsSettings() {
                     Confirm delete
                   </button>
                   <button
-                    className="text-button"
+                    className="secondary-button"
                     onClick={() => setConfirmingId(null)}
                     type="button"
                   >
@@ -1737,7 +1758,7 @@ function PersonalTagsSettings() {
                 </span>
               ) : (
                 <button
-                  className="text-button"
+                  className="secondary-button"
                   disabled={busyId !== null}
                   onClick={() => setConfirmingId(tag.id)}
                   type="button"
@@ -2079,6 +2100,7 @@ function SettingsPage({
                 <div className="settings-mobile-move">
                   <button
                     aria-label={`Move ${section.title} up`}
+                    className="secondary-button"
                     disabled={index === 0}
                     onClick={() => moveBy(id, -1)}
                     type="button"
@@ -2087,6 +2109,7 @@ function SettingsPage({
                   </button>
                   <button
                     aria-label={`Move ${section.title} down`}
+                    className="secondary-button"
                     disabled={index === order.length - 1}
                     onClick={() => moveBy(id, 1)}
                     type="button"
@@ -2098,7 +2121,11 @@ function SettingsPage({
             );
           })}
         </div>
-        <button className="settings-reset-order" onClick={resetOrder} type="button">
+        <button
+          className="settings-reset-order secondary-button"
+          onClick={resetOrder}
+          type="button"
+        >
           Reset order
         </button>
         <span aria-live="polite" className="sr-only" role="status">
@@ -2248,7 +2275,7 @@ function MatchReviewPanel() {
           {decided.map((item) => (
             <div className="review-undo-row" key={item.id}>
               <span>{address(item.incoming)}</span>
-              <button className="text-button" onClick={() => void undo(item)} type="button">
+              <button className="secondary-button" onClick={() => void undo(item)} type="button">
                 Undo
               </button>
             </div>
@@ -2886,7 +2913,7 @@ function SavedSearchPanel() {
       {notice && <p role="status">{notice}</p>}
       {items.length > 0 && (
         <button
-          className="text-button"
+          className="secondary-button"
           disabled={busy || refreshingId !== null}
           onClick={() => void refreshDue()}
           type="button"
@@ -2971,15 +2998,15 @@ function SavedSearchPanel() {
                       </select>
                     </label>
                     <div className="saved-search-actions">
-                      <a className="text-button" href={searchUrl(search)}>
+                      <a className="secondary-button" href={searchUrl(search)}>
                         Open
                       </a>
-                      <button className="text-button" type="submit">
+                      <button className="secondary-button" type="submit">
                         Save changes
                       </button>
                       <button
                         aria-label="Refresh now"
-                        className="text-button"
+                        className="secondary-button"
                         disabled={busy || refreshingId !== null}
                         onClick={() => void refreshOne(search)}
                         type="button"
@@ -2990,7 +3017,7 @@ function SavedSearchPanel() {
                       </button>
                       {search.mode === 'sale' && !paired && (
                         <button
-                          className="text-button"
+                          className="secondary-button"
                           disabled={busy}
                           onClick={() => void addRentPair(search)}
                           type="button"
@@ -3011,7 +3038,7 @@ function SavedSearchPanel() {
                             photos are not changed.
                           </span>
                           <button
-                            className="text-button"
+                            className="secondary-button"
                             onClick={() => void remove(search)}
                             type="button"
                           >
@@ -3019,7 +3046,7 @@ function SavedSearchPanel() {
                           </button>
                           <button
                             autoFocus
-                            className="text-button"
+                            className="secondary-button"
                             onClick={() => setConfirmingId(null)}
                             type="button"
                           >
@@ -3029,7 +3056,7 @@ function SavedSearchPanel() {
                       ) : (
                         <button
                           aria-label={`Delete ${search.name}`}
-                          className="text-button"
+                          className="secondary-button"
                           onClick={() => {
                             setNotice('');
                             setConfirmingId(search.id);
@@ -3050,6 +3077,28 @@ function SavedSearchPanel() {
     </section>
   );
 }
+
+const propertyTypeOptions = [
+  { value: 'single_family', label: 'Single family' },
+  { value: 'townhome', label: 'Townhome' },
+  { value: 'condo', label: 'Condo' },
+];
+const statusOptions = [
+  { value: 'active', label: 'Active' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'under_contract', label: 'Under contract' },
+];
+// Property type and status are stored as one comma-separated string, so saved searches and
+// addresses made before they allowed several choices keep working.
+const splitChoices = (value: string) =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+const choiceLabels = (value: string, options: Array<{ value: string; label: string }>) =>
+  splitChoices(value)
+    .map((item) => options.find((option) => option.value === item)?.label ?? item)
+    .join(', ');
 
 const emptyFilters = (mode: 'sale' | 'rent'): SearchFilters => ({
   mode,
@@ -3079,9 +3128,10 @@ const emptyFilters = (mode: 'sale' | 'rent'): SearchFilters => ({
 });
 
 function searchFromUrl(): SearchFilters {
-  if (typeof window === 'undefined') return emptyFilters('sale');
+  if (typeof window === 'undefined') return emptyFilters('rent');
   const params = new URLSearchParams(window.location.search);
-  const mode = params.get('mode') === 'rent' ? 'rent' : 'sale';
+  // Rent is the default; Buy opens only when the address asks for it.
+  const mode = params.get('mode') === 'sale' ? 'sale' : 'rent';
   return {
     ...emptyFilters(mode),
     locationMode:
@@ -4290,6 +4340,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
                   : 'Not done'}
                 {!entry && (
                   <button
+                    className="secondary-button"
                     type="button"
                     onClick={() => {
                       setCostKind(kind);
@@ -4538,6 +4589,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           </label>
           <div className="risk-detail-action">
             <button
+              className="secondary-button"
               disabled={floodLookupBusy || property.latitude == null || property.longitude == null}
               onClick={() => void lookupFloodZone()}
               type="button"
@@ -4857,6 +4909,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
               data.comparableRent.stale)) && (
             <div className="rent-estimate-action">
               <button
+                className="secondary-button"
                 disabled={rentEstimateBusy || (requestUsage != null && requestUsage.remaining < 1)}
                 onClick={() => void requestRentEstimate()}
                 type="button"
@@ -5066,7 +5119,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
                     <div className="property-actions">
                       <button type="submit">Save note</button>
                       <button
-                        className="text-button"
+                        className="secondary-button"
                         type="button"
                         onClick={() => setEditingId(null)}
                       >
@@ -5083,7 +5136,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
                     </time>
                     <div className="property-actions">
                       <button
-                        className="text-button"
+                        className="secondary-button"
                         onClick={() => {
                           setEditingId(note.id);
                           setEditingBody(note.body);
@@ -5093,7 +5146,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
                         Edit
                       </button>
                       <button
-                        className="text-button"
+                        className="secondary-button"
                         onClick={() => void deleteNote(note.id)}
                         type="button"
                       >
@@ -5127,6 +5180,202 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
         </button>
         <a href={`/?location=${addressQuery}`}>Search this address</a>
       </nav>
+    </section>
+  );
+}
+
+// Saved Homes lists every property marked Save, wherever it was saved: Search results, a property
+// page, or Compare. It reads only the local database and never contacts a provider.
+function SavedHomesScreen() {
+  const compare = useCompareSet();
+  const [homes, setHomes] = useState<PropertyDetailData[] | null>(null);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const listResponse = await fetch('/api/saved-homes');
+        const list = (await listResponse.json()) as {
+          items?: Array<{ propertyId: string }>;
+          error?: string;
+        };
+        if (!listResponse.ok) throw new Error(list.error ?? 'Saved homes are unavailable.');
+        const details = await Promise.all(
+          (list.items ?? []).map(async ({ propertyId }) => {
+            const response = await fetch(`/api/properties/${propertyId}`);
+            const result = (await response.json()) as PropertyDetailData & { error?: string };
+            if (!response.ok) throw new Error(result.error ?? `Could not load ${propertyId}.`);
+            return result;
+          }),
+        );
+        if (!cancelled) {
+          setHomes(details);
+          setError('');
+        }
+      } catch (reason) {
+        if (!cancelled) {
+          setHomes([]);
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : 'Saved homes are unavailable. Start the local API and try again.',
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const addressOf = (item: PropertyDetailData) =>
+    `${item.property.street}${item.property.unit ? `, Unit ${item.property.unit}` : ''}`;
+
+  const unsave = async (item: PropertyDetailData) => {
+    try {
+      const response = await fetch(`/api/properties/${item.property.id}/favorite`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ saved: false }),
+      });
+      if (!response.ok) throw new Error('Could not remove this home from Saved Homes.');
+      setHomes((current) =>
+        current ? current.filter((entry) => entry.property.id !== item.property.id) : current,
+      );
+      setMessage(`${addressOf(item)} removed from Saved Homes.`);
+      setError('');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update this home.');
+    }
+  };
+
+  const toggleCompare = (item: PropertyDetailData) => {
+    const id = item.property.id;
+    if (compare.ids.includes(id)) {
+      compare.save(compare.ids.filter((entry) => entry !== id));
+      setMessage(`${addressOf(item)} removed from Compare.`);
+    } else if (compare.ids.length >= 4) {
+      setMessage('Compare is full. Remove a property before adding another.');
+    } else {
+      compare.save([...compare.ids, id]);
+      setMessage(`${addressOf(item)} added to Compare.`);
+    }
+  };
+
+  return (
+    <section aria-label="Saved homes" className="saved-homes-screen">
+      {error && (
+        <p className="search-error" role="alert">
+          {error}
+        </p>
+      )}
+      <p aria-live="polite" className="result-count" role="status">
+        {message ||
+          (homes === null
+            ? 'Loading saved homes…'
+            : `${homes.length} saved ${homes.length === 1 ? 'home' : 'homes'}`)}
+      </p>
+      {homes !== null && homes.length === 0 && !error && (
+        <div className="empty-panel">
+          <p>
+            No saved homes yet. Use Save on a Search result, a property page, or Compare, and it
+            will show up here.
+          </p>
+          <a className="secondary-button" href="/">
+            Go to Search
+          </a>
+        </div>
+      )}
+      <div className="saved-homes-list">
+        {(homes ?? []).map((item) => {
+          const { property } = item;
+          const ownCost =
+            item.costEstimates?.find((estimate) =>
+              item.listings.some(
+                (listing) => listing.id === estimate.listingId && listing.mode === 'sale',
+              ),
+            ) ?? item.costEstimate;
+          const inCompare = compare.ids.includes(property.id);
+          const tags = item.tags ?? property.personalTags ?? [];
+          const facts = [
+            property.beds != null ? `${property.beds} bd` : null,
+            property.bathsTotal != null ? `${property.bathsTotal} ba` : null,
+            property.livingAreaSqft != null
+              ? `${property.livingAreaSqft.toLocaleString()} sq ft`
+              : null,
+            property.yearBuilt != null ? `Built ${property.yearBuilt}` : null,
+          ].filter(Boolean);
+          return (
+            <article className="saved-home-card" key={property.id}>
+              <div className="saved-home-heading">
+                <h2>
+                  <a href={`/property/${property.id}`}>{addressOf(item)}</a>
+                </h2>
+                <p>
+                  {property.city}, FL {property.zip}
+                  {property.county ? ` · ${property.county} County` : ''}
+                </p>
+                {facts.length > 0 && <p>{facts.join(' · ')}</p>}
+              </div>
+              {item.listings.length > 0 ? (
+                <ul aria-label="Listings" className="saved-home-listings">
+                  {item.listings.map((listing) => (
+                    <li key={listing.id}>
+                      <strong>{listing.mode === 'sale' ? 'Buy' : 'Rent'}</strong>{' '}
+                      <span>
+                        {listing.price == null
+                          ? 'Price unavailable'
+                          : `$${listing.price.toLocaleString('en-US')}${listing.mode === 'rent' ? '/mo' : ''}`}
+                      </span>{' '}
+                      <span className="saved-home-status">
+                        {listing.status.replaceAll('_', ' ')}
+                      </span>
+                      {isSampleListing(listing.provider) && (
+                        <span className="sample-listing-tag">Sample data</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="saved-home-muted">No listings on file</p>
+              )}
+              {ownCost && (
+                <p className="saved-home-cost">
+                  <strong>Est. monthly to own</strong>{' '}
+                  <span className="listing-financial-value">{ownCost.totalLabel}</span>{' '}
+                  <span className="total-status-tag">{ownCost.statusLabel}</span>
+                </p>
+              )}
+              {tags.length > 0 && (
+                <p className="saved-home-tags">
+                  <span className="saved-home-muted">My tags</span> {tags.join(', ')}
+                </p>
+              )}
+              <div className="saved-home-actions">
+                <button
+                  aria-label={`${inCompare ? 'Remove' : 'Add'} ${addressOf(item)} ${inCompare ? 'from' : 'to'} Compare`}
+                  aria-pressed={inCompare}
+                  className="secondary-button"
+                  onClick={() => toggleCompare(item)}
+                  type="button"
+                >
+                  {inCompare ? 'In Compare' : 'Compare'}
+                </button>
+                <button
+                  aria-label={`Remove ${addressOf(item)} from Saved Homes`}
+                  className="secondary-button"
+                  onClick={() => void unsave(item)}
+                  type="button"
+                >
+                  Remove from saved
+                </button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -5219,6 +5468,25 @@ function CompareScreen() {
 
   const remove = (propertyId: string) =>
     compare.save(compare.ids.filter((id) => id !== propertyId));
+  const toggleSaved = async (item: PropertyDetailData) => {
+    const saved = !item.saved;
+    try {
+      const response = await fetch(`/api/properties/${item.property.id}/favorite`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ saved }),
+      });
+      if (!response.ok) throw new Error('Could not update this property.');
+      setProperties((current) =>
+        current.map((entry) =>
+          entry.property.id === item.property.id ? { ...entry, saved } : entry,
+        ),
+      );
+      setError('');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update this property.');
+    }
+  };
   const displayColumns = mobile
     ? [
         properties.find((item) => item.property.id === leftId),
@@ -5569,7 +5837,17 @@ function CompareScreen() {
                           {item.property.city} · {item.property.zip}
                         </span>
                         <button
+                          aria-label={`${item.saved ? 'Remove' : 'Save'} ${addressOf(item)} ${item.saved ? 'from' : 'to'} saved homes`}
+                          aria-pressed={item.saved}
+                          className="secondary-button"
+                          onClick={() => void toggleSaved(item)}
+                          type="button"
+                        >
+                          {item.saved ? 'Saved' : 'Save'}
+                        </button>
+                        <button
                           aria-label={`Remove ${addressOf(item)} from Compare`}
+                          className="secondary-button"
                           onClick={() => remove(item.property.id)}
                           type="button"
                         >
@@ -6038,7 +6316,7 @@ function SearchScreen() {
       ['priceMax', filters.priceMax ? `Max $${Number(filters.priceMax).toLocaleString()}` : ''],
       ['beds', filters.beds ? `${filters.beds}+ beds` : ''],
       ['baths', filters.baths ? `${filters.baths}+ baths` : ''],
-      ['propertyType', filters.propertyType],
+      ['propertyType', choiceLabels(filters.propertyType, propertyTypeOptions)],
       ['minSqft', filters.minSqft ? `${filters.minSqft}+ sq ft` : ''],
       [
         'minLotSize',
@@ -6052,7 +6330,12 @@ function SearchScreen() {
       ['yearBuiltMax', filters.yearBuiltMax ? `Built ≤ ${filters.yearBuiltMax}` : ''],
       ['daysOnMarket', filters.daysOnMarket ? `Listed within ${filters.daysOnMarket} days` : ''],
       ...filters.selectedTags.map((tag) => [`tag:${tag}`, `My tag · ${tag}`] as const),
-      ['status', filters.status !== 'active' ? filters.status : ''],
+      [
+        'status',
+        filters.status && filters.status !== 'active'
+          ? `Status · ${choiceLabels(filters.status, statusOptions)}`
+          : '',
+      ],
       ['savedOnly', filters.savedOnly ? 'Saved only' : ''],
       ['showDismissed', filters.showDismissed ? 'Show dismissed' : ''],
     ] as Array<[keyof SearchFilters | `tag:${string}`, string]>
@@ -6072,18 +6355,18 @@ function SearchScreen() {
       <div className="search-topline">
         <div className="mode-switch" aria-label="Listing mode" role="group">
           <button
-            aria-pressed={filters.mode === 'sale'}
-            onClick={() => switchMode('sale')}
-            type="button"
-          >
-            Buy
-          </button>
-          <button
             aria-pressed={filters.mode === 'rent'}
             onClick={() => switchMode('rent')}
             type="button"
           >
             Rent
+          </button>
+          <button
+            aria-pressed={filters.mode === 'sale'}
+            onClick={() => switchMode('sale')}
+            type="button"
+          >
+            Buy
           </button>
         </div>
         <p className="browse-note">Browsing uses no provider requests</p>
@@ -6128,7 +6411,7 @@ function SearchScreen() {
           </button>
           {selectedSearchId && (
             <button
-              className="text-button"
+              className="secondary-button"
               disabled={Object.keys(filterErrors).length > 0}
               onClick={() => void updateCurrentSearch()}
               type="button"
@@ -6186,7 +6469,7 @@ function SearchScreen() {
           <button disabled={Object.keys(filterErrors).length > 0} type="submit">
             Save search
           </button>
-          <button className="text-button" onClick={() => setShowSaveForm(false)} type="button">
+          <button className="secondary-button" onClick={() => setShowSaveForm(false)} type="button">
             Cancel
           </button>
         </form>
@@ -6376,25 +6659,16 @@ function SearchScreen() {
             ))}
           </select>
         </label>
-        <label className="filter-field">
-          Property type
-          <select
-            aria-label="Property type"
-            value={filters.propertyType}
-            onChange={(event) => update('propertyType', event.target.value)}
-          >
-            <option value="">Any type</option>
-            {[
-              ['single_family', 'Single family'],
-              ['townhome', 'Townhome'],
-              ['condo', 'Condo'],
-            ].map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="filter-field">
+          <span>Property type</span>
+          <MultiSelect
+            emptyLabel="Any type"
+            label="Property type"
+            onChange={(next) => update('propertyType', next.join(','))}
+            options={propertyTypeOptions}
+            selected={splitChoices(filters.propertyType)}
+          />
+        </div>
         <label className="filter-field">
           Min sq ft
           <input
@@ -6502,52 +6776,28 @@ function SearchScreen() {
           )}
         </label>
         {availableTags.length > 0 && (
-          <fieldset className="personal-tag-filter">
-            <legend>Personal tags · all selected</legend>
-            <div className="personal-tag-filter-options">
-              {availableTags.map((tag) => (
-                <label key={tag}>
-                  <input
-                    checked={filters.selectedTags.some(
-                      (selected) =>
-                        selected.toLocaleLowerCase('en-US') === tag.toLocaleLowerCase('en-US'),
-                    )}
-                    onChange={(event) => {
-                      const checked = event.currentTarget.checked;
-                      setFilters((current) => ({
-                        ...current,
-                        selectedTags: checked
-                          ? [...current.selectedTags, tag]
-                          : current.selectedTags.filter(
-                              (selected) =>
-                                selected.toLocaleLowerCase('en-US') !==
-                                tag.toLocaleLowerCase('en-US'),
-                            ),
-                      }));
-                    }}
-                    type="checkbox"
-                  />
-                  {tag}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <div className="filter-field">
+            <span>Personal tags</span>
+            <MultiSelect
+              emptyLabel="Any tags"
+              hint="A home must have every tag you choose."
+              label="Personal tags"
+              onChange={(next) => setFilters((current) => ({ ...current, selectedTags: next }))}
+              options={availableTags.map((tag) => ({ value: tag, label: tag }))}
+              selected={filters.selectedTags}
+            />
+          </div>
         )}
-        <label className="filter-field">
-          Status
-          <select
-            aria-label="Listing status"
-            value={filters.status}
-            onChange={(event) => update('status', event.target.value)}
-          >
-            <option value="active">Active only</option>
-            <option value="active,pending">Include pending</option>
-            <option value="active,under_contract">Include under contract</option>
-            <option value="active,pending,under_contract">
-              Include pending and under contract
-            </option>
-          </select>
-        </label>
+        <div className="filter-field">
+          <span>Status</span>
+          <MultiSelect
+            emptyLabel="Active only"
+            label="Listing status"
+            onChange={(next) => update('status', next.join(','))}
+            options={statusOptions}
+            selected={splitChoices(filters.status)}
+          />
+        </div>
         <label className="filter-field filter-toggle">
           <input
             aria-label="Saved only"
@@ -6984,6 +7234,8 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
             <SettingsPage onThemeChange={setTheme} theme={theme} />
           ) : page.path === '/' ? (
             <SearchScreen />
+          ) : page.path === '/saved' ? (
+            <SavedHomesScreen />
           ) : page.path === '/compare' ? (
             <CompareScreen />
           ) : page.path.startsWith('/property/') ? (

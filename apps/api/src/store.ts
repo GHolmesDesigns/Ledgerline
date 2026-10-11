@@ -293,6 +293,7 @@ export interface ListingSearchCriteria {
   priceMax?: number;
   beds?: number;
   baths?: number;
+  /** One type, or several separated by commas; a home matches any of them. */
   propertyType?: string;
   minSqft?: number;
   statuses?: string[];
@@ -1105,7 +1106,14 @@ export function createStore(database: Database, options: StoreOptions = {}) {
       if (criteria.priceMax !== undefined) add('l.price <= ?', criteria.priceMax);
       if (criteria.beds !== undefined) add('p.beds >= ?', criteria.beds);
       if (criteria.baths !== undefined) add('p.baths_total >= ?', criteria.baths);
-      if (criteria.propertyType) add('p.property_type = ?', criteria.propertyType);
+      const propertyTypes = (criteria.propertyType ?? '')
+        .split(',')
+        .map((type) => type.trim())
+        .filter(Boolean);
+      if (propertyTypes.length) {
+        clauses.push(`p.property_type IN (${propertyTypes.map(() => '?').join(', ')})`);
+        params.push(...propertyTypes);
+      }
       if (criteria.minSqft !== undefined) add('p.living_area_sqft >= ?', criteria.minSqft);
       const statuses = criteria.statuses?.length ? criteria.statuses : ['active'];
       clauses.push(`LOWER(l.status) IN (${statuses.map(() => '?').join(', ')})`);

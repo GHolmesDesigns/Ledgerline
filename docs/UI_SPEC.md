@@ -1,8 +1,8 @@
 # UI specification — Florida Home Dashboard
 
-_Oct 9, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.15, which wins any conflict. Every number below is in `fixtures/sample-data.json`._
+_Oct 11, 2026 · Follows `PERSONAL_REAL_ESTATE_DASHBOARD_PLAN.md` version 2.16, which wins any conflict. Every number below is in `fixtures/sample-data.json`._
 
-Four desktop screens and four matching mobile screens: **Search**, **Compare**, **Property detail**, **Settings** (formerly "Ranking & data"; the `design/` files keep the older title in places). Visual reference: `design/` (see `design/README.md` for which screens are current).
+Five desktop screens and five matching mobile screens: **Search**, **Saved Homes**, **Compare**, **Property detail**, **Settings** (formerly "Ranking & data"; the `design/` files keep the older title in places). Visual reference: `design/` (see `design/README.md` for which screens are current).
 
 ## 1. Rules on every screen
 
@@ -59,7 +59,7 @@ Always shows its source, using the first that applies:
 
 ### Scores and ranks
 
-- Default Buy weights: price 25, own-vs-rent cost 20, flood 20, HOA 15, insurance 10, size 10. Default Rent weights: price 40, flood 25, lease fit 20, size 15. Factor formulas and Unknown inputs follow plan § Interface scope, item 4.
+- Each mode's weights share one pool of 100 points (plan item 4). Default Buy weights: price 25, own-vs-rent cost 20, flood 20, HOA 15, insurance 10, size 10. Default Rent weights: price 40, flood 25, lease fit 20, size 15. Factor formulas and Unknown inputs follow plan § Interface scope, item 4.
 - **Rank labels (#1, #2…) always follow score order**, whatever sort is selected. Price sort on the sample data shows: $285k #1, $389k #7, $465k #2, $529k #6, $560k #3, $615k #4, $849k #5.
 - Unknown factors score as the worst value (0) and show "Unknown · scored 0" in the breakdown.
 - **Provisional** badge whenever a factor is unknown or the listing has an implausible-value flag, with the reason ("1 factor unknown: comparable rent", "check price per sq ft"). Use a dashed border plus the word, not color alone.
@@ -73,9 +73,14 @@ Always shows its source, using the first that applies:
 
 ### Sidebar (desktop, plan 2.10)
 
-- Left sidebar with Search, Compare, and Settings; a labelled toggle collapses it to an icon rail and back (`aria-expanded`); the choice is remembered on this computer. Links keep accessible names and visible focus when collapsed.
+- Left sidebar with Search, Saved Homes, Compare, and Settings; a labelled toggle collapses it to an icon rail and back (`aria-expanded`); the choice is remembered on this computer. Links keep accessible names and visible focus when collapsed.
 - The app version (for example "v0.3.1") sits at the bottom of the sidebar, from `package.json`, and stays visible when collapsed. Settings → About shows it too.
+- On the Settings page the sidebar lists the sections as plain text links, with no leading letter or icon; they are hidden while the sidebar is collapsed.
 - Mobile has no sidebar; the bottom tab bar replaces it.
+
+### Secondary buttons
+
+Every action that is not the main action of its form or row uses one grey secondary button: the primary button's shape, padding, 44 px height, and focus ring, a grey fill with dark text, hover darkening, and its own light and dark colors (`design/tokens.json`, `button.secondary`). Text contrast stays at 4.5:1 or better.
 
 ### Appearance
 
@@ -110,21 +115,30 @@ Line-by-line amounts and states are in the fixture file.
 
 ### Search (desktop `Main`, mobile `MobileSearch`)
 
-- Buy/Rent switch and a labeled **Location: ZIP | Radius | City text** choice (City text is the existing free-text field). ZIP accepts one five-digit ZIP. Radius accepts any value from 0.1 to 25.0 miles inclusive and a **Center: Street address | Coordinates** choice. The street-address field takes street, city, and state, with ZIP when known; coordinates use separate labeled latitude and longitude inputs. Addresses resolve only against addresses of properties already stored; otherwise enter latitude and longitude. show the resolved point and coordinates before Search or Save, and ask the user to correct an ambiguous or unresolved address. Changing the address clears the old resolved point. Reject an invalid ZIP, latitude, longitude, or radius with inline text, and keep Search and Save disabled until the area is valid. Radius results use each property's coordinates and include the boundary; listings without coordinates stay available through ZIP search.
+- Rent/Buy switch (Rent first and selected on first load) and a labeled **Location: ZIP | Radius | City text** choice (City text is the existing free-text field). ZIP accepts one five-digit ZIP. Radius accepts any value from 0.1 to 25.0 miles inclusive and a **Center: Street address | Coordinates** choice. The street-address field takes street, city, and state, with ZIP when known; coordinates use separate labeled latitude and longitude inputs. Addresses resolve only against addresses of properties already stored; otherwise enter latitude and longitude. show the resolved point and coordinates before Search or Save, and ask the user to correct an ambiguous or unresolved address. Changing the address clears the old resolved point. Reject an invalid ZIP, latitude, longitude, or radius with inline text, and keep Search and Save disabled until the area is valid. Radius results use each property's coordinates and include the boundary; listings without coordinates stay available through ZIP search.
 - Location chip: "ZIP 33161" or "Within [radius] mi of [address or coordinates]". Saving, restarting, and JSON export/import keep the mode, entered address, resolved coordinates, and radius.
 - For a radius search, draw its center and circle on the map. Panning and changing the radius use local data only; the header's request count stays unchanged.
 - Buy/Rent switch, location field, saved search "Fort Lauderdale 33308 · Buy · $250k–$900k" with "Paired Rent search on · needed for local comps", removable filter chips, Sort: Your score / Newest / Price.
 - In Rent mode, show "Rent data may be incomplete" near the results count on desktop and mobile, including while results are loading or empty. Keep it in the screen reader reading order; do not show it in Buy mode.
-- Filters also include **lot size** (min and max sq ft), **year built** (min and max), **days on market** ("listed within [n] days"), and **tags** (must have all chosen). The results line says how many listings a filter left out for a missing value (for example "12 hidden: lot size unknown"). These use stored data only and are kept in a saved search.
+- Filters also include **lot size** (min and max sq ft), **year built** (min and max), **days on market** ("listed within [n] days"), and **tags** (must have all chosen). **Property type**, **Status**, and **Personal tags** are multi-select dropdowns (a button showing the choices, opening labeled checkboxes with Clear and Done); Beds and Baths remain single "minimum" selects. The results line says how many listings a filter left out for a missing value (for example "12 hidden: lot size unknown"). These use stored data only and are kept in a saved search.
 - Card: the property's first uploaded photo when it has one (no image box otherwise); price, status, address, city · county, facts line; score block with rank and provisional badge; "Est. monthly to own" with its status chip; "Comparable rent" with its source line; gap row (or the hidden-gap reason); risk chips; my tags as chips labelled "My tag" with a control to add or remove one (standard list plus "Add custom tag"); implausible-value flag; selected card shows the score breakdown; footer with provider, last seen (stale after 7 days, highlighted), Save, Compare, Dismiss, Details & verify.
 - Boca Raton card shows the "Set local rates for Palm Beach County" prompt inline.
 - Map and list stay in sync; map shows county borders. Map: Google Maps (Maps JavaScript API) when a key is set, framed on the current results' pins. Without a key (or offline): a plain map of county borders and pins from local data, with the note "Add a Google Maps key in Settings to show the street map." The plain map also frames the current results, never the whole state. Pins sit at the properties' coordinates as in `Main`.
 - Footer text: "Monthly costs use your personal assumptions (20% down, 6.50% 30-yr fixed, maintenance 1%/yr) and each county's local rates. Local rates shown are sample placeholders. Photos are ones you upload; the listing provider supplies none."
-- Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Compare, Settings).
+- Mobile: List/Map toggle; map view shows a bottom card for the selected pin; bottom tab bar (Search, Saved Homes, Compare, Settings).
+- Selecting a pin only highlights it; the other pins stay fully visible.
+
+### Saved Homes (`/saved`)
+
+- Heading "Saved Homes" with a count ("2 saved homes"); every home marked Save, newest save first, whether it was saved from Search, a property page, or Compare. Reads the local database only.
+- Card: address (link to the property page), city, ZIP and county, facts line, each listing as "Buy $X" or "Rent $X/mo" with its status and a "Sample data" tag for mock listings, "Est. monthly to own" with its status chip, my tags, and two secondary buttons: Compare (toggles In Compare; the set is capped at four) and Remove from saved.
+- Empty state: "No saved homes yet. Use Save on a Search result, a property page, or Compare, and it will show up here." with a Go to Search button.
+- No form for typing in a home by address.
 
 ### Compare (desktop `Compare`, mobile `MobileCompare`)
 
 - Shortlist: Fort Lauderdale (#5), Miramar (#2), North Miami (#3, provisional), Hollywood (#7, provisional).
+- Each column heading has a Save / Saved toggle (the home then appears on Saved Homes) and a Remove button.
 - Header splits assumptions: "Personal: 20% down · 6.50% 30-yr · maintenance 1%/yr" and "Local: Miami-Dade (sample) · Broward (sample)", each with its own Edit link.
 - Tag legend above the table.
 - Rows: price, status, beds/baths/area, score; P&I, property tax, homeowners/HO-6, flood, HOA, **Non-ad valorem / CDD**, **Special assessment**, maintenance; **Total** with each column's status chip; comparable rent with source; own vs. rent; **Upfront cash** (down payment + one-time assessments); flood zone; insurance & wind mitigation; condo & association (milestone inspection, county recertification, reserve study, special assessment); notes; verify.
@@ -164,7 +178,7 @@ Line-by-line amounts and states are in the fixture file.
 - **Personal tags** section: standard and custom tags with the number of properties using each; rename and delete custom tags (delete asks first and says how many properties lose it); standard tags cannot be deleted.
 - **RentCast usage** section: billing day, plan's included requests, ceiling, outside requests, the dashboard's "used" figure with its date, the app's own count, errors RentCast does not bill, and any unexplained difference. Search, Compare, and Property link to the matching section instead of editing settings in place.
 - **Saved searches** list: name, mode, location, refresh interval, last refresh result, an editable name (required, trimmed; saved with "Save changes"; the row also shows mode and location because names need not be unique), and a Delete button on each row with a confirmation. Deleting removes only the search and its schedule, never properties, listings, notes, saves, or photos.
-- **Ranking weights** are sliders (value shown as text, arrow keys adjust), with live ranking of all 7 listings in score order, provisional badges and short reasons.
+- **Ranking weights** are sliders (value shown as text, arrow keys adjust) that share one pool of 100 points per mode: a slider stops at the points the others leave, the total reads "Total 100 of 100 · 0 left to give", and Save is disabled with a message if saved weights already total more than 100. They come with a live ranking of all 7 listings in score order, provisional badges and short reasons.
 - **Personal assumptions** panel: down payment, rate, term, maintenance.
 - **Local assumptions** table, one row per county: Miami-Dade, Broward, and Palm Beach ("Not set · Set local rates"). Columns: millage; typical non-ad valorem $/yr; homeowners default (house); HO-6 default (condo); flood default X / AE / VE; source and date. Every value tagged "sample".
 - **Comparable-rent rules** (editable): same property type; same bedrooms; living area ±20%; radius 1 mi; seen within 30 days; minimum 3 comps. Note: "Dense Miami areas may need a smaller radius."
@@ -176,7 +190,7 @@ Line-by-line amounts and states are in the fixture file.
 
 ## 4. Mobile layout
 
-390 px phone frames; bottom tab bar; 44 px minimum targets; no fake status bar. Compare is two-up with selectors. Property detail has a fixed bottom bar (Save, Compare, Search this address). Settings sections have direct links and stable anchors. Same data and rules as desktop.
+390 px phone frames; bottom tab bar (Search, Saved Homes, Compare, Settings); 44 px minimum targets; no fake status bar. Compare is two-up with selectors. Property detail has a fixed bottom bar (Save, Compare, Search this address). Settings sections have direct links and stable anchors. Same data and rules as desktop.
 
 ## 5. Decisions (Oct 7–8, 2026)
 

@@ -24,6 +24,17 @@ The app runs only on this computer and is updated by deploying `main`, so there 
 
 Deploying does not change the version; it ships whatever `main` holds, so the sidebar shows the deployed version. Tag a commit `vX.Y.Z` only when asked.
 
+## 0.0.3 · 2026-10-11 · plan 2.16
+
+- Open Search on Rent by default, with Rent first in the Rent/Buy switch; Buy opens when chosen or when the address has `?mode=sale`.
+- Add a Saved Homes screen (sidebar and phone tab bar, between Search and Compare) that lists every saved home, newest first, whatever screen it was saved from, with a Save toggle added to each Compare column and a `GET /api/saved-homes` endpoint. Homes cannot be added by typing an address.
+- Limit each mode's ranking weights to one 100-point pool: the sliders stop at the points the others leave, the total shows "Total N of 100", and the API refuses a save that totals over 100.
+- Remove the leading letters from the Settings links in the sidebar, and hide that list while the sidebar is collapsed.
+- Make Property type, Status, and Personal tags multi-select dropdowns on Search (a home matches any chosen type or status, and every chosen tag); the API accepts several property types, comma-separated.
+- Use one grey secondary button style app wide, including every former text-style Cancel, Delete, Rename, and Refresh button, with light and dark colors in `design/tokens.json`.
+- Style Google Maps pins the same way when they are created and when one is selected, so unselected pins stay fully opaque. (Not checked against a live Google map; no key was available.)
+- Plan 2.16, UI spec, and acceptance checks U.15 to U.21 record the above. Existing browser tests that read Buy data now open `?mode=sale`.
+
 ## 0.0.2 · 2026-10-10 · plan 2.15
 
 First version since the 0.0.1 planning baseline. It holds everything built since then, as listed here; later versions list only their own changes.

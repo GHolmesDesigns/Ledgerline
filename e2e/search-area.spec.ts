@@ -52,7 +52,7 @@ test('ZIP is exact and radius searches use stored coordinates and resolved addre
     );
     expect(await unresolved.json()).toMatchObject({ status: 'unresolved' });
     await routeApiTo(page, () => api!);
-    await page.goto('/');
+    await page.goto('/?mode=sale');
     await page.getByLabel('Location search type').selectOption('zip');
     await page.getByLabel('ZIP code').fill('33308');
     await expect(page.getByRole('button', { name: 'Remove ZIP 33308' })).toBeVisible();
@@ -92,7 +92,7 @@ test('ZIP is exact and radius searches use stored coordinates and resolved addre
     await expect(radiusRow).toContainText('Radius refresh supported by mock.');
     await radiusRow.getByRole('button', { name: 'Add Rent search' }).click();
     await expect(radiusRow).toContainText('Paired Rent search on');
-    await page.goto('/');
+    await page.goto('/?mode=sale');
     const pairedRadiusRent = await page.evaluate(async () => {
       const response = await fetch('/api/saved-searches');
       const result = (await response.json()) as {

@@ -7,6 +7,7 @@ export type MapInstance = {
 export type MarkerInstance = {
   setMap: (map: MapInstance | null) => void;
   setZIndex: (index: number) => void;
+  setOpacity: (opacity: number) => void;
   setIcon: (icon: object) => void;
   setLabel: (label: object) => void;
   addListener: (event: string, handler: () => void) => MapsEvent;

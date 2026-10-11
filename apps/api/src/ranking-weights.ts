@@ -28,3 +28,9 @@ export function readRankingWeights(mode: ListingMode, value: unknown): RankingWe
   }
   return weights;
 }
+
+/** Every mode shares one pool: a mode's weights may add up to at most this many points. */
+export const rankingWeightPool = 100;
+
+export const weightsTotal = (weights: RankingWeights) =>
+  Object.values(weights).reduce((sum, amount) => sum + amount, 0);

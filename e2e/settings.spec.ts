@@ -124,7 +124,7 @@ test('Settings shows tag counts, renames custom tags, and confirms deletion with
 test('Search, Compare, and Property link settings edits to the matching section', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/?mode=sale');
   await expect(
     page.locator('a.local-rates-prompt[href="/settings#assumptions"]').first(),
   ).toBeVisible();

@@ -49,6 +49,36 @@ export function GoogleResultsMap({
   const centerMarker = useRef<MarkerInstance | null>(null);
   const listeners = useRef<MapsEvent[]>([]);
   const [maps, setMaps] = useState<MapsApi | null>(null);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+
+  // Every pin is styled the same way at creation and on each selection change: all of them
+  // stay fully opaque, and only the selected pin changes color and size.
+  const styleMarker = (marker: MarkerInstance, item: MapItem, selected: boolean) => {
+    const price = item.listing.price;
+    marker.setZIndex(selected ? 1000 : 1);
+    marker.setOpacity(1);
+    marker.setIcon({
+      path: maps?.SymbolPath.CIRCLE,
+      scale: selected ? 27 : 23,
+      fillColor: selected ? '#101820' : '#00c2d1',
+      fillOpacity: 1,
+      strokeColor: '#101820',
+      strokeOpacity: 1,
+      strokeWeight: 2,
+    });
+    marker.setLabel({
+      text:
+        price === null
+          ? '—'
+          : item.listing.mode === 'sale'
+            ? `$${Math.round(price / 1000)}k`
+            : `$${price.toLocaleString('en-US')}`,
+      color: selected ? '#ffffff' : '#101820',
+      fontSize: '12px',
+      fontWeight: '600',
+    });
+  };
 
   useEffect(() => {
     let active = true;
@@ -150,6 +180,7 @@ export function GoogleResultsMap({
           fontWeight: '600',
         },
       });
+      styleMarker(marker, item, item.listing.id === selectedIdRef.current);
       listeners.current.push(marker.addListener('click', () => onSelect(item.listing.id)));
       return marker;
     });
@@ -213,29 +244,8 @@ export function GoogleResultsMap({
 
   useEffect(() => {
     markers.current.forEach((marker, index) => {
-      const selected = items[index]?.listing.id === selectedId;
-      marker.setZIndex(selected ? 1000 : 1);
-      marker.setIcon({
-        path: maps?.SymbolPath.CIRCLE,
-        scale: selected ? 27 : 23,
-        fillColor: selected ? '#101820' : '#00c2d1',
-        fillOpacity: 1,
-        strokeColor: '#101820',
-        strokeWeight: 2,
-      });
       const item = items[index];
-      const price = item?.listing.price;
-      marker.setLabel({
-        text:
-          price === null || price === undefined
-            ? '—'
-            : item?.listing.mode === 'sale'
-              ? `$${Math.round(price / 1000)}k`
-              : `$${price.toLocaleString('en-US')}`,
-        color: selected ? '#ffffff' : '#101820',
-        fontSize: '12px',
-        fontWeight: '600',
-      });
+      if (item) styleMarker(marker, item, item.listing.id === selectedId);
     });
   }, [items, selectedId, maps]);
 

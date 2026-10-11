@@ -97,7 +97,7 @@ test('theme stays a display preference outside the personal-data backup', async 
     return (await response.json()) as Record<string, unknown>;
   });
   expect(JSON.stringify(backup).toLowerCase()).not.toContain('theme');
-  await page.goto('/');
+  await page.goto('/?mode=sale');
   await page.waitForLoadState('networkidle');
   await page.evaluate(() => {
     document.documentElement.dataset.grayscale = 'true';
