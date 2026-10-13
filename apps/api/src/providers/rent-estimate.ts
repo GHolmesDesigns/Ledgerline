@@ -5,8 +5,8 @@ import type { RequestBudget } from './request-budget.js';
 export class RentEstimateUnavailableError extends Error {}
 
 /**
- * Requests a provider rent estimate for one property. It costs 1 request against the same
- * monthly ceiling as refreshes, checked before anything is sent.
+ * Requests a provider rent estimate for one property. Real-provider requests cost 1 against
+ * the same monthly ceiling as refreshes; local mock calls do not use that ceiling.
  */
 export async function requestRentEstimate(
   store: Store,
@@ -19,7 +19,7 @@ export async function requestRentEstimate(
   if (!provider.estimateRent) {
     throw new RentEstimateUnavailableError(`${provider.name} does not provide rent estimates.`);
   }
-  budget.assertCanSend(1, 'Rent estimate');
+  if (provider.name !== 'mock') budget.assertCanSend(1, 'Rent estimate');
   const logId = store.beginProviderRequest({
     provider: provider.name,
     propertyId,

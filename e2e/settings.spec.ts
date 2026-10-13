@@ -38,7 +38,7 @@ test('Settings lists sections in the default order and hash links focus their ta
     ['assumptions', 'Assumptions'],
     ['saved-searches', 'Saved searches'],
     ['personal-tags', 'Personal tags'],
-    ['rentcast-usage', 'RentCast usage'],
+    ['rentcast-usage', 'Provider usage'],
     ['keys', 'Keys'],
     ['property-match-review', 'Property match review'],
     ['backup-restore', 'Backup and restore'],
@@ -223,12 +223,12 @@ test('JSON backup excludes the local Settings section order', async ({ page }) =
   expect(backup).not.toHaveProperty('settingsOrder');
 });
 
-test('RentCast usage edits show matched requests and unexplained dashboard gap in Settings and header', async ({
+test('Provider usage edits show matched requests and unexplained dashboard gap in Settings and header', async ({
   page,
 }) => {
   await page.goto('/settings#rentcast-usage');
   const section = page.locator('#rentcast-usage');
-  await expect(section.getByRole('heading', { name: 'RentCast usage' })).toBeVisible();
+  await expect(section.getByRole('heading', { name: 'Provider usage' })).toBeVisible();
   const current = (await (await fetch(api.url('/api/request-budget'))).json()) as {
     used: number;
     ceiling: number;

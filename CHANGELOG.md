@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.6 · 2026-10-13 · plan 2.17
+
+- Label saved rent estimates with the provider that answered, and exclude local mock estimates from external-provider usage, projections, and request-ceiling checks.
+
 ## 0.0.5 · 2026-10-13 · plan 2.17
 
 - Open uploaded property photos in a keyboard-accessible full-size viewer from Property detail, Search, Compare, and Saved Homes, with photo navigation and focus restoration.

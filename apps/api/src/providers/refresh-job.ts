@@ -88,13 +88,16 @@ export class RefreshJob {
       this.store.markRefreshFailed(searchId, error);
       return { searchId, error };
     }
-    const projected = this.budget.check(this.budget.projectedRefresh(searchId), 'Refresh');
-    if (!projected.allowed) {
-      // Show the reason on the search, without writing again on every scheduler tick.
-      if (search.lastRefreshError !== projected.message) {
-        this.store.markRefreshFailed(searchId, projected.message!);
+    const usesExternalProvider = this.provider.name !== 'mock';
+    if (usesExternalProvider) {
+      const projected = this.budget.check(this.budget.projectedRefresh(searchId), 'Refresh');
+      if (!projected.allowed) {
+        // Show the reason on the search, without writing again on every scheduler tick.
+        if (search.lastRefreshError !== projected.message) {
+          this.store.markRefreshFailed(searchId, projected.message!);
+        }
+        return { searchId, error: projected.message!, blocked: projected };
       }
-      return { searchId, error: projected.message!, blocked: projected };
     }
     this.running.add(searchId);
     const records: ProviderListing[] = [];
@@ -102,7 +105,7 @@ export class RefreshJob {
       this.store.markRefreshStarted(searchId);
       for (let page = 1; ; page += 1) {
         // Each page is a request, and a long result can need more than projected.
-        this.budget.assertCanSend(1, 'Refresh');
+        if (usesExternalProvider) this.budget.assertCanSend(1, 'Refresh');
         const logId = this.store.beginProviderRequest({
           provider: this.provider.name,
           savedSearchId: search.id,
@@ -153,7 +156,7 @@ export class RefreshJob {
     ) {
       throw new Error('No RentCast key set');
     }
-    this.budget.assertCanSend(1, 'Listing refresh');
+    if (this.provider.name !== 'mock') this.budget.assertCanSend(1, 'Listing refresh');
     const logId = this.store.beginProviderRequest({
       provider: this.provider.name,
       purpose: 'listing-refresh',
