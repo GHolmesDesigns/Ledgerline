@@ -1838,6 +1838,100 @@ h1 {
   object-fit: cover;
   border-radius: 9px;
 }
+.photo-thumbnail-button {
+  display: block;
+  width: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  cursor: zoom-in;
+}
+.photo-thumbnail-button:focus-visible {
+  outline: 3px solid var(--color-link);
+  outline-offset: 3px;
+}
+.photo-viewer-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 78%);
+}
+.photo-viewer-dialog {
+  display: grid;
+  width: min(100%, 1100px);
+  max-height: calc(100dvh - 40px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 0 18px 70px rgb(0 0 0 / 38%);
+}
+.photo-viewer-toolbar,
+.photo-viewer-caption,
+.photo-viewer-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.photo-viewer-toolbar,
+.photo-viewer-caption {
+  min-height: 44px;
+}
+.photo-viewer-close,
+.photo-viewer-navigation button {
+  min-width: 88px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.photo-viewer-image-wrap {
+  display: grid;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+}
+.photo-viewer-image {
+  display: block;
+  max-width: 100%;
+  max-height: min(70dvh, 760px);
+  object-fit: contain;
+}
+.photo-viewer-caption {
+  flex-wrap: wrap;
+  color: var(--color-ink);
+}
+.photo-viewer-navigation {
+  justify-content: flex-end;
+}
+.property-detail-primary-photo-button {
+  align-self: start;
+}
+.property-detail-primary-photo-button img {
+  display: block;
+}
+.listing-card-photo-button,
+.saved-home-photo-button,
+.compare-property-photo-button {
+  height: fit-content;
+}
 .property-photos.is-dragging {
   outline: 2px dashed var(--color-link);
   outline-offset: 4px;
@@ -1858,6 +1952,9 @@ h1 {
   height: 150px;
   object-fit: cover;
   border-radius: 9px;
+}
+.property-photo-grid .photo-thumbnail-button img {
+  display: block;
 }
 .property-photo-missing {
   display: grid;
@@ -2584,6 +2681,11 @@ h1 {
     justify-self: end;
     max-width: 230px;
   }
+  .property-detail-primary-photo-button {
+    grid-column: 2;
+    justify-self: end;
+    max-width: 230px;
+  }
 }
 
 .empty-panel p {
@@ -2793,6 +2895,11 @@ h1 {
     grid-template-columns: minmax(0, 1fr);
   }
   .property-detail-primary-photo {
+    grid-column: auto;
+    justify-self: stretch;
+    max-width: none;
+  }
+  .property-detail-primary-photo-button {
     grid-column: auto;
     justify-self: stretch;
     max-width: none;

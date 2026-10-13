@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.5 · 2026-10-13 · plan 2.17
+
+- Open uploaded property photos in a keyboard-accessible full-size viewer from Property detail, Search, Compare, and Saved Homes, with photo navigation and focus restoration.
+
 The project version is in `package.json` and is what the sidebar and Settings About show. It has its own bump rule, below, and does not follow the plan's version. The plan has its own version and bump rule (see the plan's Version history); each version below names the plan version in force when it was made, for reference only.
 
 ## Bump rule
