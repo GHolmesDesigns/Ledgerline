@@ -2,6 +2,8 @@ import {
   useEffect,
   useRef,
   useState,
+  createContext,
+  useContext,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent,
@@ -3545,6 +3547,177 @@ type PropertyPhoto = {
   missing: boolean;
   url: string;
 };
+
+type PhotoViewerRequest = {
+  photos: PropertyPhoto[];
+  photoId: string;
+  trigger: HTMLElement;
+  alt: string;
+};
+
+const PhotoViewerContext = createContext<
+  (photos: PropertyPhoto[], photo: PropertyPhoto, trigger: HTMLElement, alt: string) => void
+>(() => undefined);
+
+function usePhotoViewer() {
+  return useContext(PhotoViewerContext);
+}
+
+function PhotoViewerDialog({
+  request,
+  onClose,
+}: {
+  request: PhotoViewerRequest | null;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const [failedIds, setFailedIds] = useState<string[]>([]);
+  const [photoId, setPhotoId] = useState(request?.photoId ?? '');
+  const photos = request?.photos ?? [];
+  const availablePhotos = photos.filter((photo) => !photo.missing && !failedIds.includes(photo.id));
+  const requestedPhoto = photos.find(
+    (photo) => photo.id === photoId && availablePhotos.some((item) => item.id === photo.id),
+  );
+  const photo = requestedPhoto ?? availablePhotos[0] ?? null;
+  const photoIndex = photo ? photos.findIndex((item) => item.id === photo.id) : -1;
+
+  useEffect(() => {
+    if (!request) return;
+    setFailedIds([]);
+    setPhotoId(request.photoId);
+    requestAnimationFrame(() => closeRef.current?.focus());
+  }, [request]);
+
+  useEffect(() => {
+    if (request && availablePhotos.length > 0 && !photo) setPhotoId(availablePhotos[0]!.id);
+  }, [availablePhotos, photo, request]);
+
+  useEffect(() => {
+    if (request && failedIds.length > 0 && availablePhotos.length === 0) onClose();
+  }, [availablePhotos.length, failedIds, onClose, request]);
+
+  useEffect(() => {
+    if (!request) return;
+    const trigger = request.trigger;
+    return () => {
+      requestAnimationFrame(() => {
+        if (trigger.isConnected) trigger.focus();
+      });
+    };
+  }, [request]);
+
+  const move = (direction: -1 | 1) => {
+    const availableIndex = availablePhotos.findIndex((item) => item.id === photo?.id);
+    if (availablePhotos.length < 2 || availableIndex < 0) return;
+    const next = (availableIndex + direction + availablePhotos.length) % availablePhotos.length;
+    setPhotoId(availablePhotos[next]!.id);
+  };
+
+  if (!request || !photo) return null;
+  return (
+    <div
+      className="photo-viewer-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        aria-label="Property photo viewer"
+        aria-modal="true"
+        className="photo-viewer-dialog"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            onClose();
+          } else if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            move(-1);
+          } else if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            move(1);
+          } else if (event.key === 'Tab') {
+            const controls = Array.from(
+              event.currentTarget.querySelectorAll<HTMLElement>(
+                'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+              ),
+            );
+            const first = controls[0];
+            const last = controls[controls.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+              event.preventDefault();
+              last?.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first?.focus();
+            }
+          }
+        }}
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <div className="photo-viewer-toolbar">
+          <button
+            aria-label="Close photo viewer"
+            className="photo-viewer-close"
+            onClick={onClose}
+            ref={closeRef}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+        <div className="photo-viewer-image-wrap">
+          {photo && (
+            <img
+              alt={request.alt}
+              className="photo-viewer-image"
+              key={photo.id}
+              onError={() => setFailedIds((current) => [...current, photo.id])}
+              src={photo.url}
+            />
+          )}
+        </div>
+        <div className="photo-viewer-caption">
+          <span>
+            {photo.source} · {new Date(photo.dateAdded).toLocaleDateString()}
+          </span>
+          <span>{`Photo ${photoIndex + 1} of ${photos.length}`}</span>
+          {availablePhotos.length > 1 && (
+            <div className="photo-viewer-navigation">
+              <button aria-label="Previous photo" onClick={() => move(-1)} type="button">
+                Previous
+              </button>
+              <button aria-label="Next photo" onClick={() => move(1)} type="button">
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhotoViewerProvider({ children }: { children: ReactNode }) {
+  const [request, setRequest] = useState<PhotoViewerRequest | null>(null);
+  const open = (
+    photos: PropertyPhoto[],
+    photo: PropertyPhoto,
+    trigger: HTMLElement,
+    alt: string,
+  ) => {
+    if (photo.missing) return;
+    setRequest({ photos, photoId: photo.id, trigger, alt });
+  };
+  return (
+    <PhotoViewerContext.Provider value={open}>
+      {children}
+      <PhotoViewerDialog request={request} onClose={() => setRequest(null)} />
+    </PhotoViewerContext.Provider>
+  );
+}
 export type PropertyDetailData = {
   property: SearchListing['property'] & {
     lotSizeSqft: number | null;
@@ -3719,6 +3892,7 @@ function useCompareSet() {
 }
 
 function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
+  const openPhoto = usePhotoViewer();
   const compare = useCompareSet();
   const [data, setData] = useState<PropertyDetailData | null>(null);
   const [noteBody, setNoteBody] = useState('');
@@ -4169,11 +4343,25 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
           </a>
         </div>
         {primaryPhoto && (
-          <img
-            className="property-detail-primary-photo"
-            src={primaryPhoto.url}
-            alt={`${property.street}${property.unit ? `, Unit ${property.unit}` : ''} primary photo`}
-          />
+          <button
+            aria-label={`View photo of ${property.street}${property.unit ? `, Unit ${property.unit}` : ''}`}
+            className="photo-thumbnail-button property-detail-primary-photo-button"
+            onClick={(event) =>
+              openPhoto(
+                data.photos ?? [],
+                primaryPhoto,
+                event.currentTarget,
+                `${property.street}${property.unit ? `, Unit ${property.unit}` : ''} property photo`,
+              )
+            }
+            type="button"
+          >
+            <img
+              className="property-detail-primary-photo"
+              src={primaryPhoto.url}
+              alt={`${property.street}${property.unit ? `, Unit ${property.unit}` : ''} primary photo`}
+            />
+          </button>
         )}
       </div>
       {streetView ? (
@@ -4210,7 +4398,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
         <h3 id="property-photos-heading">Property photos</h3>
         {(!data.photos || data.photos.length === 0) && <p>No photos yet · Add photos</p>}
         <div className="property-photo-grid">
-          {(data.photos ?? []).map((photo) => (
+          {(data.photos ?? []).map((photo, index) => (
             <figure key={photo.id}>
               {photo.missing ? (
                 <div
@@ -4221,7 +4409,21 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
                   Photo file missing
                 </div>
               ) : (
-                <img src={photo.url} alt={`${property.street} property photo`} />
+                <button
+                  aria-label={`View photo ${index + 1} of ${data.photos!.length} for ${property.street}`}
+                  className="photo-thumbnail-button"
+                  onClick={(event) =>
+                    openPhoto(
+                      data.photos ?? [],
+                      photo,
+                      event.currentTarget,
+                      `${property.street} property photo`,
+                    )
+                  }
+                  type="button"
+                >
+                  <img src={photo.url} alt={`${property.street} property photo`} />
+                </button>
               )}
               <figcaption>
                 {photo.source} · {new Date(photo.dateAdded).toLocaleDateString()}
@@ -5195,6 +5397,7 @@ function PropertyDetailScreen({ propertyId }: { propertyId: string }) {
 // Saved Homes lists every property marked Save, wherever it was saved: Search results, a property
 // page, or Compare. It reads only the local database and never contacts a provider.
 function SavedHomesScreen() {
+  const openPhoto = usePhotoViewer();
   const compare = useCompareSet();
   const [homes, setHomes] = useState<PropertyDetailData[] | null>(null);
   const [error, setError] = useState('');
@@ -5319,11 +5522,26 @@ function SavedHomesScreen() {
           return (
             <article className="saved-home-card" key={property.id}>
               {primaryPhoto && (
-                <img
-                  className="saved-home-photo"
-                  src={primaryPhoto.url}
-                  alt={`${addressOf(item)} primary property photo`}
-                />
+                <button
+                  aria-label={`View photo of ${addressOf(item)}`}
+                  className="photo-thumbnail-button saved-home-photo-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openPhoto(
+                      item.photos ?? [],
+                      primaryPhoto,
+                      event.currentTarget,
+                      `${addressOf(item)} property photo`,
+                    );
+                  }}
+                  type="button"
+                >
+                  <img
+                    className="saved-home-photo"
+                    src={primaryPhoto.url}
+                    alt={`${addressOf(item)} primary property photo`}
+                  />
+                </button>
               )}
               <div className="saved-home-heading">
                 <h2>
@@ -5397,6 +5615,7 @@ function SavedHomesScreen() {
 }
 
 function CompareScreen() {
+  const openPhoto = usePhotoViewer();
   const compare = useCompareSet();
   const [properties, setProperties] = useState<PropertyDetailData[]>([]);
   const [assumptionSummary, setAssumptionSummary] = useState<{
@@ -5653,11 +5872,25 @@ function CompareScreen() {
       (item) => {
         const photo = item.photos?.find((candidate) => !candidate.missing);
         return photo ? (
-          <img
-            className="compare-property-photo"
-            src={photo.url}
-            alt={`${addressOf(item)} property photo`}
-          />
+          <button
+            aria-label={`View photo of ${addressOf(item)}`}
+            className="photo-thumbnail-button compare-property-photo-button"
+            onClick={(event) =>
+              openPhoto(
+                item.photos ?? [],
+                photo,
+                event.currentTarget,
+                `${addressOf(item)} property photo`,
+              )
+            }
+            type="button"
+          >
+            <img
+              className="compare-property-photo"
+              src={photo.url}
+              alt={`${addressOf(item)} property photo`}
+            />
+          </button>
         ) : (
           'No photos yet'
         );
@@ -5895,6 +6128,7 @@ function CompareScreen() {
 }
 
 function SearchScreen() {
+  const openPhoto = usePhotoViewer();
   const compare = useCompareSet();
   const [filters, setFilters] = useState<SearchFilters>(searchFromUrl);
   const filterErrors = searchFilterErrors(filters);
@@ -6957,11 +7191,26 @@ function SearchScreen() {
                       onClick={() => setSelectedId(listing.id)}
                     >
                       {property.photos?.find((photo) => !photo.missing) && (
-                        <img
-                          className="listing-card-photo"
-                          src={property.photos.find((photo) => !photo.missing)!.url}
-                          alt={`${property.street} property`}
-                        />
+                        <button
+                          aria-label={`View photo of ${property.street}${property.unit ? `, Unit ${property.unit}` : ''}`}
+                          className="photo-thumbnail-button listing-card-photo-button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openPhoto(
+                              property.photos ?? [],
+                              property.photos!.find((photo) => !photo.missing)!,
+                              event.currentTarget,
+                              `${property.street}${property.unit ? `, Unit ${property.unit}` : ''} property photo`,
+                            );
+                          }}
+                          type="button"
+                        >
+                          <img
+                            className="listing-card-photo"
+                            src={property.photos.find((photo) => !photo.missing)!.url}
+                            alt={`${property.street} property`}
+                          />
+                        </button>
                       )}
                       <div className="listing-card-heading">
                         <div>
@@ -7225,66 +7474,68 @@ export function App({ initialPath }: { initialPath?: string } = {}) {
   }, []);
 
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#main-content">
-        Skip to content
-      </a>
-      <Sidebar pathname={pathname} />
-      <div className="app-content">
-        <header className="site-header">
-          <a aria-label="Ledgerline home" className="brand mobile-brand" href="/">
-            <BrandMark />
-            <span className="brand-name">Ledgerline</span>
-          </a>
-          <RequestUsageHeader />
-        </header>
+    <PhotoViewerProvider>
+      <div className="app-shell">
+        <a className="skip-link" href="#main-content">
+          Skip to content
+        </a>
+        <Sidebar pathname={pathname} />
+        <div className="app-content">
+          <header className="site-header">
+            <a aria-label="Ledgerline home" className="brand mobile-brand" href="/">
+              <BrandMark />
+              <span className="brand-name">Ledgerline</span>
+            </a>
+            <RequestUsageHeader />
+          </header>
 
-        <SampleDataNotice />
+          <SampleDataNotice />
 
-        <main className="screen-content" id="main-content" tabIndex={-1}>
-          <div className="screen-heading">
-            <p className="screen-eyebrow">{page.eyebrow}</p>
-            <h1>{page.title}</h1>
-          </div>
-          {page.path === '/settings' ? (
-            <SettingsPage onThemeChange={setTheme} theme={theme} />
-          ) : page.path === '/' ? (
-            <SearchScreen />
-          ) : page.path === '/saved' ? (
-            <SavedHomesScreen />
-          ) : page.path === '/compare' ? (
-            <CompareScreen />
-          ) : page.path.startsWith('/property/') ? (
-            <PropertyDetailScreen propertyId={page.path.slice('/property/'.length)} />
-          ) : (
-            <section aria-label={`${page.title} placeholder`} className="empty-panel">
-              <span aria-hidden="true" className="empty-panel-mark">
-                <BrandMark />
-              </span>
-              <p>Screen content is coming next.</p>
-            </section>
-          )}
-        </main>
+          <main className="screen-content" id="main-content" tabIndex={-1}>
+            <div className="screen-heading">
+              <p className="screen-eyebrow">{page.eyebrow}</p>
+              <h1>{page.title}</h1>
+            </div>
+            {page.path === '/settings' ? (
+              <SettingsPage onThemeChange={setTheme} theme={theme} />
+            ) : page.path === '/' ? (
+              <SearchScreen />
+            ) : page.path === '/saved' ? (
+              <SavedHomesScreen />
+            ) : page.path === '/compare' ? (
+              <CompareScreen />
+            ) : page.path.startsWith('/property/') ? (
+              <PropertyDetailScreen propertyId={page.path.slice('/property/'.length)} />
+            ) : (
+              <section aria-label={`${page.title} placeholder`} className="empty-panel">
+                <span aria-hidden="true" className="empty-panel-mark">
+                  <BrandMark />
+                </span>
+                <p>Screen content is coming next.</p>
+              </section>
+            )}
+          </main>
 
-        <footer className="site-footer">
-          <span>Personal Florida home finder</span>
-          <span>Built for one person, on this computer.</span>
-        </footer>
+          <footer className="site-footer">
+            <span>Personal Florida home finder</span>
+            <span>Built for one person, on this computer.</span>
+          </footer>
+        </div>
+
+        <nav aria-label="Mobile navigation" className="mobile-nav">
+          {routes.map((route) => (
+            <a
+              aria-current={page.path === route.path ? 'page' : undefined}
+              className="mobile-nav-link"
+              href={route.path}
+              key={route.path}
+              title={route.path === '/settings' ? 'Settings' : route.title}
+            >
+              {route.path === '/settings' ? 'Settings' : route.title}
+            </a>
+          ))}
+        </nav>
       </div>
-
-      <nav aria-label="Mobile navigation" className="mobile-nav">
-        {routes.map((route) => (
-          <a
-            aria-current={page.path === route.path ? 'page' : undefined}
-            className="mobile-nav-link"
-            href={route.path}
-            key={route.path}
-            title={route.path === '/settings' ? 'Settings' : route.title}
-          >
-            {route.path === '/settings' ? 'Settings' : route.title}
-          </a>
-        ))}
-      </nav>
-    </div>
+    </PhotoViewerProvider>
   );
 }
