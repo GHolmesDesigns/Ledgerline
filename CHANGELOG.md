@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.8 · 2026-10-22 · plan 2.17
+
+- Show the visible hint "City or ZIP, no state" under the City text field on Search, linked to the input with `aria-describedby`, so "Melbourne, FL" (which returns no listings) is avoided. Matching, saved searches, and the API are unchanged.
+
 ## 0.0.7 · 2026-10-22 · plan 2.17
 
 - Block saved radius searches that the provider cannot run. A radius refresh with RentCast now shows "Provider radius search is not verified" and sends no request, instead of searching the area label as a city and recording a successful refresh with 0 listings. Scheduled refreshes show the same reason without rewriting it on every tick.
