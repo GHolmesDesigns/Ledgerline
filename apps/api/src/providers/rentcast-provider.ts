@@ -283,6 +283,8 @@ export class RentCastListingProvider implements ListingProvider {
 
   async search(criteria: SearchCriteria, page: number): Promise<ProviderListing[]> {
     if (!Number.isInteger(page) || page < 1) throw new Error('Page must be a positive integer');
+    if (criteria.radius && !this.capabilities.radiusSearch)
+      throw new Error('RentCast radius search is not verified; no request was sent.');
     const mode = criteria.mode ?? 'sale';
     const endpoint = mode === 'sale' ? 'sale' : 'rental/long-term';
     const params = new URLSearchParams();

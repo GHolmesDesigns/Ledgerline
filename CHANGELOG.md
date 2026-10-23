@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.7 · 2026-10-22 · plan 2.17
+
+- Block saved radius searches that the provider cannot run. A radius refresh with RentCast now shows "Provider radius search is not verified" and sends no request, instead of searching the area label as a city and recording a successful refresh with 0 listings. Scheduled refreshes show the same reason without rewriting it on every tick.
+- Fix the saved-searches end-to-end test, which used a fixed refresh date and failed once the 7-day interval passed.
+
 ## 0.0.6 · 2026-10-13 · plan 2.17
 
 - Label saved rent estimates with the provider that answered, and exclude local mock estimates from external-provider usage, projections, and request-ceiling checks.

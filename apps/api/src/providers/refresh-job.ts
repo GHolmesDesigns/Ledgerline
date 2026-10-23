@@ -71,13 +71,11 @@ export class RefreshJob {
     if (this.running.has(searchId)) throw new Error('This saved search is already refreshing.');
     const search = this.store.getSavedSearch(searchId);
     if (!search) throw new Error('Saved search not found.');
-    if (
-      search.filters.locationMode === 'radius' &&
-      this.provider.capabilities.radiusSearch !== true
-    ) {
+    if (search.locationMode === 'radius' && this.provider.capabilities.radiusSearch !== true) {
       const error =
         'Provider radius search is not verified; this saved radius search was not refreshed.';
-      this.store.markRefreshFailed(searchId, error);
+      // A due radius search is blocked again on every scheduler tick; write the reason once.
+      if (search.lastRefreshError !== error) this.store.markRefreshFailed(searchId, error);
       return { searchId, error };
     }
     if (

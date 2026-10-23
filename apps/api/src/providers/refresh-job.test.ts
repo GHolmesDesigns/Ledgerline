@@ -111,12 +111,11 @@ describe('saved-search refresh job', () => {
   it('blocks saved radius refreshes until the provider declares verified radius support', async () => {
     const { store, search } = await setup();
     store.updateSavedSearch(search.id, {
-      filters: {
-        locationMode: 'radius',
-        centerLat: '26.19',
-        centerLng: '-80.115',
-        radiusMi: '25.0',
-      },
+      location: 'Fort Lauderdale · 25 mi',
+      locationMode: 'radius',
+      centerLatitude: 26.19,
+      centerLongitude: -80.115,
+      radiusMi: 25,
     });
     let providerCalls = 0;
     const result = await new RefreshJob(
@@ -131,6 +130,48 @@ describe('saved-search refresh job', () => {
     assert.equal(providerCalls, 0);
     assert.equal(store.listProviderRequestLogs(search.id).length, 0);
     assert.match(store.getSavedSearch(search.id)?.lastRefreshError ?? '', /not verified/i);
+  });
+
+  it('blocks a due radius search on the scheduled path and writes the reason once', async () => {
+    const { store, search } = await setup();
+    store.updateSavedSearch(search.id, {
+      location: 'Fort Lauderdale · 25 mi',
+      locationMode: 'radius',
+      centerLatitude: 26.19,
+      centerLongitude: -80.115,
+      radiusMi: 25,
+    });
+    let providerCalls = 0;
+    const job = new RefreshJob(
+      store,
+      provider(async () => {
+        providerCalls += 1;
+        return [];
+      }),
+    );
+    assert.equal(store.listDueSavedSearches().length, 1);
+
+    const first = await job.refreshDue();
+    const attemptedAt = store.getSavedSearch(search.id)?.lastRefreshAttemptAt;
+    const second = await job.refreshDue();
+
+    assert.match(first[0]?.error ?? '', /radius search is not verified/i);
+    assert.match(second[0]?.error ?? '', /radius search is not verified/i);
+    assert.equal(providerCalls, 0);
+    assert.equal(store.listProviderRequestLogs(search.id).length, 0);
+    assert.equal(store.getSavedSearch(search.id)?.lastRefreshAttemptAt, attemptedAt);
+  });
+
+  it('still refreshes city saved searches with an adapter that declares no radius support', async () => {
+    const { store, search } = await setup();
+    const result = await new RefreshJob(
+      store,
+      provider(async (_criteria, page) => (page === 1 ? [record(1)] : []), 500),
+    ).refresh(search.id);
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.imported?.listings, 1);
+    assert.equal(store.listProviderRequestLogs(search.id).length, 1);
   });
 
   it('pages through 501 listings, stores one snapshot per result, and logs two requests', async () => {
