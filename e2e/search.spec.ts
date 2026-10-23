@@ -125,6 +125,30 @@ test('Rent data notice stays visible on mobile with no matching listings', async
   ).toHaveCount(0);
 });
 
+test('City text field shows a visible "no state" hint tied to the input', async ({ page }) => {
+  await page.goto('/?mode=sale');
+  const hint = page.getByText('City or ZIP, no state', { exact: true });
+  const mode = page.getByLabel('Location search type');
+
+  await mode.selectOption('city');
+  const city = page.getByLabel('City or ZIP');
+  await expect(city).toHaveAttribute('placeholder', 'City or ZIP');
+  await expect(hint).toBeVisible();
+  await expect(city).toHaveAttribute('aria-describedby', (await hint.getAttribute('id'))!);
+  await expect(city).toHaveAccessibleDescription('City or ZIP, no state');
+
+  await city.fill('Miami');
+  await expect(hint).toBeVisible();
+
+  await mode.selectOption('zip');
+  await expect(hint).toHaveCount(0);
+  await mode.selectOption('radius');
+  await expect(hint).toHaveCount(0);
+
+  await mode.selectOption('city');
+  await expect(hint).toBeVisible();
+});
+
 test('price sorting changes the query and shows full photo-free result cards', async ({ page }) => {
   await page.route('**/api/listings/capabilities', (route) => route.fulfill({ json: {} }));
   await page.route('**/api/listings?**', async (route) => {

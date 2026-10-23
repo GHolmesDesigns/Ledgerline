@@ -1730,6 +1730,11 @@ h1 {
   font-size: 12px;
   font-weight: 500;
 }
+.field-hint {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
 .search-radius-circle {
   fill: #00c2d1;
   fill-opacity: 0.12;

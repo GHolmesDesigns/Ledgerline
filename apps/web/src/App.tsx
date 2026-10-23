@@ -6760,9 +6760,15 @@ function SearchScreen() {
               aria-label={filters.locationMode === 'zip' ? 'ZIP code' : 'City or ZIP'}
               placeholder={filters.locationMode === 'zip' ? 'Five-digit ZIP' : 'City or ZIP'}
               inputMode={filters.locationMode === 'zip' ? 'numeric' : undefined}
+              aria-describedby={filters.locationMode === 'city' ? 'city-location-hint' : undefined}
               value={filters.location}
               onChange={(event) => update('location', event.target.value)}
             />
+            {filters.locationMode === 'city' && (
+              <span className="field-hint" id="city-location-hint">
+                City or ZIP, no state
+              </span>
+            )}
             {filterErrors.location && <span className="field-error">{filterErrors.location}</span>}
           </label>
         ) : (
