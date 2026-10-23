@@ -13,7 +13,8 @@ test('saves and reopens a search profile with its filters', async ({ page }) => 
         const id = Number(url.pathname.split('/').at(-2));
         const item = saved.find((search) => search.id === id);
         if (item) {
-          item.lastSuccessfulRefreshAt = '2026-10-08T12:00:00.000Z';
+          // Now, not a fixed date: a fixed one goes stale once the 7-day interval passes.
+          item.lastSuccessfulRefreshAt = new Date().toISOString();
           item.lastRefreshAttemptAt = item.lastSuccessfulRefreshAt;
           item.lastRefreshError = null;
         }

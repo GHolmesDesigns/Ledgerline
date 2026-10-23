@@ -240,6 +240,30 @@ describe('RentCast listing provider', () => {
     assert.equal(missing, null);
   });
 
+  it('rejects a radius search before any request instead of sending the area label as a city', async () => {
+    let calls = 0;
+    const provider = new RentCastListingProvider(
+      () => 'test-key',
+      async () => {
+        calls += 1;
+        return fakeResponse([]);
+      },
+    );
+
+    await assert.rejects(
+      provider.search(
+        {
+          mode: 'rent',
+          location: '28.10275, -80.64525 · 25 mi',
+          radius: { latitude: 28.10275, longitude: -80.64525, miles: 25 },
+        },
+        1,
+      ),
+      /radius search is not verified/i,
+    );
+    assert.equal(calls, 0);
+  });
+
   it('refuses calls without a key and hides upstream response bodies from errors', async () => {
     const noKey = new RentCastListingProvider(
       () => null,
